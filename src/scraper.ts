@@ -1,7 +1,9 @@
-import { chromium, Browser, BrowserContext, Page } from 'playwright';
+import { chromium, Browser } from 'playwright';
 import { TestableElement } from '../types/index.js';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as crypto from 'crypto';
+import sharp from 'sharp';
 
 export interface ScrapeOptions {
   url: string;
@@ -20,6 +22,7 @@ export interface ScrapeOptions {
 
 export class Scraper {
   private browser: Browser | null = null;
+  private lastScreenshotHash: string | null = null;
 
   async init(headless: boolean = true) {
     this.browser = await chromium.launch({ headless });
@@ -104,20 +107,36 @@ export class Scraper {
       });
     }
 
-    // --- PHASE 4: Initial Stability ---
+    // --- PHASE 4: Robust Stability & Loading Wait ---
     if (options.waitStrategy !== 'load') {
+      console.log(`[Scraper] Waiting for loading indicators to clear...`);
+      await page.waitForFunction(() => {
+        const loaders = [
+          '.mantine-Loader-root', '.loader', '.spinner', '.loading',
+          '[aria-busy="true"]', '.skeleton-loading', '.fetching',
+          '.ant-spin', '.nprogress-bar'
+        ];
+        return !loaders.some(sel => {
+          const el = document.querySelector(sel);
+          if (!el) return false;
+          const style = window.getComputedStyle(el);
+          return style.display !== 'none' && style.visibility !== 'hidden' && parseFloat(style.opacity) > 0;
+        });
+      }, { timeout: 5000 }).catch(() => { });
+
       console.log(`[Scraper] Waiting for DOM stability (MutationObserver)...`);
-      await page.evaluate(() => {
-        return new Promise<void>(resolve => {
-          let timeout: any;
+      await page.evaluate(`
+        new Promise(resolve => {
+          let timeout;
+          const cleanup = () => { observer.disconnect(); resolve(); };
           const observer = new MutationObserver(() => {
             clearTimeout(timeout);
-            timeout = setTimeout(() => { observer.disconnect(); resolve(); }, 1000);
+            timeout = setTimeout(cleanup, 800);
           });
           observer.observe(document.body, { childList: true, subtree: true });
-          setTimeout(() => { observer.disconnect(); resolve(); }, 8000);
-        });
-      }).catch(() => { });
+          setTimeout(cleanup, 4000);
+        })
+      `);
     }
 
     // --- PHASE 2: Recursive Menu Expansion ---
@@ -139,10 +158,9 @@ export class Scraper {
           if (text.toLowerCase().includes('logout') || text.toLowerCase().includes('customize')) continue;
           // Only click if it looks like a menu item (has text content)
           if (text.length > 0 && text.length < 50) {
-            console.log(`[Menu] Clicking: ${text}`);
             btn.click();
             totalExpanded++;
-            await new Promise(r => setTimeout(r, 400));
+            await new Promise(r => setTimeout(r, 300));
           }
         }
 
@@ -160,7 +178,7 @@ export class Scraper {
             await new Promise(r => setTimeout(r, 300));
           }
           if (!expandedAny) break;
-          await new Promise(r => setTimeout(r, 500));
+          await new Promise(r => setTimeout(r, 200));
         }
 
         return totalExpanded;
@@ -187,18 +205,41 @@ export class Scraper {
     if (options.hoverDiscover !== false) {
       console.log(`[Scraper] Discovering hover menus...`);
       const hoverTriggers = await page.$$('[aria-haspopup], .dropdown-toggle, .has-submenu, .nav-item.dropdown');
-      for (const trigger of hoverTriggers.slice(0, 8)) {
-        try { await trigger.hover(); await page.waitForTimeout(400); } catch (e) { }
+      for (const trigger of hoverTriggers.slice(0, 15)) {
+        try { await trigger.hover(); await page.waitForTimeout(200); } catch (e) { }
       }
     }
 
     // Final stability wait
     await page.waitForLoadState('networkidle').catch(() => { });
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(2000);
 
+    // Capture screenshot AFTER all discovery actions but BEFORE storage state
     const pageTitle = await page.title();
-    const screenshotPath = path.join(outputDir, screenshotName || 'full-page.png');
-    await page.screenshot({ path: screenshotPath, fullPage: true });
+    const screenshotPath = path.join(outputDir, (screenshotName || 'full-page.png').replace(/\.png$/, '.webp'));
+
+    // Ensure output directory exists
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+
+    // --- Visual Hash-based Verification ---
+    let pngBuffer = await page.screenshot({ fullPage: true, type: 'png' });
+    let webpBuffer = await sharp(pngBuffer).webp({ quality: 80 }).toBuffer();
+    let currentHash = crypto.createHash('md5').update(webpBuffer).digest('hex');
+
+    if (this.lastScreenshotHash === currentHash) {
+      console.log(`[Scraper] Detected identical screenshot hash. Retrying...`);
+      for (let retry = 1; retry <= 2; retry++) {
+        await page.waitForTimeout(1000 * retry);
+        pngBuffer = await page.screenshot({ fullPage: true, type: 'png' });
+        webpBuffer = await sharp(pngBuffer).webp({ quality: 80 }).toBuffer();
+        currentHash = crypto.createHash('md5').update(webpBuffer).digest('hex');
+        if (this.lastScreenshotHash !== currentHash) break;
+      }
+    }
+    this.lastScreenshotHash = currentHash;
+    fs.writeFileSync(screenshotPath, webpBuffer);
 
     if (manualAuth && authFile) {
       await context.storageState({ path: authFile });

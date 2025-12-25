@@ -1,0 +1,39 @@
+{
+    "compilerOptions": {
+        "target": "ESNext",
+        "module": "NodeNext",
+        "moduleResolution": "NodeNext",
+        "esModuleInterop": true,
+        "forceConsistentCasingInFileNames": true,
+        "strict": true,
+        "skipLibCheck": true,
+        "outDir": "dist",
+        "rootDir": ".",
+        "baseUrl": ".",
+        "paths": {
+            "@/*": [
+                "src/*"
+            ],
+            "@types/*": [
+                "types/*"
+            ]
+        },
+        "types": [
+            "node"
+        ]
+    },
+    "ts-node": {
+        "esm": true,
+        "experimentalSpecifierResolution": "node"
+    },
+    "include": [
+        "playwright.config.ts",
+        "src/**/*.ts",
+        "scripts/**/*.ts",
+        "types/**/*.ts"
+    ],
+    "exclude": [
+        "node_modules",
+        "output"
+    ]
+}

@@ -1,0 +1,26 @@
+{
+  "name": "testmaker",
+  "version": "1.0.0",
+  "description": "Automated Test Analysis Tool",
+  "type": "module",
+  "scripts": {
+    "analyze": "tsx src/cli.ts",
+    "test": "playwright test"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.57.0",
+    "@types/node": "^25.0.3",
+    "playwright": "^1.57.0",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "commander": "^14.0.2",
+    "dotenv": "^17.2.3",
+    "handlebars": "^4.7.8"
+  }
+}

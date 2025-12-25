@@ -1,0 +1,23 @@
+# Test Cases: {{pageTitle}}
+
+> Generated: {{timestamp}}
+> URL: {{url}}
+
+{{#each scenarios}}
+## {{id}}: {{name}}
+
+| Category | {{category}} |
+|----------|-----------------|
+| Priority | P{{priority}} |
+| Description | {{description}} |
+
+### Test Steps
+
+| Step | Action | Element | Input | Expected Result |
+|------|--------|---------|-------|-----------------|
+{{#each actions}}
+| {{add @index 1}} | {{actionType}} | `{{targetElement.selector}}` | {{#if testInput}}`{{testInput}}`{{else}}-{{/if}} | {{expectedResult}} |
+{{/each}}
+
+---
+{{/each}}

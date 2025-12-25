@@ -1,0 +1,28 @@
+import { test, expect } from '@playwright/test';
+
+test.describe('{{pageTitle}} Test Suite', () => {
+test.beforeEach(async ({ page }) => {
+await page.goto('{{url}}');
+});
+
+{{#each scenarios}}
+test('{{id}}: {{name}}', async ({ page }) => {
+{{#each actions}}
+// Step {{add @index 1}}: {{actionType}} {{targetElement.label}}
+{{#if (eq actionType 'fill')}}
+await page.locator('{{targetElement.selector}}').fill('{{testInput}}');
+{{else if (eq actionType 'click')}}
+await page.locator('{{targetElement.selector}}').click();
+{{else if (eq actionType 'check')}}
+await page.locator('{{targetElement.selector}}').check();
+{{else if (eq actionType 'select')}}
+await page.locator('{{targetElement.selector}}').selectOption('{{testInput}}');
+{{/if}}
+
+{{/each}}
+// Final verification (Placeholder)
+// await expect(page).toHaveURL(/.*SUCCESS/);
+});
+
+{{/each}}
+});

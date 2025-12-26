@@ -16,6 +16,7 @@ export interface ScrapeOptions {
   screenshotName?: string;
   expandMenus?: boolean;
   hoverDiscover?: boolean;
+  clickDiscover?: boolean;
   spaMode?: boolean;
   waitStrategy?: string;
 }
@@ -210,6 +211,89 @@ export class Scraper {
       }
     }
 
+    // --- PHASE 6: Row-Click Discovery for Detail Pages ---
+    const clickDiscoveredLinks: string[] = [];
+    if (options.clickDiscover !== false) {
+      console.log(`[Scraper] Discovering detail pages by clicking table rows...`);
+      const ROW_CLICK_LIMIT = 2;
+      const originalUrl = page.url();
+
+      // Selectors for clickable table rows/cells
+      const rowSelectors = [
+        'table tbody tr',
+        '[role="row"]',
+        '.mantine-Table-tr',
+        '.ianai-Table-tr',
+        '[data-row-key]',
+        '.data-table-row',
+        '.list-item',
+      ];
+
+      for (const selector of rowSelectors) {
+        const rows = await page.$$(selector);
+        if (rows.length === 0) continue;
+
+        console.log(`[Scraper] Found ${rows.length} rows with selector: ${selector}`);
+        let clickedCount = 0;
+
+        for (const row of rows.slice(0, ROW_CLICK_LIMIT + 2)) {
+          if (clickedCount >= ROW_CLICK_LIMIT) break;
+
+          try {
+            const beforeUrl = page.url();
+
+            // Try clicking on the Name/Title cell (skip checkbox and menu icon columns)
+            // Priority: anchor link anywhere in row > 2nd/3rd/4th cell > row itself
+            const anchorInRow = await row.$('a[href]:not([href="#"]):not([href^="javascript"])');
+            const clickableCell = await row.$('td:nth-child(2), td:nth-child(3), td:nth-child(4), [data-cell="name"], [data-cell="title"]');
+
+            let target = anchorInRow || clickableCell || row;
+
+            // If we found a specific link, use it. Otherwise, fall back to the row.
+            const targetDesc = await target.evaluate(el => el.tagName + ((el as HTMLElement).innerText ? `("${(el as HTMLElement).innerText.substring(0, 20)}...")` : ''));
+            // console.log(`[Scraper] Clicking ${targetDesc} in row ${clickedCount + 1}...`);
+
+            await target.click({ timeout: 3000 });
+            await page.waitForTimeout(2000); // Increased wait for navigation
+
+            // Check if URL changed (navigated to detail page)
+            const afterUrl = page.url();
+            if (afterUrl !== beforeUrl && afterUrl !== originalUrl) {
+              console.log(`[Scraper] Discovered detail page: ${afterUrl}`);
+              clickDiscoveredLinks.push(afterUrl);
+              clickedCount++;
+
+              // Go back to the list page
+              await page.goBack({ waitUntil: 'networkidle', timeout: 5000 }).catch(() => { });
+              await page.waitForTimeout(1000);
+            } else {
+              // If expected click didn't navigate, try clicking the row itself as backup
+              if (target !== row) {
+                await row.click({ timeout: 1000 }).catch(() => { });
+                await page.waitForTimeout(1500);
+                if (page.url() !== beforeUrl) {
+                  console.log(`[Scraper] Discovered detail page (via row click): ${page.url()}`);
+                  clickDiscoveredLinks.push(page.url());
+                  clickedCount++;
+                  await page.goBack({ waitUntil: 'networkidle', timeout: 5000 }).catch(() => { });
+                  await page.waitForTimeout(1000);
+                }
+              }
+            }
+          } catch (e) {
+            // Click failed, continue to next row
+          }
+        }
+
+        if (clickedCount > 0) break; // Found working selector, no need to try others
+      }
+
+      // Ensure we're back on the original page
+      if (page.url() !== originalUrl) {
+        await page.goto(originalUrl, { waitUntil: 'networkidle', timeout: 10000 }).catch(() => { });
+      }
+    }
+
     // Final stability wait
     await page.waitForLoadState('networkidle').catch(() => { });
     await page.waitForTimeout(2000);
@@ -361,21 +445,41 @@ export class Scraper {
 
         const processLinks = (s, isSidebar = false) => {
           const res = [];
+          const patternCounts = {};
+          const UUID_SAMPLE_LIMIT = 2;
+
+          // Action patterns that should always be allowed even with UUIDs
+          const actionPatterns = ['/new', '/edit', '/create', '/history', '/copy', '/duplicate', '/clone', '/view'];
+
           s.forEach(href => {
             if (href && typeof href === 'string' && !href.startsWith('#') && !href.startsWith('javascript:')) {
               try {
                 const url = new URL(href, window.location.href);
                 if (url.hostname === window.location.hostname) {
                   const path = url.pathname;
-                  
+
                   // Skip very specific detail pages (e.g., UUID-based history/edit pages)
                   // Pattern: Matches UUID or long hexadecimal segments (8+) often used for IDs
                   const idPattern = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9a-f]{20,}/i;
                   const isSpecificId = idPattern.test(path);
 
+                  // Check if path contains action patterns (always allow these)
+                  const hasActionPattern = actionPatterns.some(p => path.toLowerCase().includes(p));
+
                   if (path.length > 1 && !path.includes('logout')) {
-                    if (isSidebar || !isSpecificId) {
+                    if (isSidebar || !isSpecificId || hasActionPattern) {
+                      // Always allow non-UUID, sidebar, or action pattern links
                       res.push(url.href);
+                    } else {
+                      // UUID page: apply pattern-based sampling
+                      // Convert path to pattern: /app/lot/abc-123-def -> /app/lot/{id}
+                      const pathPattern = path.replace(idPattern, '{id}');
+                      const currentCount = patternCounts[pathPattern] || 0;
+
+                      if (currentCount < UUID_SAMPLE_LIMIT) {
+                        patternCounts[pathPattern] = currentCount + 1;
+                        res.push(url.href);
+                      }
                     }
                   }
                 }
@@ -399,11 +503,19 @@ export class Scraper {
 
     await page.close();
     await context.close();
+
+    // Merge click-discovered links with DOM-discovered links
+    const allDiscoveredLinks = [
+      ...(result as any).discoveredLinks,
+      ...clickDiscoveredLinks
+    ];
+    const uniqueDiscoveredLinks = Array.from(new Set(allDiscoveredLinks));
+
     return {
       elements: (result as any).elements,
       pageTitle,
       screenshotPath,
-      discoveredLinks: (result as any).discoveredLinks,
+      discoveredLinks: uniqueDiscoveredLinks,
       sidebarLinks: (result as any).sidebarLinks
     };
   }

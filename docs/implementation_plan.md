@@ -57,4 +57,12 @@
     - **Advanced Page Exclusion**: Implemented a keyword-based path filter (`/app/support`, `miscellaneous`, `feedback`, `help`) in `processLinks` to skip unwanted sections.
     - **Sidebar Robustness**: Improved sidebar button discovery and exclusion to ensure "Miscellaneous" and "Support" items are skipped.
 - **Status**: Completed and verified via code review.
+
+### [2025-12-29] Phase 12: Robust Table Interaction & Network-Aware Discovery
+- **[MODIFIED] [scraper.ts](file:///Users/doongle/auto_test_form/testMaker/src/scraper.ts)**:
+    - **Network Traffic Analysis**: Implemented `page.on('request')` and `page.on('response')` listeners during row-click monitoring. Detects API calls for detail data to trigger capture even if the URL doesn't change immediately.
+    - **Broadened Selectors**: Updated table discovery to include `[role="table"]` and row discovery to include `[role="row"]`.
+    - **Enhanced Click Strategy**: Refined `smartClick` to prioritize standard `.click({ force: true })` and added internal spans as high-priority click targets for table rows.
+    - **Improved Stability**: Increased the stability wait before discovery phases to ensure tables are fully hydrated in SPAs.
+- **Status**: Implementation in progress.
 +

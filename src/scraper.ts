@@ -611,9 +611,10 @@ export class Scraper {
 
                   // Check if path contains action patterns (always allow these)
                   const hasActionPattern = actionPatterns.some(p => path.toLowerCase().includes(p));
-                  const isExcludedPage = path.startsWith('/app/support');
+                  const forbiddenKeywords = ['support', 'miscellaneous', 'feedback', 'help', '공지사항', '지원', 'logout'];
+                  const isExcluded = forbiddenKeywords.some(kw => path.toLowerCase().includes(kw));
 
-                  if (path.length > 1 && !path.includes('logout') && !isExcludedPage) {
+                  if (path.length > 1 && !isExcluded) {
                     if (isSidebar || !isSpecificId || hasActionPattern) {
                       // Always allow non-UUID, sidebar, or action pattern links
                       res.push(url.href);

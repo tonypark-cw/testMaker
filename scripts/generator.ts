@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import * as crypto from 'crypto';
 import Handlebars from 'handlebars';
 import { AnalysisResult, GeneratorOptions } from '../types/index.js';
 
@@ -29,6 +30,16 @@ export class Generator {
         await this.generateJson(result, options);
     }
 
+    private getUniqueFilename(url: string, extension: string, prefix: string = '') {
+        const urlParsed = new URL(url);
+        // Create a unique hash based on the full URL to handle query params/hashes
+        const urlHash = crypto.createHash('md5').update(url).digest('hex').substring(0, 6);
+        const urlPathName = urlParsed.pathname.replace(/\//g, '-').replace(/^-|-$/g, '') || 'index';
+
+        const fileName = `${prefix}${urlPathName}-${urlHash}.${extension}`;
+        return fileName.replace(/^-/, ''); // Remove leading dash if prefix is empty
+    }
+
     private async generateMarkdown(result: AnalysisResult, options: GeneratorOptions) {
         const domain = (result.metadata as any).domain || new URL(result.url).hostname.replace(/\./g, '-');
         const targetDir = path.join(options.outputDir, 'markdown', domain);
@@ -38,14 +49,21 @@ export class Generator {
         }
 
         const templatePath = path.join(process.cwd(), 'templates/tc-markdown.hbs');
-        const templateSource = fs.readFileSync(templatePath, 'utf-8');
-        const template = Handlebars.compile(templateSource);
+        let templateSource = '';
+        try {
+            templateSource = fs.readFileSync(templatePath, 'utf-8');
+        } catch (e) {
+            console.warn(`[Generator] Warning: Template not found at ${templatePath}. Using default.`);
+            templateSource = '# Test Cases for {{url}}\n\n{{#each scenarios}}\n## {{this.title}}\n{{this.description}}\n\n{{/each}}';
+        }
 
+        const template = Handlebars.compile(templateSource);
         const output = template(result);
-        const urlPath = new URL(result.url).pathname.replace(/\//g, '-').replace(/^-|-$/g, '') || 'index';
-        const date = new Date().toISOString().split('T')[0];
-        fs.writeFileSync(path.join(targetDir, `test-cases-${urlPath}-${date}.md`), output);
-        console.log(`[Generator] Created markdown report in ${targetDir}`);
+
+        const filename = this.getUniqueFilename(result.url, 'md', 'test-cases-');
+
+        fs.writeFileSync(path.join(targetDir, filename), output);
+        console.log(`[Generator] Created markdown report: ${path.join(targetDir, filename)}`);
     }
 
     private async generatePlaywright(result: AnalysisResult, options: GeneratorOptions) {
@@ -57,13 +75,21 @@ export class Generator {
         }
 
         const templatePath = path.join(process.cwd(), 'templates/playwright.hbs');
-        const templateSource = fs.readFileSync(templatePath, 'utf-8');
-        const template = Handlebars.compile(templateSource);
+        let templateSource = '';
+        try {
+            templateSource = fs.readFileSync(templatePath, 'utf-8');
+        } catch (e) {
+            console.warn(`[Generator] Warning: Template not found at ${templatePath}. Using default.`);
+            templateSource = 'import { test, expect } from "@playwright/test";\n\ntest("{{pageTitle}}", async ({ page }) => {\n  await page.goto("{{url}}");\n});';
+        }
 
+        const template = Handlebars.compile(templateSource);
         const output = template(result);
-        const urlPath = new URL(result.url).pathname.replace(/\//g, '-').replace(/^-|-$/g, '') || 'index';
-        fs.writeFileSync(path.join(targetDir, `${domain}-${urlPath}.spec.ts`), output);
-        console.log(`[Generator] Created playwright spec in ${targetDir}`);
+
+        const filename = this.getUniqueFilename(result.url, 'spec.ts', `${domain}-`);
+
+        fs.writeFileSync(path.join(targetDir, filename), output);
+        console.log(`[Generator] Created playwright spec: ${path.join(targetDir, filename)}`);
     }
 
     private async generateJson(result: AnalysisResult, options: GeneratorOptions) {
@@ -74,8 +100,9 @@ export class Generator {
             fs.mkdirSync(targetDir, { recursive: true });
         }
 
-        const urlPath = new URL(result.url).pathname.replace(/\//g, '-').replace(/^-|-$/g, '') || 'index';
-        fs.writeFileSync(path.join(targetDir, `${domain}-${urlPath}.json`), JSON.stringify(result, null, 2));
-        console.log(`[Generator] Created JSON metadata in ${targetDir}`);
+        const filename = this.getUniqueFilename(result.url, 'json', `${domain}-`);
+
+        fs.writeFileSync(path.join(targetDir, filename), JSON.stringify(result, null, 2));
+        console.log(`[Generator] Created JSON metadata: ${path.join(targetDir, filename)}`);
     }
 }

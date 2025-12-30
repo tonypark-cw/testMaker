@@ -6,6 +6,7 @@ import { AnalysisResult } from '../types/index.js';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as dotenv from 'dotenv';
+import * as crypto from 'crypto';
 
 dotenv.config();
 
@@ -66,7 +67,12 @@ program.action(async (options) => {
 
             const urlParsed = new URL(currentUrl);
             const pageDomain = urlParsed.hostname.replace(/\./g, '-');
-            const urlPathName = urlParsed.pathname.replace(/\//g, '-').replace(/^-|-$/g, '') || 'index';
+
+            // Create a unique hash based on the full URL to handle query params/hashes
+            const urlHash = crypto.createHash('md5').update(currentUrl).digest('hex').substring(0, 6);
+            const urlPathNameBase = urlParsed.pathname.replace(/\//g, '-').replace(/^-|-$/g, '') || 'index';
+            const urlPathName = `${urlPathNameBase}-${urlHash}`;
+
             const targetJsonFile = path.join(baseOutputDir, 'json', pageDomain, `${pageDomain}-${urlPathName}.json`);
 
             if (fs.existsSync(targetJsonFile) && !options.force) {
@@ -166,7 +172,15 @@ program.action(async (options) => {
             await new Promise(r => setTimeout(r, 500));
         }
 
-        console.log(`\n[TestMaker] Finished. Analyzed: ${analyzedCount}, Cached: ${skippedCount}`);
+        // Summary output
+        console.log(`\n[TestMaker] ========== Summary ==========`);
+        console.log(`[TestMaker] Total Pages Discovered: ${visited.size}`);
+        console.log(`[TestMaker] Analyzed: ${analyzedCount}, Cached: ${skippedCount}`);
+        console.log(`[TestMaker] Pages:`);
+        Array.from(visited).forEach((url, i) => {
+            console.log(`  ${i + 1}. ${url}`);
+        });
+        console.log(`[TestMaker] ==============================\n`);
     } catch (e) {
         console.error('[TestMaker] Fatal Error:', e);
         process.exit(1);

@@ -1,68 +1,39 @@
-# Implementation Plan - Advanced Page Discovery & Navigation Optimization
+# Implementation Plan - Fix Filename Generation & Restore Discovery Power
 
-## Goals
-1. **Fix Limited Page Discovery**: Ensure sidebar buttons (non-anchors) are correctly identified and clicked.
-2. **Robust Row-Click Navigation**: Ensure table rows correctly trigger URL changes or modals using coordinate-based clicking.
-3. **Navigation Optimization**: Prevent redundant exploration of the global sidebar across different pages.
-4. **Visual Verification**: Use MD5 hashing to ensure unique screenshots are captured for SPA routes.
+We are addressing two critical issues:
+1.  **Filename Overwriting**: Multiple pages (e.g., `/app/lot/1`, `/app/lot/2`) generate the same output filename, causing data loss.
+2.  **Poor Discovery**: The scraper only finds 2 pages. This is likely due to:
+    -   Potential conflict between "Menu Expansion" and "Sidebar Discovery" phases toggling (expand -> collapse) menus.
+    -   Login failure or limited link detection on the initial page.
+
+## User Review Required
+> [!IMPORTANT]
+> I will modify `scripts/generator.ts` to include a content hash in the filename, distinct from the simple path-based naming. This ensures every unique URL gets a unique output file.
+> I will also modify `src/scraper.ts` to share "Visited" state between Menu Expansion and Sidebar Discovery to prevent counter-productive toggling.
 
 ## Proposed Changes
 
-### [Scraper] [scraper.ts](file:///Users/doongle/auto_test_form/testMaker/src/scraper.ts)
-- **Coordinate-based Clicking**: Use `mouse.click` at the element's bounding box center to bypass SPA event filtering.
-- **Navigation Caching**: Use `static` sets to track visited sidebar buttons and menu expansion toggles globally across the session.
-- **Table-based Row Optimization**: Iterate through each `<table>` and attempt to click the **SECOND** `<tr>`. If not available, fall back to the **FIRST** `<tr>`. If a table has no rows, it is skipped. This prevents redundant exploration while ensuring data interaction.
-- **Immediate Element Capture**: For both modals AND detail pages discovered via interaction, the scraper will extract interactive elements and take a screenshot **immediately**. This ensures consistent data collection regardless of whether the UI uses a modal or a separate page.
-- **Consolidated Flow**: Flatten discovery phases (Menu Expansion -> Sidebar Discovery -> Row Click -> Global Actions) into a clean, singular execution path.
-- **Robust URL Polling**: Increase wait times to 5 seconds with polling every 500ms for both URL changes and modals.
+### Fix Filename Generation
+
+#### [MODIFY] [generator.ts](file:///Users/doongle/auto_test_form/testMaker-fix2/scripts/generator.ts)
+-   Update `generateMarkdown`, `generatePlaywright`, and `generateJson` methods.
+-   Generate a unique hash from `result.url` (MD5 of full URL including query params).
+-   Append this hash to the filename (e.g., `test-cases-app-lot-a1b2c3.md`) to prevent collisions.
+
+### Restore Discovery Power
+
+#### [MODIFY] [scraper.ts](file:///Users/doongle/auto_test_form/testMaker-fix2/src/scraper.ts)
+-   **Consolidate Visited Sets**: prevent Phase 5 (Sidebar) from clicking buttons already clicked by Phase 4 (Expansion) by checking `visitedExpansionButtons` in Phase 5 or sharing a single set.
+-   **Enhance Login Detection**: Add a fallback check for login fields. If "Reset Password" is found, distinctively check if we are on a login page and log it clearly.
+-   **Verify Navigation**: Ensure that if sidebar buttons *do* navigate, we capture it.
+-   **Explicit Link Re-scan**: If sidebar interaction doesn't navigate, strictly logging if it revealed new content.
 
 ## Verification Plan
-1. **Run Analyze**: Execute `npm run analyze -- --url "https://stage.ianai.co" --recursive --depth 2 --limit 50 --force`
-2. **Verify Logs**:
-   - `Expanded X NEW menu items` (Should only occur significantly on the first page).
-   - `Active Sidebar Discovery (Cached: X)` (Should show increasing cache size and skipped buttons).
-   - `✓ URL Change` or `✓ Modal found` after `Clicking row`.
-3. **Check Output**: Inspect `output/screenshots` for detail page and modal captures.
----
 
-## Implementation History (Append-only)
+### Automated Tests
+1.  **Run Analysis**: `npm run analyze -- --url "https://stage.ianai.co" --depth 2 --limit 5`
+2.  **Verify Output Files**: Check `./output/markdown/...` and `./output/json/...` to ensure multiple files exist and have unique hashes.
+3.  **Verify Discovery**: Check logs to see if more than 2 pages are analyzed and if "Sidebar links" count > 0.
 
-### [2025-12-29] Phase 8: Optimized Table Discovery & Consistent Capture
-- **[MODIFIED] [scraper.ts](file:///Users/doongle/auto_test_form/testMaker/src/scraper.ts)**:
-    - **Table-based Row Logic**: Updated `PHASE 6` to iterate through `page.$$('table')`.
-    - **Row Selection**: Implemented logic to click the 2nd `tr` (`rows[1]`) if available, otherwise the 1st `tr` (`rows[0]`). If no rows exist, the table is skipped.
-    - **Immediate Detail Capture**: Added `[IMMEDIATE CAPTURE]` block within the URL change detection loop. This extracts up to 50 interactive elements and takes a full-page screenshot of the detail page before navigating back.
-    - **Data Alignment**: Detail page captures are now stored in `modalDiscoveries` using a consistent schema (`triggerText`, `modalTitle`, `elements`, `links`, `screenshotPath`), ensuring they appear in the final report alongside modals.
-    - **Error Handling**: Added try-catch blocks around row interactions to prevent one failure from stopping the entire analysis.
-- **Status**: Completed and verified via code review.
-
-### [2025-12-29] Phase 9: URL Protocol Filtering & Scheme Cleanup
-- **[MODIFIED] [scraper.ts](file:///Users/doongle/auto_test_form/testMaker/src/scraper.ts)**:
-    - **Global Filtering**: Updated `processLinks` to strictly allow only `http:` and `https:` protocols.
-    - **Debug Log Cleanup**: Updated raw link debug evaluation to exclude `blob:` and other non-standard links from `sampleUuidLinks`.
-    - **Navigation Resilience**: Updated row-click and action button navigation checks to ignore URL changes that result in non-http/https schemes (e.g., direct blob downloads).
-- **Status**: Completed and verified via code review.
-
-### [2025-12-29] Phase 10: Page/Sidebar Exclusions & Debug Cleanup
-- **[MODIFIED] [scraper.ts](file:///Users/doongle/auto_test_form/testMaker/src/scraper.ts)**:
-    - **Page Exclusion**: Updated `processLinks` to skip any path starting with `/app/support`.
-    - **Sidebar Exclusion**: Updated sidebar discovery to skip buttons with text "Miscellaneous" or "Support".
-    - **Debug Log Cleanup**: Hardened raw link debug extraction to explicitly exclude non-http/https schemes from all counts and samples.
-- **Status**: Completed and verified via code review.
-
-### [2025-12-29] Phase 11: Link Discovery Fix & Comprehensive Exclusions
-- **[MODIFIED] [scraper.ts](file:///Users/doongle/auto_test_form/testMaker/src/scraper.ts)**:
-    - **Relative Link Fix**: Fixed `processLinks` to correctly resolve relative URLs before filtering. Previously, it was incorrectly excluding any link not starting with `http`.
-    - **Hardened Protocol Filtering**: Improved protocol detection to reliably exclude `blob:`, `mailto:`, and `tel:` URLs from discovery and debug logs.
-    - **Advanced Page Exclusion**: Implemented a keyword-based path filter (`/app/support`, `miscellaneous`, `feedback`, `help`) in `processLinks` to skip unwanted sections.
-    - **Sidebar Robustness**: Improved sidebar button discovery and exclusion to ensure "Miscellaneous" and "Support" items are skipped.
-- **Status**: Completed and verified via code review.
-
-### [2025-12-29] Phase 12: Robust Table Interaction & Network-Aware Discovery
-- **[MODIFIED] [scraper.ts](file:///Users/doongle/auto_test_form/testMaker/src/scraper.ts)**:
-    - **Network Traffic Analysis**: Implemented `page.on('request')` and `page.on('response')` listeners during row-click monitoring. Detects API calls for detail data to trigger capture even if the URL doesn't change immediately.
-    - **Broadened Selectors**: Updated table discovery to include `[role="table"]` and row discovery to include `[role="row"]`.
-    - **Enhanced Click Strategy**: Refined `smartClick` to prioritize standard `.click({ force: true })` and added internal spans as high-priority click targets for table rows.
-    - **Improved Stability**: Increased the stability wait before discovery phases to ensure tables are fully hydrated in SPAs.
-- **Status**: Implementation in progress.
-+
+### Manual Verification
+-   Inspect the generated Markdown files to ensure they correspond to different pages.

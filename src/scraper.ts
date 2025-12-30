@@ -27,6 +27,8 @@ export class Scraper {
 
   // Session-level caches to prevent redundant navigation exploration
   private static visitedSidebarButtons = new Set<string>();
+  // Shared set for expansion to prevent re-toggling (collapsing)
+  // Consolidates "Expansion" phase and "Sidebar" phase knowledge
   private static visitedExpansionButtons = new Set<string>();
 
   async init(headless: boolean = true) {
@@ -83,20 +85,79 @@ export class Scraper {
     } else if (username && password) {
       console.log(`[Scraper] AUTOMATED LOGIN MODE: Navigating to ${url}...`);
       await page.goto(url, { waitUntil: 'load', timeout: 60000 });
+
+      console.log(`[Scraper] Checking for login fields...`);
+      // Improved Login Detection
       const emailField = page.locator('input[type="email"], input[name="email"], input[placeholder*="email" i], input[type="text"]').first();
       const passwordField = page.locator('input[type="password"], input[name="password"], input[placeholder*="password" i]').first();
-      if (await emailField.isVisible().catch(() => false) && await passwordField.isVisible().catch(() => false)) {
-        console.log(`[Scraper] Login fields detected. Attempting to sign in...`);
-        await emailField.fill(username);
-        await passwordField.fill(password);
-        await page.locator('button[type="submit"], button:has-text("Log in"), button:has-text("Sign in")').first().click();
-        await page.waitForTimeout(5000);
-        await page.waitForLoadState('networkidle').catch(() => { });
+
+      // Explicitly wait for fields (up to 5s) to handle React rendering delays
+      try {
+        await emailField.waitFor({ state: 'visible', timeout: 5000 });
+      } catch (e) {
+        // Ignore timeout, will check isVisible() next
+      }
+
+      // Check for common login page indicators if fields aren't immediately found
+      const invalidLoginText = await page.getByText(/forgot password|reset password|sign up|create account/i).isVisible().catch(() => false);
+      const isLoginVisible = (await emailField.isVisible().catch(() => false) && await passwordField.isVisible().catch(() => false));
+
+      if (isLoginVisible || invalidLoginText) {
+        if (isLoginVisible) {
+          console.log(`[Scraper] Login fields detected. Attempting to sign in as ${username}...`);
+          await emailField.fill(username);
+          await page.waitForTimeout(500);
+          await passwordField.fill(password);
+          await page.waitForTimeout(500);
+
+          // Try implicit submission first
+          console.log(`[Scraper] Submitting via Enter key...`);
+          await passwordField.press('Enter');
+
+          // Check if it worked
+          try {
+            await page.waitForLoadState('networkidle', { timeout: 5000 });
+          } catch { }
+
+          if ((await emailField.isVisible().catch(() => false))) {
+            console.log(`[Scraper] Enter key didn't navigate. Clicking submit button...`);
+            const submitBtn = page.locator('button[type="submit"], button:has-text("Log in"), button:has-text("Sign in")').first();
+            if (await submitBtn.isVisible()) {
+              await submitBtn.click();
+              await page.waitForTimeout(5000);
+              await page.waitForLoadState('networkidle').catch(() => { });
+            }
+          } else {
+            console.log(`[Scraper] Login submission appeared successful (fields disappeared).`);
+          }
+        } else {
+          console.log(`[Scraper] On potential login page but input fields hidden. Skipping auto-login.`);
+        }
+      } else {
+        console.log(`[Scraper] No login fields detected (isLoginVisible=${isLoginVisible}). Assuming already logged in or not a login page.`);
       }
     } else {
       console.log(`[Scraper] Navigating to ${url}...`);
       const waitState = (options.waitStrategy === 'dynamic' ? 'networkidle' : options.waitStrategy) as any;
       await page.goto(url, { waitUntil: waitState || 'networkidle', timeout: 60000 });
+    }
+
+    // --- SAFETY CHECK: Verify we are NOT on a login page before discovery ---
+    const checkLoginState = async () => {
+      const u = page.url().toLowerCase();
+      // If authenticating, we expect to be redirected. If still on /login or /signin, we should NOT discover.
+      const onLoginUrl = u.includes('/login') || u.includes('/signin') || u.includes('/auth');
+      const hasPassword = await page.locator('input[type="password"]').isVisible().catch(() => false);
+      return onLoginUrl || hasPassword;
+    };
+
+    let isLoginPage = await checkLoginState();
+
+    // If we think we are on login page, wait a bit more for redirect
+    if (isLoginPage) {
+      console.log(`[Scraper] Currently on login-like page (${page.url()}). Waiting for potential redirect...`);
+      await page.waitForTimeout(3000);
+      isLoginPage = await checkLoginState();
     }
 
     // --- PHASE 1: HELPERS ---
@@ -191,252 +252,296 @@ export class Scraper {
 
     const targetUrl = page.url();
 
-    // --- PHASE 4: Recursive Menu Expansion (Cache-aware) ---
-    if (options.expandMenus !== false) {
-      console.log(`[Scraper] Expanding all menus (Current session total: ${Scraper.visitedExpansionButtons.size})...`);
-      const v = Array.from(Scraper.visitedExpansionButtons);
-      const expansionButtonsText = await page.evaluate((visited) => {
-        const btns = Array.from(document.querySelectorAll('button[class*="_control_"]:not(a), button[class*="UnstyledButton"]:not(a), [class*="menuGroup"] button:not(a), [aria-expanded="false"]:not(a), .collapsed:not(a), details:not([open])')) as HTMLElement[];
-        return btns.map(b => b.textContent?.trim() || '').filter(t => t && !visited.includes(t) && !t.toLowerCase().includes('logout'));
-      }, v).catch(() => []);
+    // Conditionally run discovery only if NOT on login page
+    if (isLoginPage) {
+      console.warn(`[Scraper] ⚠️  STILL ON LOGIN PAGE (${targetUrl}). Skipping discovery actions to prevent testing auth flows prematurely.`);
+    } else {
 
-      let expandedCount = 0;
-      for (const t of expansionButtonsText) {
-        try {
-          const btn = await page.locator(`button:has-text("${t}"), [role="button"]:has-text("${t}")`).first();
-          if (await btn.isVisible()) {
-            await smartClick(btn);
+      // --- PHASE 4: Recursive Menu Expansion (Cache-aware) ---
+      if (options.expandMenus !== false) {
+        console.log(`[Scraper] Expanding all menus (Current session total: ${Scraper.visitedExpansionButtons.size})...`);
+        const v = Array.from(Scraper.visitedExpansionButtons);
+        const expansionButtonsText = await page.evaluate((visited) => {
+          const btns = Array.from(document.querySelectorAll('button[class*="_control_"]:not(a), button[class*="UnstyledButton"]:not(a), [class*="menuGroup"] button:not(a), [aria-expanded="false"]:not(a), .collapsed:not(a), details:not([open])')) as HTMLElement[];
+          return btns.map(b => b.textContent?.trim() || '').filter(t => t && !visited.includes(t) && !t.toLowerCase().includes('logout'));
+        }, v).catch(() => []);
+
+        let expandedCount = 0;
+        for (const t of expansionButtonsText) {
+          try {
+            // Add to visited BEFORE clicking to avoid re-visits
             Scraper.visitedExpansionButtons.add(t);
-            expandedCount++;
-            await page.waitForTimeout(300);
+            const btn = await page.locator(`button:has-text("${t}"), [role="button"]:has-text("${t}")`).first();
+            if (await btn.isVisible()) {
+              await smartClick(btn);
+              expandedCount++;
+              await page.waitForTimeout(300);
 
-            // Check if click navigated away
-            if (page.url() !== targetUrl) {
-              const navigatedUrl = page.url();
-              if (navigatedUrl.startsWith('http')) clickDiscoveredLinks.push(navigatedUrl);
-              console.log(`[Scraper] Menu expansion navigated to: ${navigatedUrl}. Returning...`);
-              await page.goto(targetUrl, { waitUntil: 'networkidle' }).catch(() => { });
+              // Check if click navigated away
+              if (page.url() !== targetUrl) {
+                const navigatedUrl = page.url();
+                if (navigatedUrl.startsWith('http')) clickDiscoveredLinks.push(navigatedUrl);
+                console.log(`[Scraper] Menu expansion navigated to: ${navigatedUrl}. Returning...`);
+                await page.goto(targetUrl, { waitUntil: 'networkidle' }).catch(() => { });
+                await page.waitForTimeout(500);
+              }
+            }
+          } catch (e) { }
+        }
+        console.log(`[Scraper] Expanded ${expandedCount} NEW menu items.`);
+      }
+
+      // --- AUTO-SCROLL (Ported from Main) ---
+      console.log(`[Scraper] Scrolling to discover more content...`);
+      await page.evaluate(async () => {
+        await new Promise<void>((resolve) => {
+          let totalHeight = 0;
+          const distance = 100;
+          const timer = setInterval(() => {
+            const scrollHeight = document.body.scrollHeight;
+            window.scrollBy(0, distance);
+            totalHeight += distance;
+            if (totalHeight >= scrollHeight || totalHeight > 10000) { clearInterval(timer); resolve(); }
+          }, 100);
+        });
+      });
+
+      // --- PHASE 5: Hover Menu Support (Ported from Main) ---
+      if (options.hoverDiscover !== false) {
+        console.log(`[Scraper] Discovering hover menus...`);
+        const hoverTriggers = await page.$$('[aria-haspopup], .dropdown-toggle, .has-submenu, .nav-item.dropdown');
+        for (const trigger of hoverTriggers.slice(0, 15)) {
+          try { await trigger.hover(); await page.waitForTimeout(200); } catch (e) { }
+        }
+      }
+
+      // --- PHASE 5: Active Sidebar Discovery (Cache-aware) ---
+      // [FIX] Consolidate expansion and sidebar buttons sets. 
+      // If we expanded it in Phase 4, we shouldn't click it again here as it might toggle it closed.
+      const vsb = Array.from(Scraper.visitedSidebarButtons);
+      const veb = Array.from(Scraper.visitedExpansionButtons);
+      const sButtons = await page.evaluate(({ vsb, veb }) => {
+        const sidebarSelectors = ['.navBar', 'nav', 'aside', '.sidebar', '[role="navigation"]', '[class*="Navbar"]'];
+        let sidebar: Element | null = null;
+        for (const sel of sidebarSelectors) {
+          sidebar = document.querySelector(sel);
+          if (sidebar) break;
+        }
+        if (!sidebar) sidebar = document.elementFromPoint(20, 450)?.closest('div') || null;
+        if (!sidebar) return [];
+
+        const excludeTexts = ['miscellaneous', 'support', 'logout', '피드백', '지원', 'help', '공지사항'];
+        const btns = Array.from(sidebar.querySelectorAll('button, [role="button"]')) as HTMLElement[];
+        return btns.map(b => ({
+          text: b.innerText?.trim() || b.textContent?.trim() || '',
+          isLeaf: !b.getAttribute('aria-expanded') && !b.querySelector('svg[class*="down"]') && !b.querySelector('[class*="Chevron"]'),
+          visible: b.getBoundingClientRect().height > 2
+        })).filter(b => b.isLeaf && b.visible && b.text && !vsb.includes(b.text) && !veb.includes(b.text) && !excludeTexts.some(ex => b.text.toLowerCase().includes(ex))).slice(0, 20);
+      }, { vsb, veb });
+      console.log(`[Scraper] Found ${sButtons.length} potential new sidebar buttons to click.`);
+
+      for (const b of sButtons) {
+        Scraper.visitedSidebarButtons.add(b.text);
+        try {
+          const handle = await page.$(`nav button:has-text("${b.text}"), aside button:has-text("${b.text}"), .sidebar button:has-text("${b.text}"), button:has-text("${b.text}")`);
+          if (handle) {
+            const preUrl = page.url();
+            await smartClick(handle);
+            let navigated = false;
+            for (let i = 0; i < 8; i++) {
               await page.waitForTimeout(500);
+              if (page.url() !== preUrl) { navigated = true; break; }
+              if (await isModalOpen()) break;
+            }
+            if (navigated) {
+              clickDiscoveredLinks.push(page.url());
+              await page.goto(targetUrl, { waitUntil: 'networkidle' }).catch(() => { });
+            } else {
+              // [NEW] If not navigated, check if text has changed (SPA) or new elements appeared
+              // but basically capture the state if it seems relevant.
+              const modal = await extractModalContent(`Sidebar: ${b.text}`);
+              if (modal) modalDiscoveries.push(modal);
+              if (!modal && !navigated) {
+                // Assuming it might have revealed new links in the page body
+                const newLinks = await page.evaluate(() => Array.from(document.querySelectorAll('a[href]')).map(a => (a as any).href));
+                clickDiscoveredLinks.push(...newLinks);
+              }
+              await closeModals();
             }
           }
         } catch (e) { }
       }
-      console.log(`[Scraper] Expanded ${expandedCount} NEW menu items.`);
-    }
 
-    // --- PHASE 5: Active Sidebar Discovery (Cache-aware) ---
-    const vsb = Array.from(Scraper.visitedSidebarButtons);
-    const sButtons = await page.evaluate((visited) => {
-      const sidebarSelectors = ['.navBar', 'nav', 'aside', '.sidebar', '[role="navigation"]', '[class*="Navbar"]'];
-      let sidebar: Element | null = null;
-      for (const sel of sidebarSelectors) {
-        sidebar = document.querySelector(sel);
-        if (sidebar) break;
-      }
-      if (!sidebar) sidebar = document.elementFromPoint(20, 450)?.closest('div') || null;
-      if (!sidebar) return [];
+      // --- PHASE 6: Row-Click & Modals ---
+      if (options.clickDiscover !== false) {
+        console.log(`[Scraper] Discovering detail pages via Table-based Row Click...`);
 
-      const excludeTexts = ['miscellaneous', 'support', 'logout', '피드백', '지원', 'help', '공지사항'];
-      const btns = Array.from(sidebar.querySelectorAll('button, [role="button"]')) as HTMLElement[];
-      return btns.map(b => ({
-        text: b.innerText?.trim() || b.textContent?.trim() || '',
-        isLeaf: !b.getAttribute('aria-expanded') && !b.querySelector('svg[class*="down"]') && !b.querySelector('[class*="Chevron"]'),
-        visible: b.getBoundingClientRect().height > 2
-      })).filter(b => b.isLeaf && b.visible && b.text && !visited.includes(b.text) && !excludeTexts.some(ex => b.text.toLowerCase().includes(ex))).slice(0, 20);
-    }, vsb);
-    console.log(`[Scraper] Found ${sButtons.length} potential new sidebar buttons to click.`);
+        // Find all tables
+        const tables = await page.$$('table, [role="table"], .mantine-Table-root, [class*="Table"]');
+        console.log(`[Scraper] Found ${tables.length} tables to investigate.`);
 
-    for (const b of sButtons) {
-      Scraper.visitedSidebarButtons.add(b.text);
-      try {
-        const handle = await page.$(`nav button:has-text("${b.text}"), aside button:has-text("${b.text}"), .sidebar button:has-text("${b.text}"), button:has-text("${b.text}")`);
-        if (handle) {
-          const preUrl = page.url();
-          await smartClick(handle);
-          let navigated = false;
-          for (let i = 0; i < 8; i++) {
-            await page.waitForTimeout(500);
-            if (page.url() !== preUrl) { navigated = true; break; }
-            if (await isModalOpen()) break;
-          }
-          if (navigated) {
-            clickDiscoveredLinks.push(page.url());
-            await page.goto(targetUrl, { waitUntil: 'networkidle' }).catch(() => { });
-          } else {
-            const modal = await extractModalContent(`Sidebar: ${b.text}`);
-            if (modal) modalDiscoveries.push(modal);
+        for (const table of tables) {
+          try {
+            // Identify row within this specific table
+            const rows = await table.$$('tbody tr, [role="row"]');
+            if (rows.length === 0) {
+              console.log(`[Scraper] Skipping table with no rows.`);
+              continue;
+            }
+
+            // Prefer 2nd row, fall back to 1st
+            const rowIndex = rows.length > 1 ? 1 : 0;
+            const row = rows[rowIndex];
+
             await closeModals();
-          }
-        }
-      } catch (e) { }
-    }
+            const rowText = await row.evaluate((el: HTMLElement) => el.innerText?.trim().substring(0, 50).replace(/\n/g, ' | ') || '');
+            if (rowText.toLowerCase().includes('name') && rowText.toLowerCase().includes('type')) continue;
 
-    // --- PHASE 6: Row-Click & Modals ---
-    if (options.clickDiscover !== false) {
-      console.log(`[Scraper] Discovering detail pages via Table-based Row Click...`);
+            console.log(`[Scraper] Clicking target row index ${rowIndex}: "${rowText}"`);
+            const preUrl = page.url();
 
-      // Find all tables
-      const tables = await page.$$('table, [role="table"], .mantine-Table-root, [class*="Table"]');
-      console.log(`[Scraper] Found ${tables.length} tables to investigate.`);
+            let target = await row.$('td:nth-child(2) span, td:nth-child(2) div, td:nth-child(2), [role="gridcell"]:nth-child(2)');
+            if (!target) target = row;
 
-      for (const table of tables) {
-        try {
-          // Identify row within this specific table
-          const rows = await table.$$('tbody tr, [role="row"]');
-          if (rows.length === 0) {
-            console.log(`[Scraper] Skipping table with no rows.`);
-            continue;
-          }
+            // [NETWORK CAPTURE] Monitor for API traffic on click
+            let detectedApiCall = false;
+            const networkListener = (req: any) => {
+              const u = req.url().toLowerCase();
+              const rType = req.resourceType();
+              if ((u.includes('/api/') || /uuid|history|detail|get/i.test(u)) && (rType === 'fetch' || rType === 'xhr')) {
+                detectedApiCall = true;
+              }
+            };
+            page.on('request', networkListener);
 
-          // Prefer 2nd row, fall back to 1st
-          const rowIndex = rows.length > 1 ? 1 : 0;
-          const row = rows[rowIndex];
+            await smartClick(target);
+            console.log(`[Scraper] Row click sent. Monitoring for response...`);
 
-          await closeModals();
-          const rowText = await row.evaluate((el: HTMLElement) => el.innerText?.trim().substring(0, 50).replace(/\n/g, ' | ') || '');
-          if (rowText.toLowerCase().includes('name') && rowText.toLowerCase().includes('type')) continue;
+            let handled = false;
+            // [FIX] Reduced timeout to prevent stalling entire suite if row is unresponsive
+            // Changed from 10 loops of 500ms (5s) to 6 loops of 300ms (1.8s) + safety
+            for (let p = 0; p < 6; p++) {
+              await page.waitForTimeout(300);
+              const curUrl = page.url();
 
-          console.log(`[Scraper] Clicking target row index ${rowIndex}: "${rowText}"`);
-          const preUrl = page.url();
+              // Case 1: Navigation or API-driven content update
+              if (curUrl !== preUrl || (detectedApiCall && !handled)) {
+                if (curUrl !== preUrl && (curUrl.startsWith('http:') || curUrl.startsWith('https:'))) {
+                  console.log(`[Scraper] ✓ URL Change detected: ${curUrl}`);
+                  await page.waitForLoadState('networkidle').catch(() => { });
+                  await page.waitForTimeout(1000); // extra wait for SPA content
 
-          let target = await row.$('td:nth-child(2) span, td:nth-child(2) div, td:nth-child(2), [role="gridcell"]:nth-child(2)');
-          if (!target) target = row;
-
-          // [NETWORK CAPTURE] Monitor for API traffic on click
-          let detectedApiCall = false;
-          const networkListener = (req: any) => {
-            const u = req.url().toLowerCase();
-            const rType = req.resourceType();
-            if ((u.includes('/api/') || /uuid|history|detail|get/i.test(u)) && (rType === 'fetch' || rType === 'xhr')) {
-              detectedApiCall = true;
-            }
-          };
-          page.on('request', networkListener);
-
-          await smartClick(target);
-          console.log(`[Scraper] Row click sent. Monitoring for response...`);
-
-          let handled = false;
-          for (let p = 0; p < 10; p++) {
-            await page.waitForTimeout(500);
-            const curUrl = page.url();
-
-            // Case 1: Navigation or API-driven content update
-            if (curUrl !== preUrl || (detectedApiCall && !handled)) {
-              if (curUrl !== preUrl && (curUrl.startsWith('http:') || curUrl.startsWith('https:'))) {
-                console.log(`[Scraper] ✓ URL Change detected: ${curUrl}`);
-                await page.waitForLoadState('networkidle').catch(() => { });
-                await page.waitForTimeout(1000); // extra wait for SPA content
-
-                // [IMMEDIATE CAPTURE] Extract elements/screenshot for the detail page
-                const pageData = await page.evaluate(() => {
-                  const els: any[] = [];
-                  document.querySelectorAll('button, a[href], input, textarea, select, [role="button"]').forEach((el, idx) => {
-                    const r = el.getBoundingClientRect();
-                    if (r.width < 5 || r.height < 5) return;
-                    els.push({
-                      id: `detail-el-${idx}`,
-                      tag: el.tagName.toLowerCase(),
-                      label: (el as HTMLElement).innerText?.trim().substring(0, 50) || el.getAttribute('aria-label') || '',
-                      type: (el as any).type || ''
+                  // [IMMEDIATE CAPTURE] Extract elements/screenshot for the detail page
+                  const pageData = await page.evaluate(() => {
+                    const els: any[] = [];
+                    document.querySelectorAll('button, a[href], input, textarea, select, [role="button"]').forEach((el, idx) => {
+                      const r = el.getBoundingClientRect();
+                      if (r.width < 5 || r.height < 5) return;
+                      els.push({
+                        id: `detail-el-${idx}`,
+                        tag: el.tagName.toLowerCase(),
+                        label: (el as HTMLElement).innerText?.trim().substring(0, 50) || el.getAttribute('aria-label') || '',
+                        type: (el as any).type || ''
+                      });
                     });
+                    return { title: document.title, elements: els.slice(0, 50) };
                   });
-                  return { title: document.title, elements: els.slice(0, 50) };
-                });
 
-                const scPath = path.join(outputDir, `detail-${Date.now()}.webp`);
-                try {
-                  const png = await page.screenshot({ fullPage: true, type: 'png' });
-                  const webpost = await sharp(png).webp({ quality: 80 }).toBuffer();
-                  fs.writeFileSync(scPath, webpost);
-                } catch (e) { }
+                  const scPath = path.join(outputDir, `detail-${Date.now()}.webp`);
+                  try {
+                    const png = await page.screenshot({ fullPage: true, type: 'png' });
+                    const webpost = await sharp(png).webp({ quality: 80 }).toBuffer();
+                    fs.writeFileSync(scPath, webpost);
+                  } catch (e) { }
 
-                // Add to modalDiscoveries structure for consistent reporting
-                modalDiscoveries.push({
-                  triggerText: `Row Click: ${rowText}`,
-                  modalTitle: `Page: ${pageData.title}`,
-                  elements: pageData.elements as any,
-                  links: [curUrl],
-                  screenshotPath: scPath
-                });
+                  // Add to modalDiscoveries structure for consistent reporting
+                  modalDiscoveries.push({
+                    triggerText: `Row Click: ${rowText}`,
+                    modalTitle: `Page: ${pageData.title}`,
+                    elements: pageData.elements as any,
+                    links: [curUrl],
+                    screenshotPath: scPath
+                  });
 
-                clickDiscoveredLinks.push(curUrl);
+                  clickDiscoveredLinks.push(curUrl);
 
-                // Return to list
-                console.log(`[Scraper] Detail captured, returning to list...`);
-                await page.goBack({ waitUntil: 'networkidle' }).catch(() => { });
-                await page.waitForTimeout(1000);
-                if (page.url() !== preUrl) await page.goto(preUrl, { waitUntil: 'networkidle' });
-                handled = true; break;
-              }
-
-              // Case 2: Modal opened
-              if (await isModalOpen()) {
-                const modal = await extractModalContent(rowText);
-                if (modal) {
-                  console.log(`[Scraper] ✓ Modal found: "${modal.modalTitle}"`);
-                  modalDiscoveries.push(modal);
-                  clickDiscoveredLinks.push(...modal.links);
+                  // Return to list
+                  console.log(`[Scraper] Detail captured, returning to list...`);
+                  await page.goBack({ waitUntil: 'networkidle' }).catch(() => { });
+                  await page.waitForTimeout(1000);
+                  if (page.url() !== preUrl) await page.goto(preUrl, { waitUntil: 'networkidle' });
+                  handled = true; break;
                 }
-                handled = true; break;
-              }
-            }
 
-            if (!handled) {
-              console.log(`[Scraper] ✗ No response. Checking action buttons in row...`);
-              const btns = await row.$$('button, a[role="button"], [role="button"]');
-              for (const b of btns) {
-                const t = await b.innerText();
-                if (/edit|modify|update|view|detail|수정|편집|상세/i.test(t)) {
-                  await smartClick(b);
-                  await page.waitForTimeout(2000);
-                  const modal = await extractModalContent(`${rowText} - ${t}`);
+                // Case 2: Modal opened
+                if (await isModalOpen()) {
+                  const modal = await extractModalContent(rowText);
                   if (modal) {
-                    modalDiscoveries.push(modal); handled = true; break;
-                  } else if (page.url() !== preUrl) {
-                    // If action button navigated, capture it too
-                    console.log(`[Scraper] ✓ Action button navigated: ${page.url()}`);
-                    clickDiscoveredLinks.push(page.url()); await page.goBack(); handled = true; break;
+                    console.log(`[Scraper] ✓ Modal found: "${modal.modalTitle}"`);
+                    modalDiscoveries.push(modal);
+                    clickDiscoveredLinks.push(...modal.links);
+                  }
+                  handled = true; break;
+                }
+              }
+
+              if (!handled) {
+                console.log(`[Scraper] ✗ No response. Checking action buttons in row...`);
+                const btns = await row.$$('button, a[role="button"], [role="button"]');
+                for (const b of btns) {
+                  const t = await b.innerText();
+                  if (/edit|modify|update|view|detail|수정|편집|상세/i.test(t)) {
+                    await smartClick(b);
+                    await page.waitForTimeout(1500); // Wait for modal/nav
+                    const modal = await extractModalContent(`${rowText} - ${t}`);
+                    if (modal) {
+                      modalDiscoveries.push(modal); handled = true; break;
+                    } else if (page.url() !== preUrl) {
+                      // If action button navigated, capture it too
+                      console.log(`[Scraper] ✓ Action button navigated: ${page.url()}`);
+                      clickDiscoveredLinks.push(page.url()); await page.goBack(); handled = true; break;
+                    }
                   }
                 }
               }
+              if (handled) break;
+              await closeModals();
             }
+            page.off('request', networkListener);
+          } catch (e) {
+            console.log(`[Scraper] Row interaction failed: ${(e as Error).message}`);
             await closeModals();
           }
-          page.off('request', networkListener);
-        } catch (e) {
-          console.log(`[Scraper] Row interaction failed: ${(e as Error).message}`);
-          await closeModals();
         }
       }
-    }
 
 
-    // --- PHASE 7: Global Action Discovery ---
-    console.log(`[Scraper] Global Action Discovery...`);
-    const allBtns = await page.$$('button');
-    const matches: any[] = [];
-    for (const b of allBtns) {
-      const t = await b.innerText();
-      if (/edit|view|수정|보기/i.test(t)) matches.push({ b, t });
-    }
-    for (const m of matches.slice(0, 3)) {
-      try {
-        await closeModals();
-        console.log(`[Scraper] Testing global action: "${m.t}"`);
-        await smartClick(m.b);
-        await page.waitForTimeout(2000);
-        const modal = await extractModalContent(`Global: ${m.t}`);
-        if (modal) {
-          modalDiscoveries.push(modal);
-          clickDiscoveredLinks.push(...modal.links);
-        } else if (page.url() !== targetUrl) {
-          clickDiscoveredLinks.push(page.url());
-          await page.goto(targetUrl, { waitUntil: 'networkidle' });
-        }
-        await closeModals();
-      } catch (e) { }
-    }
+      // --- PHASE 7: Global Action Discovery ---
+      console.log(`[Scraper] Global Action Discovery...`);
+      const allBtns = await page.$$('button');
+      const matches: any[] = [];
+      for (const b of allBtns) {
+        const t = await b.innerText();
+        if (/edit|view|수정|보기/i.test(t)) matches.push({ b, t });
+      }
+      for (const m of matches.slice(0, 3)) {
+        try {
+          await closeModals();
+          console.log(`[Scraper] Testing global action: "${m.t}"`);
+          await smartClick(m.b);
+          await page.waitForTimeout(2000);
+          const modal = await extractModalContent(`Global: ${m.t}`);
+          if (modal) {
+            modalDiscoveries.push(modal);
+            clickDiscoveredLinks.push(...modal.links);
+          } else if (page.url() !== targetUrl) {
+            clickDiscoveredLinks.push(page.url());
+            await page.goto(targetUrl, { waitUntil: 'networkidle' });
+          }
+          await closeModals();
+        } catch (e) { }
+      }
+    } // End if (!isLoginPage)
 
     // Final stability wait
     await page.waitForLoadState('networkidle').catch(() => { });
@@ -626,8 +731,9 @@ export class Scraper {
 
                   // Check if path contains action patterns (always allow these)
                   const hasActionPattern = actionPatterns.some(p => path.toLowerCase().includes(p));
-                  const forbiddenKeywords = ['support', 'miscellaneous', 'feedback', 'help', '공지사항', '지원', 'logout'];
-                  const isExcluded = forbiddenKeywords.some(kw => path.toLowerCase().includes(kw));
+                  // [Restored] Removed restrictive forbiddenKeywords to match Main branch behavior
+                  // const forbiddenKeywords = ['support', 'miscellaneous', 'feedback', 'help', '공지사항', '지원', 'logout'];
+                  const isExcluded = path.toLowerCase().includes('logout'); // Only exclude logout
 
                   if (path.length > 1 && !isExcluded) {
                     if (isSidebar || !isSpecificId || hasActionPattern) {

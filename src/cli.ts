@@ -1,5 +1,6 @@
 import { program } from 'commander';
 import { Scraper } from './scraper.js';
+import { SafariInteractionTester } from './safari-tester.js';
 import { Analyzer } from '../scripts/analyzer.js';
 import { Generator } from '../scripts/generator.js';
 import { AnalysisResult } from '../types/index.js';
@@ -15,6 +16,50 @@ program
     .description('Automated Test Analysis Tool')
     .version('1.0.0');
 
+// Safari Interaction Test Command
+program
+    .command('safari-test')
+    .description('Test page interactions using Safari (WebKit) browser')
+    .requiredOption('--url <url>', 'URL to test')
+    .option('--output-dir <path>', 'Output directory', './output/safari')
+    .option('--auth-file <path>', 'Auth state file')
+    .option('--headless', 'Run in headless mode', true)
+    .option('--no-headless', 'Run in visible mode')
+    .option('--test-click', 'Test clickable elements', true)
+    .option('--test-input', 'Test input elements', true)
+    .option('--test-focus', 'Test focusable elements', true)
+    .option('--compare-chrome <path>', 'Path to Chrome test report for comparison')
+    .action(async (options) => {
+        console.log('\n[Safari Test] Starting Safari Interaction Test...');
+        console.log(`[Safari Test] URL: ${options.url}`);
+
+        const tester = new SafariInteractionTester();
+
+        try {
+            const report = await tester.test({
+                url: options.url,
+                outputDir: options.outputDir,
+                authFile: options.authFile,
+                headless: options.headless,
+                testClickable: options.testClick,
+                testInputs: options.testInput,
+                testFocus: options.testFocus,
+            });
+
+            // Cross-browser comparison if Chrome report provided
+            if (options.compareChrome) {
+                await tester.compareWithChrome(options.compareChrome, report);
+            }
+
+            console.log(`\n[Safari Test] Complete! Report saved to: ${options.outputDir}/safari-test-report.json`);
+        } catch (error) {
+            console.error('[Safari Test] Error:', error instanceof Error ? error.message : error);
+            process.exit(1);
+        } finally {
+            await tester.close();
+        }
+    });
+
 program
     .option('--url <url>', 'URL to analyze', process.env.TESTMAKER_URL)
     .option('--output-dir <path>', 'Output directory', './output')
@@ -27,7 +72,9 @@ program
     .option('--password <pass>', 'Password', process.env.password)
     .option('--recursive', 'Recursive mode', false)
     .option('--force', 'Force re-analysis', false)
-    .option('--timeout <number>', 'Page analysis timeout in seconds (0 for no timeout)', '180');
+    .option('--timeout <number>', 'Page analysis timeout in seconds (0 for no timeout)', '180')
+    .option('--headless', 'Run in headless mode', true)
+    .option('--no-headless', 'Run in visible mode');
 
 program.action(async (options) => {
     const url = options.url || process.env.TESTMAKER_URL;
@@ -48,7 +95,7 @@ program.action(async (options) => {
     const analyzer = new Analyzer();
     const generator = new Generator();
 
-    const visited = new Set<string>();
+    const visited = new Map<string, number>();
     const queue: { url: string; depth: number }[] = [{ url, depth: 0 }];
     const tempAuthFile = path.join(baseOutputDir, 'temp-auth.json');
 
@@ -61,7 +108,7 @@ program.action(async (options) => {
             const { url: currentUrl, depth: currentDepth } = current;
 
             if (visited.has(currentUrl)) continue;
-            visited.add(currentUrl);
+            visited.set(currentUrl, currentDepth);
 
             console.log(`\n[TestMaker] --- [D${currentDepth}] Analyzing: ${currentUrl} ---`);
 
@@ -99,30 +146,26 @@ program.action(async (options) => {
                     saveAuthFile: tempAuthFile,
                     username: options.username,
                     password: options.password,
-                    screenshotName: `screenshot-${urlPathName}.png`
+                    screenshotName: `screenshot-${urlPathName}.png`,
+                    headless: options.headless
                 });
 
-                let scrapeResult;
-                if (pageTimeout > 0) {
-                    const timeoutPromise = new Promise((_, reject) =>
-                        setTimeout(() => reject(new Error(`Analysis timed out after ${pageTimeout / 1000}s`)), pageTimeout)
-                    );
-                    scrapeResult = await Promise.race([scrapePromise, timeoutPromise]);
-                } else {
-                    scrapeResult = await scrapePromise;
-                }
+                // Timeout Logic Removed: Avoiding Promise.race which causes data loss on timeout.
+                // We rely on internal Playwright timeouts or manual cancellation if needed.
+                const scrapeResult = await scrapePromise;
 
-                const { elements, pageTitle, discoveredLinks, sidebarLinks } = scrapeResult as any;
+                const { elements, pageTitle, discoveredLinks, sidebarLinks, modalDiscoveries } = scrapeResult as any;
 
-                console.log(`[TestMaker] Found ${sidebarLinks?.length || 0} sidebar links, ${discoveredLinks?.length || 0} other links`);
+                console.log(`[TestMaker] Found ${sidebarLinks?.length || 0} sidebar links, ${discoveredLinks?.length || 0} other links, ${modalDiscoveries?.length || 0} modal blocks`);
                 if (sidebarLinks?.length > 0) {
                     console.log(`[TestMaker] Sidebar: ${sidebarLinks.slice(0, 5).join(', ')}${sidebarLinks.length > 5 ? '...' : ''}`);
                 }
 
                 if (options.recursive) {
                     const nextDepth = currentDepth + 1;
-                    // Prioritize sidebar links, add all discovered links regardless of depth
-                    const found = [...(sidebarLinks || []), ...discoveredLinks];
+                    // Gather all links: Sidebar + Discovered + Modal Links
+                    const modalLinks = modalDiscoveries ? modalDiscoveries.flatMap((m: any) => m.links || []) : [];
+                    const found = [...(sidebarLinks || []), ...discoveredLinks, ...modalLinks];
                     found.forEach(l => {
                         try {
                             if (new URL(l).hostname === initialDomain && !visited.has(l)) {
@@ -176,10 +219,21 @@ program.action(async (options) => {
         console.log(`\n[TestMaker] ========== Summary ==========`);
         console.log(`[TestMaker] Total Pages Discovered: ${visited.size}`);
         console.log(`[TestMaker] Analyzed: ${analyzedCount}, Cached: ${skippedCount}`);
-        console.log(`[TestMaker] Pages:`);
-        Array.from(visited).forEach((url, i) => {
-            console.log(`  ${i + 1}. ${url}`);
-        });
+        console.log(`[TestMaker] Pages by Depth:`);
+
+        const pagesByDepth = new Map<number, string[]>();
+        for (const [url, depth] of visited.entries()) {
+            if (!pagesByDepth.has(depth)) pagesByDepth.set(depth, []);
+            pagesByDepth.get(depth)!.push(url);
+        }
+
+        const sortedDepths = Array.from(pagesByDepth.keys()).sort((a, b) => a - b);
+        for (const depth of sortedDepths) {
+            console.log(`  [Depth ${depth}]:`);
+            pagesByDepth.get(depth)!.forEach((url, i) => {
+                console.log(`    ${i + 1}. ${url}`);
+            });
+        }
         console.log(`[TestMaker] ==============================\n`);
     } catch (e) {
         console.error('[TestMaker] Fatal Error:', e);

@@ -18,21 +18,22 @@ export interface ScrapeOptions {
   hoverDiscover?: boolean;
   clickDiscover?: boolean;
   spaMode?: boolean;
+
   waitStrategy?: string;
+  headless?: boolean;
 }
 
 export class Scraper {
   private browser: Browser | null = null;
   private lastScreenshotHash: string | null = null;
 
-  // Session-level caches to prevent redundant navigation exploration
-  private static visitedSidebarButtons = new Set<string>();
-  // Shared set for expansion to prevent re-toggling (collapsing)
-  // Consolidates "Expansion" phase and "Sidebar" phase knowledge
-  private static visitedExpansionButtons = new Set<string>();
+
 
   async init(headless: boolean = true) {
-    this.browser = await chromium.launch({ headless });
+    this.browser = await chromium.launch({
+      headless,
+      args: ['--window-size=1920,1080']
+    });
   }
 
   async close() {
@@ -56,6 +57,10 @@ export class Scraper {
     }>;
   }> {
     const { url, outputDir, authFile, manualAuth, username, password, screenshotName } = options;
+    // Session-level caches (reset per page) to prevent redundant actions within this single analysis
+    const visitedSidebarButtons = new Set<string>();
+    const visitedExpansionButtons = new Set<string>();
+
     const clickDiscoveredLinks: string[] = [];
     const modalDiscoveries: Array<{
       triggerText: string;
@@ -66,9 +71,12 @@ export class Scraper {
     }> = [];
 
     // If manual auth is requested, we must run in headful mode
-    if (!this.browser) await this.init(!manualAuth);
+    if (!this.browser) {
+      const headless = options.headless !== undefined ? options.headless : !manualAuth;
+      await this.init(headless);
+    }
 
-    const contextOptions: any = { viewport: { width: 1440, height: 900 } };
+    const contextOptions: any = { viewport: { width: 1920, height: 1080 } };
     if (authFile && fs.existsSync(authFile)) {
       console.log(`[Scraper] Loading storage state from ${authFile}...`);
       contextOptions.storageState = authFile;
@@ -124,12 +132,23 @@ export class Scraper {
             const submitBtn = page.locator('button[type="submit"], button:has-text("Log in"), button:has-text("Sign in")').first();
             if (await submitBtn.isVisible()) {
               await submitBtn.click();
-              await page.waitForTimeout(5000);
+              await page.waitForTimeout(8000);
               await page.waitForLoadState('networkidle').catch(() => { });
             }
           } else {
             console.log(`[Scraper] Login submission appeared successful (fields disappeared).`);
           }
+
+          // [USER REQUEST] Force navigation to /app/home to ensure we are on the dashboard
+          console.log(`[Scraper] 🧭 forcing navigation to /app/home to ensure dashboard access...`);
+          await page.waitForTimeout(3000); // Wait for auth cookie to settle
+          try {
+            await page.goto(new URL('/app/home', url).toString(), { waitUntil: 'domcontentloaded', timeout: 60000 });
+            await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => console.log('[Scraper] Network idle wait timed out, proceeding...'));
+          } catch (e) {
+            console.log(`[Scraper] ⚠️ Navigation to /app/home took too long: ${(e as Error).message}. Proceeding anyway...`);
+          }
+          await page.waitForTimeout(2000);
         } else {
           console.log(`[Scraper] On potential login page but input fields hidden. Skipping auto-login.`);
         }
@@ -214,11 +233,36 @@ export class Scraper {
     };
 
     const smartClick = async (handle: any) => {
-      const box = await handle.boundingBox();
-      if (box) {
-        await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-      } else {
-        await handle.click({ force: true }).catch(() => handle.evaluate((el: HTMLElement) => el.click()));
+      try {
+        await handle.scrollIntoViewIfNeeded();
+        const box = await handle.boundingBox();
+        if (box) {
+          // Approach element (Human-like movement)
+          await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+          await page.waitForTimeout(50);
+
+          // User Request: "Approach -> Enter" interaction
+          // Use Enter for semantic elements that support it, fallback to click
+          const tagName = await handle.evaluate((el: HTMLElement) => el.tagName.toLowerCase()).catch(() => '');
+          const isFocusable = ['button', 'a', 'input', 'select', 'textarea'].includes(tagName) || await handle.getAttribute('tabindex');
+
+          if (isFocusable) {
+            try {
+              await handle.focus();
+              await page.keyboard.press('Enter');
+              return; // Success
+            } catch (e) {
+              // Fallback if Enter fails
+            }
+          }
+
+          await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+        } else {
+          await handle.click({ force: true }).catch(() => handle.evaluate((el: HTMLElement) => el.click()));
+        }
+      } catch (e) {
+        // Last resort
+        await handle.click({ force: true }).catch(() => { });
       }
     };
 
@@ -254,39 +298,94 @@ export class Scraper {
 
     // Conditionally run discovery only if NOT on login page
     if (isLoginPage) {
-      console.warn(`[Scraper] ⚠️  STILL ON LOGIN PAGE (${targetUrl}). Skipping discovery actions to prevent testing auth flows prematurely.`);
-    } else {
+      console.warn(`[Scraper] ⚠️  STILL ON LOGIN PAGE (${targetUrl}). Proceeding with discovery despite login state...`);
+    }
+
+    // Discovery continues regardless of login state
+    {
 
       // --- PHASE 4: Recursive Menu Expansion (Cache-aware) ---
       if (options.expandMenus !== false) {
-        console.log(`[Scraper] Expanding all menus (Current session total: ${Scraper.visitedExpansionButtons.size})...`);
-        const v = Array.from(Scraper.visitedExpansionButtons);
-        const expansionButtonsText = await page.evaluate((visited) => {
-          const btns = Array.from(document.querySelectorAll('button[class*="_control_"]:not(a), button[class*="UnstyledButton"]:not(a), [class*="menuGroup"] button:not(a), [aria-expanded="false"]:not(a), .collapsed:not(a), details:not([open])')) as HTMLElement[];
-          return btns.map(b => b.textContent?.trim() || '').filter(t => t && !visited.includes(t) && !t.toLowerCase().includes('logout'));
-        }, v).catch(() => []);
-
+        // Loop to handle nested menus (click parent -> reveal child)
         let expandedCount = 0;
-        for (const t of expansionButtonsText) {
-          try {
-            // Add to visited BEFORE clicking to avoid re-visits
-            Scraper.visitedExpansionButtons.add(t);
-            const btn = await page.locator(`button:has-text("${t}"), [role="button"]:has-text("${t}")`).first();
-            if (await btn.isVisible()) {
-              await smartClick(btn);
-              expandedCount++;
-              await page.waitForTimeout(300);
+        for (let expansionPass = 0; expansionPass < 3; expansionPass++) {
+          console.log(`[Scraper] Menu Expansion Pass ${expansionPass + 1}/3...`);
 
-              // Check if click navigated away
-              if (page.url() !== targetUrl) {
-                const navigatedUrl = page.url();
-                if (navigatedUrl.startsWith('http')) clickDiscoveredLinks.push(navigatedUrl);
-                console.log(`[Scraper] Menu expansion navigated to: ${navigatedUrl}. Returning...`);
-                await page.goto(targetUrl, { waitUntil: 'networkidle' }).catch(() => { });
-                await page.waitForTimeout(500);
+          const candidates = await page.evaluate((visited) => {
+            const btns = Array.from(document.querySelectorAll('button[class*="_control_"]:not(a), button[class*="UnstyledButton"]:not(a), [class*="menuGroup"] button:not(a), [class*="navBar"] button:not(a), [aria-expanded="false"]:not(a), .collapsed:not(a), details:not([open])')) as HTMLElement[];
+
+            return btns
+              .map(b => {
+                let selector = '';
+                if (b.id) {
+                  selector = '#' + b.id;
+                } else {
+                  let path: string[] = [];
+                  let current: HTMLElement | null = b;
+                  while (current && current !== document.body) {
+                    let tag = current.tagName.toLowerCase();
+                    let parentElement: HTMLElement | null = current.parentElement;
+                    if (parentElement) {
+                      const children = Array.from(parentElement.children);
+                      const index = children.indexOf(current) + 1;
+                      path.unshift(`${tag}:nth-child(${index})`);
+                    } else {
+                      path.unshift(tag);
+                    }
+                    current = parentElement;
+                  }
+                  selector = 'body > ' + path.join(' > ');
+                }
+                return {
+                  text: b.textContent?.trim() || '',
+                  selector: selector
+                };
+              })
+              .filter(item => {
+                const t = item.text.toLowerCase();
+                return item.text && !visited.includes(item.text) &&
+                  !t.includes('logout') && !t.includes('sign out') && !t.includes('signout') && !t.includes('log out');
+              });
+          }, Array.from(visitedExpansionButtons));
+
+          if (candidates.length === 0) {
+            console.log(`[Scraper] No new menus found in pass ${expansionPass + 1}.`);
+            break;
+          }
+
+          let clickedInThisPass = 0;
+          for (const cand of candidates) {
+            try {
+              if (visitedExpansionButtons.has(cand.text)) continue;
+              visitedExpansionButtons.add(cand.text);
+
+              // Use Locator with specific selector - robust against re-renders
+              const btn = page.locator(cand.selector).first();
+
+              if (await btn.isVisible().catch(() => false)) {
+                await smartClick(btn);
+                expandedCount++;
+                clickedInThisPass++;
+                await page.waitForTimeout(300);
+
+                // Check if click navigated away
+                if (page.url() !== targetUrl) {
+                  const navigatedUrl = page.url();
+                  if (navigatedUrl.startsWith('http')) clickDiscoveredLinks.push(navigatedUrl);
+                  console.log(`[Scraper] Menu expansion navigated to: ${navigatedUrl}. Returning...`);
+                  await page.goto(targetUrl, { waitUntil: 'networkidle' }).catch(() => { });
+                  await page.waitForTimeout(500);
+                  // Break this pass since DOM completely changed
+                  break;
+                }
               }
-            }
-          } catch (e) { }
+            } catch (e) { }
+          }
+          if (clickedInThisPass === 0 && candidates.length > 0) {
+            // If we found candidates but failed to click any (or all were skipped), stop to prevent infinite loops
+            // But actually, we might have skipped some because of visited set.
+            // Let's just rely on the pass loop limit.
+          }
         }
         console.log(`[Scraper] Expanded ${expandedCount} NEW menu items.`);
       }
@@ -318,8 +417,8 @@ export class Scraper {
       // --- PHASE 5: Active Sidebar Discovery (Cache-aware) ---
       // [FIX] Consolidate expansion and sidebar buttons sets. 
       // If we expanded it in Phase 4, we shouldn't click it again here as it might toggle it closed.
-      const vsb = Array.from(Scraper.visitedSidebarButtons);
-      const veb = Array.from(Scraper.visitedExpansionButtons);
+      const vsb = Array.from(visitedSidebarButtons);
+      const veb = Array.from(visitedExpansionButtons);
       const sButtons = await page.evaluate(({ vsb, veb }) => {
         const sidebarSelectors = ['.navBar', 'nav', 'aside', '.sidebar', '[role="navigation"]', '[class*="Navbar"]'];
         let sidebar: Element | null = null;
@@ -341,7 +440,7 @@ export class Scraper {
       console.log(`[Scraper] Found ${sButtons.length} potential new sidebar buttons to click.`);
 
       for (const b of sButtons) {
-        Scraper.visitedSidebarButtons.add(b.text);
+        visitedSidebarButtons.add(b.text);
         try {
           const handle = await page.$(`nav button:has-text("${b.text}"), aside button:has-text("${b.text}"), .sidebar button:has-text("${b.text}"), button:has-text("${b.text}")`);
           if (handle) {
@@ -418,10 +517,10 @@ export class Scraper {
             console.log(`[Scraper] Row click sent. Monitoring for response...`);
 
             let handled = false;
-            // [FIX] Reduced timeout to prevent stalling entire suite if row is unresponsive
-            // Changed from 10 loops of 500ms (5s) to 6 loops of 300ms (1.8s) + safety
-            for (let p = 0; p < 6; p++) {
-              await page.waitForTimeout(300);
+            // [FIX] Increased timeout to ensure we capture authentic navigations on slower environments
+            // Changed to 20 loops of 500ms (10s) to match Main branch robustness
+            for (let p = 0; p < 20; p++) {
+              await page.waitForTimeout(500);
               const curUrl = page.url();
 
               // Case 1: Navigation or API-driven content update
@@ -541,7 +640,7 @@ export class Scraper {
           await closeModals();
         } catch (e) { }
       }
-    } // End if (!isLoginPage)
+    } // End discovery block
 
     // Final stability wait
     await page.waitForLoadState('networkidle').catch(() => { });
@@ -579,10 +678,33 @@ export class Scraper {
     }
 
     console.log(`[Scraper] Extracting elements and links (Including Shadow DOM)...`);
-    // Debug: Check raw links in DOM before filtering
+    // Debug: Check raw links in DOM before filtering, WITH SHADOW DOM SUPPORT
     const rawLinkDebug = await page.evaluate(() => {
-      const allAnchors = document.querySelectorAll('a[href]');
-      const hrefs = Array.from(allAnchors).map(a => (a as HTMLAnchorElement).href);
+      // ITERATIVE STACK APPROACH to avoid ReferenceError with recursive function names
+      const hrefs: string[] = [];
+      const stack: Node[] = [document.body];
+
+      while (stack.length > 0) {
+        const node = stack.pop();
+        if (!node) continue;
+
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          const el = node as Element;
+          if (el.tagName === 'A' && el.hasAttribute('href')) {
+            const h = (el as HTMLAnchorElement).href;
+            if (h) hrefs.push(h);
+          }
+          if (el.shadowRoot) {
+            Array.from(el.shadowRoot.childNodes).forEach(c => stack.push(c));
+          }
+        }
+
+        // Add children to stack
+        if (node.hasChildNodes()) {
+          Array.from(node.childNodes).forEach(c => stack.push(c));
+        }
+      }
+
       const httpHrefs = hrefs.filter(h => h.startsWith('http:') || h.startsWith('https:'));
       const uuidPattern = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
       const uuidLinks = httpHrefs.filter(h => uuidPattern.test(h));

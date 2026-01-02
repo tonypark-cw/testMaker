@@ -166,13 +166,19 @@ program.action(async (options) => {
                     // Gather all links: Sidebar + Discovered + Modal Links
                     const modalLinks = modalDiscoveries ? modalDiscoveries.flatMap((m: any) => m.links || []) : [];
                     const found = [...(sidebarLinks || []), ...discoveredLinks, ...modalLinks];
-                    found.forEach(l => {
+                    const uniqueFound = new Set(found);
+                    console.log(`[TestMaker] Scraper returned ${found.length} links (${uniqueFound.size} unique).`);
+
+                    let addedCount = 0;
+                    uniqueFound.forEach(l => {
                         try {
                             if (new URL(l).hostname === initialDomain && !visited.has(l)) {
                                 queue.push({ url: l, depth: nextDepth });
+                                addedCount++;
                             }
                         } catch (e) { }
                     });
+                    console.log(`[TestMaker] Added ${addedCount} new links to queue.`);
                 }
 
                 const scenarios = analyzer.analyze(elements);

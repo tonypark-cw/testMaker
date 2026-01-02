@@ -19,6 +19,7 @@ export interface ScrapeOptions {
   clickDiscover?: boolean;
   spaMode?: boolean;
   waitStrategy?: string;
+  headless?: boolean;
 }
 
 export class Scraper {
@@ -64,7 +65,7 @@ export class Scraper {
     }> = [];
 
     // If manual auth is requested, we must run in headful mode
-    if (!this.browser) await this.init(!manualAuth);
+    if (!this.browser) await this.init(manualAuth ? false : (options.headless !== undefined ? options.headless : true));
 
     const contextOptions: any = { viewport: { width: 1440, height: 900 } };
     if (authFile && fs.existsSync(authFile)) {
@@ -85,6 +86,10 @@ export class Scraper {
       await page.goto(url, { waitUntil: 'load', timeout: 60000 });
       const emailField = page.locator('input[type="email"], input[name="email"], input[placeholder*="email" i], input[type="text"]').first();
       const passwordField = page.locator('input[type="password"], input[name="password"], input[placeholder*="password" i]').first();
+
+      // Wait for fields to appear
+      await emailField.waitFor({ state: 'visible', timeout: 10000 }).catch(() => { });
+
       if (await emailField.isVisible().catch(() => false) && await passwordField.isVisible().catch(() => false)) {
         console.log(`[Scraper] Login fields detected. Attempting to sign in...`);
         await emailField.fill(username);
@@ -92,11 +97,26 @@ export class Scraper {
         await page.locator('button[type="submit"], button:has-text("Log in"), button:has-text("Sign in")').first().click();
         await page.waitForTimeout(5000);
         await page.waitForLoadState('networkidle').catch(() => { });
+        await page.waitForTimeout(2000);
       }
     } else {
       console.log(`[Scraper] Navigating to ${url}...`);
       const waitState = (options.waitStrategy === 'dynamic' ? 'networkidle' : options.waitStrategy) as any;
       await page.goto(url, { waitUntil: waitState || 'networkidle', timeout: 60000 });
+    }
+
+    // [FIX] Force navigation to /app/home regardless of Auth method (Fresh Login vs Cached)
+    // This ensures we always start crawling from the Dashboard, not the landing page or login success page.
+    if (!manualAuth) {
+      console.log(`[Scraper] 🧭 forcing navigation to /app/home to ensure dashboard access...`);
+      await page.waitForTimeout(3000); // Wait for auth cookie to settle
+      try {
+        await page.goto(new URL('/app/home', url).toString(), { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => console.log('[Scraper] Network idle wait timed out, proceeding...'));
+      } catch (e) {
+        console.log(`[Scraper] ⚠️ Navigation to /app/home took too long: ${(e as Error).message}. Proceeding anyway...`);
+      }
+      await page.waitForTimeout(2000);
     }
 
     // --- PHASE 1: HELPERS ---
@@ -217,12 +237,41 @@ export class Scraper {
               console.log(`[Scraper] Menu expansion navigated to: ${navigatedUrl}. Returning...`);
               await page.goto(targetUrl, { waitUntil: 'networkidle' }).catch(() => { });
               await page.waitForTimeout(500);
+            } else {
+              // [NEW] No navigation, but menu expanded. CAPTURE LINKS IMMEDIATELY.
+              const newLinks = await page.evaluate(() => {
+                const res: string[] = [];
+                document.querySelectorAll('a[href]').forEach(a => {
+                  const h = (a as HTMLAnchorElement).href;
+                  if (h && (h.startsWith('http') || h.startsWith('https'))) res.push(h);
+                });
+                return res;
+              });
+              if (newLinks.length > 0) {
+                newLinks.forEach(l => clickDiscoveredLinks.push(l));
+                console.log(`[Scraper] Captured ${newLinks.length} links from expanded menu "${t}".`);
+              }
             }
           }
         } catch (e) { }
       }
       console.log(`[Scraper] Expanded ${expandedCount} NEW menu items.`);
     }
+
+    // --- AUTO-SCROLL (Ported) ---
+    console.log(`[Scraper] Scrolling to discover more content...`);
+    await page.evaluate(async () => {
+      await new Promise<void>((resolve) => {
+        let totalHeight = 0;
+        const distance = 100;
+        const timer = setInterval(() => {
+          const scrollHeight = document.body.scrollHeight;
+          window.scrollBy(0, distance);
+          totalHeight += distance;
+          if (totalHeight >= scrollHeight || totalHeight > 10000) { clearInterval(timer); resolve(); }
+        }, 100);
+      });
+    });
 
     // --- PHASE 5: Active Sidebar Discovery (Cache-aware) ---
     const vsb = Array.from(Scraper.visitedSidebarButtons);
@@ -234,17 +283,23 @@ export class Scraper {
         if (sidebar) break;
       }
       if (!sidebar) sidebar = document.elementFromPoint(20, 450)?.closest('div') || null;
-      if (!sidebar) return [];
+      // [FIX] Fallback: If no specific sidebar container found, search globally for known sidebar button patterns (Like Main branch)
+      let btns: HTMLElement[] = [];
+      if (sidebar) {
+        btns = Array.from(sidebar.querySelectorAll('button, [role="button"]')) as HTMLElement[];
+      } else {
+        // Fallback to global search for sidebar-like buttons
+        btns = Array.from(document.querySelectorAll('.navBar button, [class*="navBar"] button, [class*="sidebar"] button, aside button, [class*="UnstyledButton"], [class*="menuGroup"] button')) as HTMLElement[];
+      }
 
       const excludeTexts = ['miscellaneous', 'support', 'logout', '피드백', '지원', 'help', '공지사항'];
-      const btns = Array.from(sidebar.querySelectorAll('button, [role="button"]')) as HTMLElement[];
       return btns.map(b => ({
-        text: b.innerText?.trim() || b.textContent?.trim() || '',
+        text: b.innerText?.trim() || b.textContent?.trim() || b.getAttribute('aria-label') || '',
         isLeaf: !b.getAttribute('aria-expanded') && !b.querySelector('svg[class*="down"]') && !b.querySelector('[class*="Chevron"]'),
         visible: b.getBoundingClientRect().height > 2
       })).filter(b => b.isLeaf && b.visible && b.text && !visited.includes(b.text) && !excludeTexts.some(ex => b.text.toLowerCase().includes(ex))).slice(0, 20);
     }, vsb);
-    console.log(`[Scraper] Found ${sButtons.length} potential new sidebar buttons to click.`);
+    console.log(`[Scraper] Found ${sButtons.length} potential new sidebar buttons: ${sButtons.map(b => b.text).join(', ')}`);
 
     for (const b of sButtons) {
       Scraper.visitedSidebarButtons.add(b.text);
@@ -263,6 +318,20 @@ export class Scraper {
             clickDiscoveredLinks.push(page.url());
             await page.goto(targetUrl, { waitUntil: 'networkidle' }).catch(() => { });
           } else {
+            // [NEW] Check for new links revealed by this click (e.g. sidebar submenu expansion)
+            const newLinks = await page.evaluate(() => {
+              const res: string[] = [];
+              document.querySelectorAll('a[href]').forEach(a => {
+                const h = (a as HTMLAnchorElement).href;
+                if (h && (h.startsWith('http') || h.startsWith('https'))) res.push(h);
+              });
+              return res;
+            });
+            if (newLinks.length > 0) {
+              newLinks.forEach(l => clickDiscoveredLinks.push(l));
+              console.log(`[Scraper] Sidebar click "${b.text}" revealed ${newLinks.length} links.`);
+            }
+
             const modal = await extractModalContent(`Sidebar: ${b.text}`);
             if (modal) modalDiscoveries.push(modal);
             await closeModals();
@@ -302,6 +371,12 @@ export class Scraper {
           let target = await row.$('td:nth-child(2) span, td:nth-child(2) div, td:nth-child(2), [role="gridcell"]:nth-child(2)');
           if (!target) target = row;
 
+          // [OPTIMIZATION] Skip check if target is not clickable/visible
+          if (!(await target.isVisible())) {
+            console.log('[Scraper] Target row element not visible. Skipping.');
+            continue;
+          }
+
           // [NETWORK CAPTURE] Monitor for API traffic on click
           let detectedApiCall = false;
           const networkListener = (req: any) => {
@@ -317,7 +392,9 @@ export class Scraper {
           console.log(`[Scraper] Row click sent. Monitoring for response...`);
 
           let handled = false;
-          for (let p = 0; p < 10; p++) {
+          // [OPTIMIZATION] Reduced wait loop from 5s (10*500ms) to 2s (4*500ms)
+          const waitLimit = 4;
+          for (let p = 0; p < waitLimit; p++) {
             await page.waitForTimeout(500);
             const curUrl = page.url();
 
@@ -325,8 +402,8 @@ export class Scraper {
             if (curUrl !== preUrl || (detectedApiCall && !handled)) {
               if (curUrl !== preUrl && (curUrl.startsWith('http:') || curUrl.startsWith('https:'))) {
                 console.log(`[Scraper] ✓ URL Change detected: ${curUrl}`);
-                await page.waitForLoadState('networkidle').catch(() => { });
-                await page.waitForTimeout(1000); // extra wait for SPA content
+                await page.waitForLoadState('domcontentloaded').catch(() => { }); // Optimizing wait strategy
+                await page.waitForTimeout(500); // Reduced extra wait
 
                 // [IMMEDIATE CAPTURE] Extract elements/screenshot for the detail page
                 const pageData = await page.evaluate(() => {
@@ -475,9 +552,31 @@ export class Scraper {
 
     console.log(`[Scraper] Extracting elements and links (Including Shadow DOM)...`);
     // Debug: Check raw links in DOM before filtering
+    // Debug: Check raw links in DOM before filtering (Iterative Stack for Shadow DOM)
     const rawLinkDebug = await page.evaluate(() => {
-      const allAnchors = document.querySelectorAll('a[href]');
-      const hrefs = Array.from(allAnchors).map(a => (a as HTMLAnchorElement).href);
+      const hrefs: string[] = [];
+      const stack: Node[] = [document.body];
+
+      while (stack.length > 0) {
+        const node = stack.pop();
+        if (!node) continue;
+
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          const el = node as Element;
+          if (el.tagName === 'A' && el.hasAttribute('href')) {
+            const h = (el as HTMLAnchorElement).href;
+            if (h) hrefs.push(h);
+          }
+          if (el.shadowRoot) {
+            Array.from(el.shadowRoot.childNodes).forEach(c => stack.push(c));
+          }
+        }
+
+        if (node.hasChildNodes()) {
+          Array.from(node.childNodes).forEach(c => stack.push(c));
+        }
+      }
+
       const httpHrefs = hrefs.filter(h => h.startsWith('http:') || h.startsWith('https:'));
       const uuidPattern = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
       const uuidLinks = httpHrefs.filter(h => uuidPattern.test(h));

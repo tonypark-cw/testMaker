@@ -25,7 +25,9 @@ program
     .option('--username <user>', 'Username', process.env.emailname)
     .option('--password <pass>', 'Password', process.env.password)
     .option('--recursive', 'Recursive mode', false)
-    .option('--force', 'Force re-analysis', false);
+    .option('--force', 'Force re-analysis', false)
+    .option('--headless', 'Run in headless mode', true)
+    .option('--no-headless', 'Run in visible mode');
 
 program.action(async (options) => {
     const url = options.url || process.env.TESTMAKER_URL;
@@ -88,7 +90,8 @@ program.action(async (options) => {
                 saveAuthFile: tempAuthFile,
                 username: options.username,
                 password: options.password,
-                screenshotName: `screenshot-${urlPathName}.png`
+                screenshotName: `screenshot-${urlPathName}.png`,
+                headless: options.headless
             });
 
             const { elements, pageTitle, discoveredLinks, sidebarLinks } = scrapeResult as any;
@@ -101,7 +104,9 @@ program.action(async (options) => {
             if (options.recursive) {
                 const nextDepth = currentDepth + 1;
                 // Prioritize sidebar links, add all discovered links regardless of depth
-                const found = [...(sidebarLinks || []), ...discoveredLinks];
+                // Gather all links: Sidebar + Discovered + Modal Links
+                const modalLinks = (scrapeResult as any).modalDiscoveries ? (scrapeResult as any).modalDiscoveries.flatMap((m: any) => m.links || []) : [];
+                const found = [...(sidebarLinks || []), ...discoveredLinks, ...modalLinks];
                 found.forEach(l => {
                     try {
                         if (new URL(l).hostname === initialDomain && !visited.has(l)) {

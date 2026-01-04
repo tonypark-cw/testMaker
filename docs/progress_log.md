@@ -13,7 +13,11 @@ Autonomous repair of page discovery issues in `testMaker-fix`. Target: 40+ pages
 | 2026-01-02 12:15 | fix | `--headless` | 0 | Fail | Broken Login Logic. Found "Log in" button on sidebar. |
 | 2026-01-02 12:20 | fix | `--headless` | TBD | In Progress | Restored Login Logic. Fresh Auth. |
 | 2026-01-02 12:22 | fix | `--headless` | >100 | **Passed** | **Login Fixed & Immediate Capture working!** Captured 17+ links per menu. |
-| 2026-01-02 12:40 | fix | `--depth 4 --limit 150` | >100 | **Success** | **Stress Test**: Found links immediately (Menus: 19, Captured: 17+ per menu). Running deep crawl... |
+| 2026-01-02 12:40 | fix | `--depth 4 --limit 150` | 25 | **Completed** | **Deep Discovery**: Analyzed 25 unique pages (Recursive BFS limit reached). Login stable. |
+| 2026-01-02 13:30 | fix | `--depth 3 --limit 50` | 25+ | **Passed** | **Row Click Fix**: Verified "Cell Content" strategy. |
+| 2026-01-02 14:00 | fix | `--recursive` | 20+ | **Passed** | **Autonomous Repair**: Fixed recursion-nav bug & phase isolation. |
+| 2026-01-02 16:00 | fix | `--recursive` | 10+ | **Passed** | **Regression Fix**: Safe auto-scroll (try-catch) & stability wait. |
+| 2026-01-02 16:30 | fix | `optimize` | TBD | **Pending** | **Speed Optimization**: Reduced timeouts (Login, Scroll, Polling). |
 | **Status**: resolved | | | | | |
 
 ## Timeline & Attempts

@@ -1,8 +1,8 @@
 import { program } from 'commander';
 import { Scraper } from './scraper.js';
-import { Analyzer } from '../scripts/analyzer.js';
-import { Generator } from '../scripts/generator.js';
-import { AnalysisResult } from '../types/index.js';
+import { Analyzer } from '../../scripts/analyzer.js';
+import { Generator } from '../../scripts/generator.js';
+import { AnalysisResult } from '../../types/index.js';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as dotenv from 'dotenv';
@@ -48,11 +48,18 @@ program.action(async (options) => {
     const analyzer = new Analyzer();
     const generator = new Generator();
 
+    // [FIX] Auto-enable recursive mode if depth > 1
+    if (maxDepth > 1 && !options.recursive) {
+        console.log(`[TestMaker] Depth ${maxDepth} > 1 detected. Auto-enabling recursive mode.`);
+        options.recursive = true;
+    }
+
     const visited = new Set<string>();
     const queue: { url: string; depth: number }[] = [{ url, depth: 0 }];
     const tempAuthFile = path.join(baseOutputDir, 'temp-auth.json');
 
     let analyzedCount = 0;
+    const analyzedUrls: string[] = [];
     let skippedCount = 0;
 
     try {
@@ -144,10 +151,14 @@ program.action(async (options) => {
             });
 
             analyzedCount++;
+            analyzedUrls.push(currentUrl);
             if (options.recursive && visited.size >= limit) break;
             await new Promise(r => setTimeout(r, 500));
         }
 
+        console.log(`\n[TestMaker] --- Execution Summary ---`);
+        console.log(`[TestMaker] Analyzed Pages (${analyzedCount}):`);
+        analyzedUrls.forEach((u, i) => console.log(`${i + 1}. ${u}`));
         console.log(`\n[TestMaker] Finished. Analyzed: ${analyzedCount}, Cached: ${skippedCount}`);
     } catch (e) {
         console.error('[TestMaker] Fatal Error:', e);

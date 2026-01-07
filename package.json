@@ -4,7 +4,8 @@
   "description": "Automated Test Analysis Tool",
   "type": "module",
   "scripts": {
-    "analyze": "tsx src/cli.ts",
+    "analyze": "tsx src/core/cli.ts",
+    "dashboard": "tsx watch src/dashboard/server.ts",
     "test": "playwright test"
   },
   "keywords": [],

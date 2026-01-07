@@ -1,5 +1,5 @@
 import { chromium, Browser } from 'playwright';
-import { TestableElement } from '../types/index.js';
+import { TestableElement } from '../../types/index.js';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as crypto from 'crypto';
@@ -74,6 +74,10 @@ export class Scraper {
     }
 
     const context = await this.browser!.newContext(contextOptions);
+
+    // [DEBUG] Start Tracing
+    await context.tracing.start({ screenshots: true, snapshots: true, sources: true });
+
     const page = await context.newPage();
 
     // --- INITIAL NAVIGATION & AUTH ---
@@ -222,7 +226,12 @@ export class Scraper {
       const v = Array.from(Scraper.visitedExpansionButtons);
       const expansionButtonsText = await page.evaluate((visited) => {
         const btns = Array.from(document.querySelectorAll('button[class*="_control_"]:not(a), button[class*="UnstyledButton"]:not(a), [class*="menuGroup"] button:not(a), [aria-expanded="false"]:not(a), .collapsed:not(a), details:not([open])')) as HTMLElement[];
-        return btns.map(b => b.textContent?.trim() || '').filter(t => t && !visited.includes(t) && !t.toLowerCase().includes('logout'));
+        return btns.map(b => {
+          // [FIX] Use innerText to avoid capturing hidden CSS/SVG code
+          // Take only the first line and limit length
+          const txt = b.innerText?.split('\n')[0]?.trim() || '';
+          return txt;
+        }).filter(t => t && t.length > 0 && t.length < 30 && !t.includes('{') && !visited.includes(t) && !t.toLowerCase().includes('logout'));
       }, v).catch(() => []);
 
       let expandedCount = 0;
@@ -311,13 +320,30 @@ export class Scraper {
         visible: b.getBoundingClientRect().height > 2
       })).filter(b => b.isLeaf && b.visible && b.text && !visited.includes(b.text) && !excludeTexts.some(ex => b.text.toLowerCase().includes(ex))).slice(0, 20);
     }, vsb);
-    console.log(`[Scraper] Found ${sButtons.length} potential new sidebar buttons: ${sButtons.map(b => b.text).join(', ')}`);
+
+    // [FIX] Sanitize button texts to prevent BADSTRING errors (e.g. multi-line text)
+    // [FIX] Deduplicate buttons by text to serve unique actions
+    const uniqueTexts = new Set<string>();
+    const sanitizedButtons = sButtons.map(b => {
+      // Split by newline and take the first non-empty line
+      const firstLine = b.text.split('\n').map(t => t.trim()).find(t => t.length > 0) || '';
+      // Limit length and remove problematic characters
+      const cleanText = firstLine.substring(0, 30).replace(/["\\]/g, '');
+      return { ...b, cleanText };
+    }).filter(b => {
+      if (b.cleanText.length === 0) return false;
+      if (uniqueTexts.has(b.cleanText)) return false;
+      uniqueTexts.add(b.cleanText);
+      return true;
+    });
+
+    console.log(`[Scraper] Found ${sanitizedButtons.length} potential new sidebar buttons: ${sanitizedButtons.map(b => b.cleanText).join(', ')}`);
 
     try {
-      for (const b of sButtons) {
-        Scraper.visitedSidebarButtons.add(b.text);
+      for (const b of sanitizedButtons) {
+        Scraper.visitedSidebarButtons.add(b.text); // Mark original full text as visited
         try {
-          const handle = await page.$(`nav button:has-text("${b.text}"), aside button:has-text("${b.text}"), .sidebar button:has-text("${b.text}"), button:has-text("${b.text}")`);
+          const handle = await page.$(`nav button:has-text("${b.cleanText}"), aside button:has-text("${b.cleanText}"), .sidebar button:has-text("${b.cleanText}"), button:has-text("${b.cleanText}")`);
           if (handle) {
             const preUrl = page.url();
             await smartClick(handle);
@@ -352,7 +378,7 @@ export class Scraper {
           }
         } catch (e) {
           const errMsg = (e as Error).message.split('\n')[0].substring(0, 100);
-          console.log(`[Scraper] Sidebar interaction failed for "${b.text}": ${errMsg}...`);
+          console.log(`[Scraper] Sidebar interaction failed for "${b.cleanText}": ${errMsg}...`);
         }
       }
     } catch (e) {
@@ -395,14 +421,33 @@ export class Scraper {
 
           // Priority 2: Standard Action Buttons (View, Edit, Detail)
           if (!target) {
+            // [FIX] Exclude "Menu" or "Options" buttons (usually dropdowns) to prefer Row Click for Modals
             target = await row.$('button:has-text("View"), button:has-text("Detail"), button:has-text("Edit"), [role="button"]:has-text("View")');
-            actionType = 'Action Button';
+            if (target) {
+              const txt = await target.innerText();
+              if (/menu|option|메뉴|옵션/i.test(txt)) target = null;
+            }
+            if (target) actionType = 'Action Button';
           }
 
-          // Priority 3: Meaningful Cell Content (2nd column usually safer than 1st which might be checkbox)
+          // Priority 3: Meaningful Cell Content (Skip columns with buttons/checkboxes)
           if (!target) {
-            target = await row.$('td:nth-child(2) span, td:nth-child(2) div, td:nth-child(2), [role="gridcell"]:nth-child(2)');
-            actionType = 'Cell Content';
+            // Try 2nd column first
+            let cell = await row.$('td:nth-child(2)');
+            // Check if 2nd column contains a button (like Menu/Options) or is empty
+            if (cell) {
+              const hasButton = await cell.$('button, [role="button"], input[type="checkbox"]');
+              const text = await cell.innerText();
+              if (hasButton || !text.trim()) {
+                // If 2nd column is action/empty, try 3rd column
+                cell = await row.$('td:nth-child(3)');
+              }
+            }
+            // If still valid, use it
+            if (cell) {
+              target = await cell.$('span, div') || cell;
+              actionType = 'Cell Content';
+            }
           }
 
           // Fallback: The Row Itself
@@ -449,7 +494,29 @@ export class Scraper {
 
             // Case 1: Navigation or API-driven content update
             if (curUrl !== preUrl || (detectedApiCall && !handled)) {
+
+              // [FIX] Check for Modal FIRST even if URL changed (some apps update URL for modals)
+              if (await isModalOpen()) {
+                const modal = await extractModalContent(rowText);
+                if (modal) {
+                  console.log(`[Scraper] ✓ Modal found (with URL change): "${modal.modalTitle}"`);
+                  modalDiscoveries.push(modal);
+                  clickDiscoveredLinks.push(...modal.links);
+                  handled = true;
+
+                  // If we navigated, we might need to go back, or just close modal
+                  if (curUrl !== preUrl) {
+                    await closeModals();
+                    if (page.url() !== preUrl) await page.goBack().catch(() => { });
+                  } else {
+                    await closeModals();
+                  }
+                  break;
+                }
+              }
+
               if (curUrl !== preUrl && (curUrl.startsWith('http:') || curUrl.startsWith('https:'))) {
+                // ... Existing Detail Page Logic matches ...
                 console.log(`[Scraper] ✓ URL Change detected: ${curUrl}`);
                 await page.waitForLoadState('domcontentloaded').catch(() => { }); // Optimizing wait strategy
                 await page.waitForTimeout(500); // Reduced extra wait
@@ -520,7 +587,7 @@ export class Scraper {
                 // AVOID DESTRUCTIVE BUTTONS
                 if (/delete|remove|cancel|discard|삭제|취소/i.test(t)) continue;
 
-                if (/edit|modify|update|view|detail|수정|편집|상세/i.test(t)) {
+                if (/edit|modify|update|view|detail|add|create|new|print|scan|수정|편집|상세|생성|추가|인쇄/i.test(t)) {
                   await smartClick(b);
                   await page.waitForTimeout(2000);
                   const modal = await extractModalContent(`${rowText} - ${t}`);
@@ -548,13 +615,28 @@ export class Scraper {
 
     // --- PHASE 7: Global Action Discovery ---
     console.log(`[Scraper] Global Action Discovery...`);
-    const allBtns = await page.$$('button');
+    // [FIX] Broader selector for action buttons (including ARIA buttons and styled links)
+    const allBtns = await page.$$('button, [role="button"], a[class*="Button"], a[class*="btn"]');
     const matches: any[] = [];
     for (const b of allBtns) {
       const t = await b.innerText();
-      if (/edit|view|수정|보기/i.test(t)) matches.push({ b, t });
+      // [FIX] Expanded keywords to include Creation/Addition actions
+      if (/new|create|add|plus|generate|edit|view|scan|print|수정|보기|생성|추가|등록|신규|인쇄/i.test(t)) {
+        matches.push({ b, t });
+      }
     }
-    for (const m of matches.slice(0, 3)) {
+
+    // Sort matches to prioritize "New/Create" actions
+    matches.sort((a, b) => {
+      const aIsCreate = /new|create|add|plus|생성|추가|등록|신규/i.test(a.t);
+      const bIsCreate = /new|create|add|plus|생성|추가|등록|신규/i.test(b.t);
+      if (aIsCreate && !bIsCreate) return -1;
+      if (!aIsCreate && bIsCreate) return 1;
+      return 0;
+    });
+
+    // [OPTIMIZATION] Increased limit to 5 to capture both Create and Edit actions
+    for (const m of matches.slice(0, 5)) {
       try {
         await closeModals();
         console.log(`[Scraper] Testing global action: "${m.t}"`);
@@ -577,13 +659,15 @@ export class Scraper {
     // [OPTIMIZATION] Removed redundant 2s wait
 
     // Capture screenshot AFTER all discovery actions but BEFORE storage state
-    const pageTitle = await page.title();
-    const screenshotPath = path.join(outputDir, (screenshotName || 'full-page.png').replace(/\.png$/, '.webp'));
-
-    // Ensure output directory exists
+    // Ensure output directory exists before screenshot
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true });
     }
+
+    const pageTitle = await page.title();
+    const screenshotPath = path.join(outputDir, (screenshotName || 'full-page.png').replace(/\.png$/, '.webp'));
+
+
 
     // --- Visual Hash-based Verification ---
     let pngBuffer = await page.screenshot({ fullPage: true, type: 'png' });
@@ -606,6 +690,11 @@ export class Scraper {
     if (manualAuth && authFile) {
       await context.storageState({ path: authFile });
     }
+
+    // [DEBUG] Stop Tracing
+    const tracePath = path.join(outputDir, `trace-${Date.now()}.zip`);
+    await context.tracing.stop({ path: tracePath });
+    console.log(`[Scraper] Trace saved to: ${tracePath}`);
 
     console.log(`[Scraper] Extracting elements and links (Including Shadow DOM)...`);
     // Debug: Check raw links in DOM before filtering

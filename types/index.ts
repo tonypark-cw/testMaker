@@ -120,7 +120,7 @@ export interface AnalysisResult {
 /** 생성 옵션 */
 export interface GeneratorOptions {
     outputDir: string;
-    formats: ('markdown' | 'playwright' | 'both')[];
+    formats: string[];
     baseUrl?: string;
     includeScreenshots?: boolean;
 }

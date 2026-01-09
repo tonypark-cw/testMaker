@@ -22,7 +22,6 @@ program
     .option('--auth-file <path>', 'Initial auth file', process.env.TESTMAKER_AUTH_FILE)
     .option('--username <user>', 'Username', process.env.emailname)
     .option('--password <pass>', 'Password', process.env.password)
-    .option('--recursive', 'Recursive mode (deprecated, depth implies recursive)', false)
     .option('--force', 'Force re-analysis', false)
     .option('--headless', 'Run in headless mode', true)
     .option('--no-headless', 'Run in visible mode');
@@ -35,12 +34,6 @@ program.action(async (options) => {
     }
 
     const baseOutputDir = options.outputDir || './output';
-    // Use domain-specific folder for screenshots by default in Runner logic
-    // But Runner expects a specific logic. Let's pass base dir and let Runner handle structure.
-    // Actually Runner implementation uses outputDir + '..' logic sometimes.
-    // Let's normalize: CLI passes the ROOT output dir (e.g. ./output/screenshots/domain)
-
-    // Existing logic constructed detailed output path:
     const initialDomain = new URL(url).hostname.replace(/\./g, '-');
     const screenshotsDir = path.join(baseOutputDir, 'screenshots', initialDomain);
 
@@ -56,7 +49,9 @@ program.action(async (options) => {
         depth: maxDepth,
         limit,
         headless: options.headless,
-        force: options.force
+        force: options.force,
+        username: options.username,
+        password: options.password
     };
 
     const runner = new Runner(config, screenshotsDir, concurrency);

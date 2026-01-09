@@ -1,0 +1,57 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - img "ianaiERP Logo" [ref=e6]
+      - paragraph [ref=e7]: Welcome to ianaiERP!
+    - generic [ref=e8]:
+      - generic [ref=e11]:
+        - generic [ref=e12]:
+          - generic [ref=e13]: Email *
+          - textbox "Email" [ref=e15]:
+            - /placeholder: Your email
+        - generic [ref=e16]:
+          - generic [ref=e17]: Password *
+          - generic [ref=e18]:
+            - textbox "Password" [ref=e20]:
+              - /placeholder: Your password
+            - button [ref=e22] [cursor=pointer]:
+              - img [ref=e24]
+        - button "Log in" [ref=e27] [cursor=pointer]:
+          - generic [ref=e29]: Log in
+        - button "Reset password" [ref=e30] [cursor=pointer]
+      - generic [ref=e32]:
+        - button [ref=e34] [cursor=pointer]:
+          - img [ref=e36]
+        - button [ref=e41] [cursor=pointer]:
+          - img [ref=e43]
+        - paragraph [ref=e47]: 1.0.0 | v2
+  - generic [ref=e49]:
+    - generic [ref=e50]:
+      - img "ianaiERP Logo" [ref=e51]
+      - paragraph [ref=e52]: Welcome to ianaiERP!
+    - generic [ref=e53]:
+      - generic [ref=e56]:
+        - generic [ref=e57]:
+          - generic [ref=e58]: Email *
+          - textbox "Email" [ref=e60]:
+            - /placeholder: Your email
+        - generic [ref=e61]:
+          - generic [ref=e62]: Password *
+          - generic [ref=e63]:
+            - textbox "Password" [ref=e65]:
+              - /placeholder: Your password
+            - button [ref=e67] [cursor=pointer]:
+              - img [ref=e69]
+        - button "Log in" [ref=e72] [cursor=pointer]:
+          - generic [ref=e74]: Log in
+        - button "Reset password" [ref=e75] [cursor=pointer]
+      - generic [ref=e77]:
+        - button [ref=e79] [cursor=pointer]:
+          - img [ref=e81]
+        - button [ref=e86] [cursor=pointer]:
+          - img [ref=e88]
+        - paragraph [ref=e92]: 1.0.0 | v2
+```

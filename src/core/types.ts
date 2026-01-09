@@ -16,6 +16,7 @@ export interface ScrapeResult {
     modalDiscoveries?: any[]; // To match original structure if needed
     error?: string;
     newlyDiscoveredCount: number;
+    actionChain?: any[]; // [NEW] Action Chain for Golden Path
 }
 
 export interface ScraperConfig {
@@ -24,4 +25,6 @@ export interface ScraperConfig {
     limit: number;
     headless: boolean;
     force: boolean;
+    username?: string;
+    password?: string;
 }

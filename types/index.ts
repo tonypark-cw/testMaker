@@ -98,6 +98,15 @@ export type ScenarioCategory =
     | 'crud-operation'
     | 'general';
 
+/** 모달 발견 정보 */
+export interface ModalDiscovery {
+    triggerText: string;
+    modalTitle: string;
+    elements: any[]; // Using any[] for now as scraper returns simplified element structure for modals
+    links: string[];
+    screenshotPath?: string;
+}
+
 /** 분석 결과 */
 export interface AnalysisResult {
     success: boolean;
@@ -108,6 +117,8 @@ export interface AnalysisResult {
     scenarios: TestScenario[];
     discoveredLinks: string[];
     sidebarLinks?: string[];
+    modalDiscoveries?: ModalDiscovery[];
+    actionChain?: any[]; // Recorded interactions
     metadata: {
         totalElements: number;
         byType: Record<string, number>;

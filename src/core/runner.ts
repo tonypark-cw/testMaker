@@ -34,7 +34,7 @@ export class Runner {
 
         // 1. Launch & Auth
         this.browser = await chromium.launch({ headless: this.config.headless });
-        this.context = await this.browser.newContext({ viewport: { width: 1440, height: 900 } });
+        this.context = await this.browser.newContext({ viewport: { width: 1920, height: 1080 } });
 
         // Start Tracing
         await this.context.tracing.start({ screenshots: true, snapshots: true, sources: true });
@@ -55,17 +55,77 @@ export class Runner {
     }
 
     private async performLogin(page: Page) {
-        // [TODO] Pass auth credentials via optimized config
         console.log('[Runner] Navigating to target...');
         await page.goto(this.config.url, { waitUntil: 'load' });
 
-        // Simple heuristic login check
-        if (await page.$('input[type="password"]')) {
-            console.log('[Runner] Login form detected. Please wait for manual login or implement auto-login config.');
-            // For now, if auto-fill logic isn't here, we assume session re-use or manual intervention if headful
-            if (!this.config.headless) await page.pause();
-        }
+        // Wait for SPA to render
         await page.waitForTimeout(2000);
+
+        // Auto-login if credentials are provided
+        try {
+            // Use locator with wait for better SPA support
+            const emailLocator = page.locator('input[type="email"], input[name="email"], input[placeholder*="email" i], input[type="text"]').first();
+            const passwordLocator = page.locator('input[type="password"], input[name="password"], input[placeholder*="password" i]').first();
+
+            // Wait for email field to appear (indicates login form is rendered)
+            await emailLocator.waitFor({ state: 'visible', timeout: 10000 }).catch(() => { });
+
+            const emailVisible = await emailLocator.isVisible().catch(() => false);
+            const passwordVisible = await passwordLocator.isVisible().catch(() => false);
+
+            if (emailVisible && passwordVisible) {
+                console.log('[Runner] Login form detected.');
+
+                if (this.config.username && this.config.password) {
+                    console.log('[Runner] Attempting auto-login...');
+                    console.log(`[Runner] Username: ${this.config.username}`);
+
+                    // Fill credentials
+                    await emailLocator.fill(this.config.username);
+                    await passwordLocator.fill(this.config.password);
+
+                    // Click submit button
+                    const submitBtn = page.locator('button[type="submit"], input[type="submit"], button:has-text("Log in"), button:has-text("Sign in"), button:has-text("로그인")').first();
+                    if (await submitBtn.isVisible().catch(() => false)) {
+                        await submitBtn.click();
+                        await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => { });
+                        await page.waitForTimeout(3000);
+
+                        // Check login success - should be redirected away from login page
+                        const currentUrl = page.url();
+                        console.log(`[Runner] Post-login URL: ${currentUrl}`);
+
+                        // Force navigation to /app/home if stuck on transition page
+                        if (currentUrl.includes('/app/logged-in') || currentUrl.endsWith('/app') || currentUrl.endsWith('/app/')) {
+                            console.log('[Runner] Detected transition page, forcing navigation to /app/home...');
+                            await page.goto(new URL('/app/home', this.config.url).toString(), { waitUntil: 'networkidle', timeout: 30000 }).catch(() => { });
+                            await page.waitForTimeout(2000);
+                            console.log(`[Runner] Now at: ${page.url()}`);
+                        }
+
+                        // Verify we're logged in (not on login page anymore)
+                        const stillOnLogin = await passwordLocator.isVisible().catch(() => false);
+                        if (stillOnLogin) {
+                            console.log('[Runner] WARNING: Still on login page. Login may have failed.');
+                        } else {
+                            console.log('[Runner] Login successful!');
+                        }
+                    } else {
+                        console.log('[Runner] Submit button not found.');
+                    }
+                } else if (!this.config.headless) {
+                    console.log('[Runner] No credentials provided. Waiting for manual login...');
+                    await page.pause();
+                } else {
+                    console.log('[Runner] No credentials provided and running headless. Skipping login.');
+                }
+            } else {
+                console.log('[Runner] No login form detected, proceeding...');
+            }
+        } catch (e) {
+            console.log(`[Runner] Login error: ${(e as Error).message}`);
+        }
+        await page.waitForTimeout(1000);
         await page.close();
     }
 
@@ -105,6 +165,8 @@ export class Runner {
                 scenarios,
                 discoveredLinks: result.links,
                 sidebarLinks: result.sidebarLinks || [],
+                modalDiscoveries: result.modalDiscoveries,
+                actionChain: result.actionChain, // [NEW] Pass action chain
                 metadata: {
                     totalElements: result.elements.length,
                     byType: stats as any,

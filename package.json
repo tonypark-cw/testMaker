@@ -6,6 +6,9 @@
   "scripts": {
     "analyze": "tsx src/core/cli.ts",
     "dashboard": "tsx watch src/dashboard/server.ts",
+    "dashboard:server": "EXTERNAL_WORKER=true tsx watch src/dashboard/server.ts",
+    "worker": "tsx src/dashboard/worker.ts",
+    "live": "npm run dashboard & ssh -R ianai-test:80:localhost:3000 serveo.net",
     "test": "playwright test"
   },
   "keywords": [],

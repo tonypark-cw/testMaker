@@ -99,7 +99,7 @@ program.action(async (options) => {
                 saveAuthFile: tempAuthFile,
                 username: options.username,
                 password: options.password,
-                screenshotName: isAuth ? undefined : `screenshot - ${urlPathName}.png`,
+                screenshotName: isAuth ? undefined : `screenshot-${urlPathName}.png`,
                 headless: options.headless
             });
 

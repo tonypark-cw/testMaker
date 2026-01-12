@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import Handlebars from 'handlebars';
 import { AnalysisResult, GeneratorOptions } from '../types/index.js';
+import { urlToPathName } from '../src/core/utils/pathUtils.js';
 
 export class Generator {
     constructor() {
@@ -42,7 +43,7 @@ export class Generator {
         const template = Handlebars.compile(templateSource);
 
         const output = template(result);
-        const urlPath = new URL(result.url).pathname.replace(/\//g, '-').replace(/^-|-$/g, '') || 'index';
+        const urlPath = urlToPathName(result.url);
         const date = new Date().toISOString().split('T')[0];
         fs.writeFileSync(path.join(targetDir, `test-cases-${urlPath}-${date}.md`), output);
         console.log(`[Generator] Created markdown report in ${targetDir}`);
@@ -61,7 +62,7 @@ export class Generator {
         const template = Handlebars.compile(templateSource);
 
         const output = template(result);
-        const urlPath = new URL(result.url).pathname.replace(/\//g, '-').replace(/^-|-$/g, '') || 'index';
+        const urlPath = urlToPathName(result.url);
         fs.writeFileSync(path.join(targetDir, `${domain}-${urlPath}.spec.ts`), output);
         console.log(`[Generator] Created playwright spec in ${targetDir}`);
     }
@@ -74,7 +75,7 @@ export class Generator {
             fs.mkdirSync(targetDir, { recursive: true });
         }
 
-        const urlPath = new URL(result.url).pathname.replace(/\//g, '-').replace(/^-|-$/g, '') || 'index';
+        const urlPath = urlToPathName(result.url);
         fs.writeFileSync(path.join(targetDir, `${domain}-${urlPath}.json`), JSON.stringify(result, null, 2));
         console.log(`[Generator] Created JSON metadata in ${targetDir}`);
     }

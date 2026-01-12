@@ -1,0 +1,189 @@
+/* Gallery Grid */
+.gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 15px;
+}
+
+.shot-card {
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    overflow: hidden;
+    transition: transform 0.2s;
+    position: relative;
+    /* Apply fadeIn animation via class or js */
+}
+
+.shot-card:hover {
+    transform: translateY(-3px);
+    z-index: 10;
+}
+
+.shot-img {
+    width: 100%;
+    height: 150px;
+    object-fit: cover;
+    object-position: top;
+    display: block;
+    background: #000;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.shot-img.loaded {
+    opacity: 1;
+}
+
+.shot-info {
+    padding: 8px;
+    font-size: 11px;
+    color: #888;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Badges */
+.badge {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    padding: 3px 6px;
+    border-radius: 4px;
+    font-size: 9px;
+    font-weight: bold;
+    color: white;
+    pointer-events: none;
+    text-transform: uppercase;
+}
+
+.badge-modal {
+    background: #9d46ff;
+}
+
+.badge-detail {
+    background: #10b981;
+}
+
+.badge-page {
+    background: #64748b;
+}
+
+.badge-golden {
+    background: #ffc107;
+    color: #000;
+    box-shadow: 0 0 5px rgba(255, 193, 7, 0.5);
+}
+
+/* QA Status Tags */
+.qa-tag {
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    padding: 3px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: bold;
+    color: white;
+    text-transform: uppercase;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.qa-PASS {
+    background: var(--success);
+}
+
+.qa-FAIL {
+    background: var(--danger);
+}
+
+.qa-BLOCK {
+    background: var(--warning);
+    color: #000;
+}
+
+/* Golden Star Icon */
+.star-icon {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    font-size: 14px;
+    filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.5));
+    cursor: help;
+    z-index: 5;
+}
+
+/* Tooltip */
+.card-tooltip {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    color: #fff;
+    padding: 8px;
+    font-size: 11px;
+    transform: translateY(100%);
+    transition: transform 0.2s;
+    z-index: 20;
+    pointer-events: none;
+    box-sizing: border-box;
+    border-top: 1px solid #444;
+}
+
+.shot-card:hover .card-tooltip {
+    transform: translateY(0);
+}
+
+.tooltip-row {
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* SKELETON UI */
+.skeleton-card {
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    overflow: hidden;
+    height: 190px;
+    /* Approx height of card */
+    position: relative;
+}
+
+.skeleton-img {
+    width: 100%;
+    height: 150px;
+    background: #2a2a35;
+    position: relative;
+    overflow: hidden;
+}
+
+.skeleton-text {
+    height: 12px;
+    margin: 10px;
+    width: 70%;
+    background: #2a2a35;
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+}
+
+.skeleton-shimmer::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+    transform: translateX(-100%);
+    animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+    100% {
+        transform: translateX(100%);
+    }
+}

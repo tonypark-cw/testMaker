@@ -98,6 +98,18 @@ export type ScenarioCategory =
     | 'crud-operation'
     | 'general';
 
+/** Golden Path Information */
+export interface GoldenPathInfo {
+    /** Page is in stable state (no loading indicators, no errors) */
+    isStable: boolean;
+    /** Page has sufficient testable elements */
+    hasTestableElements: boolean;
+    /** Confidence score (0-1) for page being a valid test starting point */
+    confidence: number;
+    /** Reasons for the stability assessment */
+    reasons: string[];
+}
+
 /** 분석 결과 */
 export interface AnalysisResult {
     success: boolean;
@@ -108,6 +120,7 @@ export interface AnalysisResult {
     scenarios: TestScenario[];
     discoveredLinks: string[];
     sidebarLinks?: string[];
+    goldenPath?: GoldenPathInfo;
     metadata: {
         totalElements: number;
         byType: Record<string, number>;

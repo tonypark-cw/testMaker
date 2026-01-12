@@ -4,744 +4,141 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TestMaker Live Dashboard</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-            background-color: #111;
-            color: #eee;
-            margin: 0;
-            padding: 20px;
-        }
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid #333;
-            flex-wrap: wrap; 
-            gap: 20px;
-        }
-        h1 { margin: 0; font-size: 24px; color: #fff; }
-        .stats {
-            display: flex;
-            gap: 20px;
-        }
-        .card {
-            background: #1e1e2e;
-            padding: 15px 25px;
-            border-radius: 8px;
-            min-width: 120px;
-            text-align: center;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        }
-        .card .value {
-            font-size: 32px;
-            font-weight: bold;
-            color: #4da6ff;
-            display: block;
-        }
-        .card .label {
-            font-size: 12px;
-            color: #aaa;
-            margin-top: 5px;
-            display: block;
-        }
-        .trace-btn {
-            background: #28a745;
-            color: white;
-            text-decoration: none;
-            padding: 8px 16px;
-            border-radius: 4px;
-            font-size: 14px;
-            display: none; /* Hidden until trace available */
-            transition: background 0.2s;
-        }
-        .trace-btn:hover { background: #218838; }
-
-        /* Runner UI */
-        .runner-box {
-            background: #2a2a35;
-            padding: 10px;
-            border-radius: 8px;
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-        .runner-input {
-            background: #111;
-            border: 1px solid #444;
-            color: #fff;
-            padding: 8px;
-            border-radius: 4px;
-            width: 250px;
-            font-size: 13px;
-        }
-        .runner-btn {
-            padding: 8px 16px;
-            border: none;
-            border-radius: 4px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: 0.2s;
-            color: white;
-        }
-        .btn-start { background: #28a745; }
-        .btn-start:hover { background: #218838; }
-        .btn-stop { background: #dc3545; display: none; }
-        .btn-stop:hover { background: #c82333; }
-        .btn-disabled { opacity: 0.5; pointer-events: none; }
-        .runner-status {
-            font-size: 12px;
-            color: #aaa;
-            margin-left: 5px;
-        }
-        .status-running { color: #4da6ff; animation: pulse 1.5s infinite; }
-
-        /* Filters */
-        .filters {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            margin-top: 10px;
-        }
-        .filter-btn {
-            background: #2a2a35;
-            border: 1px solid #444;
-            color: #ccc;
-            padding: 6px 12px;
-            border-radius: 20px;
-            cursor: pointer;
-            font-size: 12px;
-            transition: all 0.2s;
-        }
-        .filter-btn:hover { background: #3a3a45; }
-        .filter-btn.active {
-            background: #4da6ff;
-            color: #000;
-            border-color: #4da6ff;
-            font-weight: bold;
-        }
-
-        /* Gallery Grid */
-        .gallery {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 15px;
-        }
-        .shot-card {
-            background: #1e1e2e;
-            border-radius: 8px;
-            overflow: hidden;
-            transition: transform 0.2s;
-            position: relative;
-        }
-        .shot-card:hover {
-            transform: translateY(-3px);
-            z-index: 10;
-        }
-        .shot-img {
-            width: 100%;
-            height: 150px;
-            object-fit: cover;
-            object-position: top;
-            display: block;
-            background: #000;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-        .shot-img.loaded { opacity: 1; }
-        
-        .shot-info {
-            padding: 8px;
-            font-size: 11px;
-            color: #888;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        
-        /* Badges */
-        .badge {
-            position: absolute;
-            top: 5px; right: 5px;
-            padding: 3px 6px;
-            border-radius: 4px;
-            font-size: 9px;
-            font-weight: bold;
-            color: white;
-            pointer-events: none;
-            text-transform: uppercase;
-        }
-        .badge-modal { background: #9d46ff; }
-        .badge-detail { background: #10b981; }
-        .badge-general { background: #64748b; }
-
-        /* QA Status Tags */
-        .qa-tag {
-            position: absolute;
-            top: 5px; left: 5px;
-            padding: 3px 6px;
-            border-radius: 4px;
-            font-size: 10px;
-            font-weight: bold;
-            color: white;
-            text-transform: uppercase;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.5);
-        }
-        .qa-PASS { background: #28a745; }
-        .qa-FAIL { background: #dc3545; }
-        .qa-BLOCK { background: #ffc107; color: #000; }
-
-        /* Lightbox */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.95);
-            z-index: 1000;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-        }
-        .modal.active { display: flex; }
-        .modal-img {
-            max-width: 90%;
-            max-height: 75vh;
-            border-radius: 4px;
-            box-shadow: 0 0 30px rgba(0,0,0,0.8);
-        }
-        .modal-caption {
-            margin-top: 15px;
-            color: #ccc;
-            font-size: 14px;
-            text-align: center;
-        }
-        .modal-hint {
-            font-size: 11px;
-            color: #666;
-            margin-top: 5px;
-        }
-        .modal-nav {
-            position: absolute;
-            top: 50%;
-            transform: translateY(-50%);
-            background: rgba(255,255,255,0.1);
-            color: white;
-            border: none;
-            padding: 0;
-            cursor: pointer;
-            font-size: 24px;
-            border-radius: 50%;
-            width: 50px; height: 50px;
-            display: flex; align-items: center; justify-content: center;
-            transition: 0.2s;
-            outline: none;
-        }
-        .modal-nav:hover { background: rgba(255,255,255,0.25); }
-        .prev-btn { left: 30px; }
-        .next-btn { right: 30px; }
-        
-        .close-container {
-            position: absolute;
-            top: 20px; right: 30px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .back-btn {
-            background: #333;
-            color: #ddd;
-            border: 1px solid #555;
-            padding: 6px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 13px;
-        }
-        .back-btn:hover { background: #444; }
-        .close-icon {
-            background: transparent;
-            color: #aaa;
-            border: none;
-            font-size: 28px;
-            cursor: pointer;
-            line-height: 1;
-        }
-        .close-icon:hover { color: #fff; }
-
-        .qa-toolbar {
-            margin-top: 15px;
-            display: flex;
-            gap: 10px;
-            background: #2a2a35;
-            padding: 5px;
-            border-radius: 30px;
-        }
-        .qa-btn {
-            border: none;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-weight: bold;
-            font-size: 12px;
-            cursor: pointer;
-            opacity: 0.7;
-            transition: 0.2s;
-            color: white;
-        }
-        .qa-btn:hover { opacity: 1; transform: scale(1.05); }
-        .qa-btn.selected { opacity: 1; box-shadow: 0 0 8px currentColor; transform: scale(1.1); }
-        
-        .btn-pass { background: #28a745; }
-        .btn-fail { background: #dc3545; }
-        .btn-block { background: #ffc107; color: black; }
-
-        .loading {
-            text-align: center;
-            padding: 20px;
-            color: #666;
-            font-size: 13px;
-            display: none;
-        }
-        .loading.visible { display: block; }
-        
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
-        }
-
-    </style>
+    <link rel="stylesheet" href="./styles/main.css">
+    <link rel="stylesheet" href="./styles/header.css">
+    <link rel="stylesheet" href="./styles/gallery.css">
+    <link rel="stylesheet" href="./styles/modal.css">
+    <link rel="stylesheet" href="./styles/home_status.css">
 </head>
 <body>
 
     <header>
-        <div style="display:flex; flex-direction: column; gap: 10px;">
-            <div style="display:flex; align-items:center; gap:10px;">
-                <h1>TestMaker Live <span style="font-size:14px; color:#4da6ff; vertical-align:middle;">●</span></h1>
+        <!-- Row 1: Title & Stats -->
+        <div class="header-top">
+            <div class="header-left">
+                <div style="display:flex; align-items:center; gap:15px;">
+                    <h1 style="margin:0;">TestMaker Live <span style="font-size:14px; color:#4da6ff; vertical-align:middle;">●</span></h1>
+                    <a href="/about.html" class="status-link-btn" id="supervisor-link">
+                        <span id="supervisor-status" class="status-badge" title="Click for System Status & Architecture">IDLE</span>
+                    </a>
+                </div>
             </div>
             
+            <div class="header-right">
+                 <a href="#" id="trace-link" class="trace-btn" target="_blank">Download Trace</a>
+                 <div class="stats">
+                    <div class="card">
+                        <span class="value" id="gp-count">0</span>
+                        <span class="label">Verified Golden Path</span>
+                    </div>
+                    <div class="stat-card" style="position: relative; overflow: visible;">
+                        <span class="stat-value" id="exp-count">0</span>
+                        <span class="label">Exploration Captures</span>
+                        <div id="stats-tooltip" style="display: none;">Loading...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Row 2: Controls (Address, Runner, Tabs) -->
+        <div class="header-controls">
             <!-- Runner Box -->
             <div class="runner-box">
                 <input type="text" id="target-url" class="runner-input" placeholder="Enter target URL to analyze..." value="https://stage.ianai.co/">
-                <button id="btn-start" class="runner-btn btn-start" onclick="startAnalysis()">Start Analysis</button>
-                <button id="btn-stop" class="runner-btn btn-stop" onclick="stopAnalysis()">Stop</button>
+                <button id="btn-start" class="runner-btn btn-start">Start Analysis</button>
+                <button id="btn-stop" class="runner-btn btn-stop">Stop</button>
                 <span id="runner-status" class="runner-status">Idle</span>
             </div>
 
-            <!-- Filters -->
-            <div class="filters">
-                <button class="filter-btn active" onclick="setFilter('ALL')">ALL</button>
-                <button class="filter-btn" onclick="setFilter('MODAL')">MODAL</button>
-                <button class="filter-btn" onclick="setFilter('DETAIL')">DETAIL</button>
-                <button class="filter-btn" onclick="setFilter('GENERAL')">GENERAL</button>
+            <!-- Main Tabs -->
+            <div class="main-tabs">
+                <button class="tab-btn active" onclick="window.setTab('GOLDEN')">⭐ GOLDEN PATH</button>
+                <button class="tab-btn" onclick="window.setTab('EXPLORATION')">🔍 EXPLORATION</button>
             </div>
         </div>
-        
-        <div style="display:flex; align-items:center; gap:20px;">
-             <a href="#" id="trace-link" class="trace-btn" target="_blank">Download Trace</a>
-             <div class="stats">
-                <div class="card">
-                    <span class="value" id="count">0</span>
-                    <span class="label">Analyzed Pages</span>
-                </div>
-                <div class="card">
-                    <span class="value" id="shot-count">0</span>
-                    <span class="label">Screenshots</span>
-                </div>
+
+        <!-- Row 3: Filters & Date -->
+        <div class="filters">
+            <span class="filter-group-label">Type:</span>
+            <button class="filter-btn active" onclick="setFilter('ALL')">ALL <span class="count-badge"></span></button>
+            <button class="filter-btn" onclick="setFilter('MODAL')">Modal <span class="count-badge"></span></button>
+            <button class="filter-btn" onclick="setFilter('PAGE')">Page <span class="count-badge"></span></button>
+            <button class="filter-btn" onclick="setFilter('DETAIL')">Detail <span class="count-badge"></span></button>
+            
+            <span class="filter-group-separator">|</span>
+            
+            <span class="filter-group-label">Depth:</span>
+            <button class="filter-btn active" onclick="setFilter('DEPTH_ALL')">ALL <span class="count-badge"></span></button>
+            <button class="filter-btn" onclick="setFilter('LEVEL 1')">Level 1 <span class="count-badge"></span></button>
+            <button class="filter-btn" onclick="setFilter('LEVEL 2')">Level 2 <span class="count-badge"></span></button>
+            <button class="filter-btn" onclick="setFilter('LEVEL 3+')">Level 3+ <span class="count-badge"></span></button>
+
+            <div id="qa-filters" style="display:inline">
+                <span class="filter-group-separator">|</span>
+                <span class="filter-group-label">QA:</span>
+                <button class="filter-btn active" onclick="setFilter('QA_ALL')">ALL <span class="count-badge"></span></button>
+                <button class="filter-btn btn-filter-pass" onclick="setFilter('PASS')">PASS <span class="count-badge"></span></button>
+                <button class="filter-btn btn-filter-fail" onclick="setFilter('FAIL')">FAIL <span class="count-badge"></span></button>
+                <button class="filter-btn btn-filter-untagged" onclick="setFilter('UNTAGGED')">UNTAGGED <span class="count-badge"></span></button>
             </div>
+            
+            <!-- Date Filter (Right Aligned) -->
+            <span id="date-filter-group" style="margin-left: auto;">
+                <select id="date-filter" class="filter-select">
+                    <option value="" disabled selected>Select Date...</option>
+                </select>
+            </span>
         </div>
     </header>
 
-    <div class="gallery" id="gallery"></div>
+
+    <div class="gallery" id="gallery">
+        <!-- Skeleton Loading State -->
+        <div class="skeleton-card"><div class="skeleton-img skeleton-shimmer"></div><div class="skeleton-text skeleton-shimmer"></div></div>
+        <div class="skeleton-card"><div class="skeleton-img skeleton-shimmer"></div><div class="skeleton-text skeleton-shimmer"></div></div>
+        <div class="skeleton-card"><div class="skeleton-img skeleton-shimmer"></div><div class="skeleton-text skeleton-shimmer"></div></div>
+        <div class="skeleton-card"><div class="skeleton-img skeleton-shimmer"></div><div class="skeleton-text skeleton-shimmer"></div></div>
+        <div class="skeleton-card"><div class="skeleton-img skeleton-shimmer"></div><div class="skeleton-text skeleton-shimmer"></div></div>
+        <div class="skeleton-card"><div class="skeleton-img skeleton-shimmer"></div><div class="skeleton-text skeleton-shimmer"></div></div>
+        <div class="skeleton-card"><div class="skeleton-img skeleton-shimmer"></div><div class="skeleton-text skeleton-shimmer"></div></div>
+        <div class="skeleton-card"><div class="skeleton-img skeleton-shimmer"></div><div class="skeleton-text skeleton-shimmer"></div></div>
+        <div class="skeleton-card"><div class="skeleton-img skeleton-shimmer"></div><div class="skeleton-text skeleton-shimmer"></div></div>
+        <div class="skeleton-card"><div class="skeleton-img skeleton-shimmer"></div><div class="skeleton-text skeleton-shimmer"></div></div>
+    </div>
     <div class="loading" id="loading">Loading more...</div>
     <div id="sentinel" style="height: 20px; margin-top: 20px;"></div>
 
     <!-- Lightbox Modal -->
     <div class="modal" id="modal">
         <div class="close-container">
-            <button class="back-btn" onclick="closeModal()">Back to Gallery</button>
-            <button class="close-icon" onclick="closeModal()">&times;</button>
+            <button class="back-btn">Back to Gallery</button>
+            <button class="close-icon">&times;</button>
         </div>
         
-        <button class="modal-nav prev-btn" onclick="prevImage()">&#10094;</button>
-        <button class="modal-nav next-btn" onclick="nextImage()">&#10095;</button>
+        <button class="modal-nav prev-btn">&#10094;</button>
+        <button class="modal-nav next-btn">&#10095;</button>
         
         <img src="" alt="" class="modal-img" id="modal-img">
         
         <div class="qa-toolbar">
-            <button class="qa-btn btn-pass" onclick="setTag('PASS')">PASS</button>
-            <button class="qa-btn btn-fail" onclick="setTag('FAIL')">FAIL</button>
-            <button class="qa-btn btn-block" onclick="setTag('BLOCK')">BLOCK</button>
+            <button class="qa-btn btn-pass">PASS</button>
+            <button class="qa-btn btn-fail">FAIL</button>
+
         </div>
 
         <div class="modal-caption" id="modal-caption"></div>
         <div class="modal-hint">Use ← → arrow keys to navigate</div>
     </div>
 
-    <script>
-        const API_URL = '/api/stats';
-        
-        // State
-        let serverScreenshots = [];
-        let filteredScreenshots = [];
-        let visualScreenshots = [];
-        let tags = {};
-        let currentModalUrl = null;
-        let isModalOpen = false;
-        let currentFilter = 'ALL';
-        let isRunning = false;
+    <!-- About Modal Removed (Migrated to /about.html) -->
 
-        // Constants
-        const BATCH_SIZE = 24;
-
-        // DOM Elements
-        const gallery = document.getElementById('gallery');
-        const loading = document.getElementById('loading');
-        const sentinel = document.getElementById('sentinel');
-        const btnStart = document.getElementById('btn-start');
-        const btnStop = document.getElementById('btn-stop');
-        const inputUrl = document.getElementById('target-url');
-        const runnerStatus = document.getElementById('runner-status');
-
-        // Infinite Scroll
-        const observer = new IntersectionObserver((entries) => {
-            if (entries[0].isIntersecting) {
-                loadMore();
-            }
-        });
-        observer.observe(sentinel);
-
-        function setFilter(filter) {
-            currentFilter = filter;
-            document.querySelectorAll('.filter-btn').forEach(btn => {
-                btn.classList.toggle('active', btn.innerText === filter);
-            });
-            applyFilterAndReset();
-        }
-        
-        function getScreenshotType(url) {
-            const lower = url.toLowerCase();
-            if (lower.includes('modal-')) return 'MODAL';
-            if (lower.includes('detail-')) return 'DETAIL';
-            return 'GENERAL';
-        }
-
-        function applyFilterAndReset() {
-            if (currentFilter === 'ALL') {
-                filteredScreenshots = [...serverScreenshots];
-            } else {
-                filteredScreenshots = serverScreenshots.filter(url => getScreenshotType(url) === currentFilter);
-            }
-            visualScreenshots = [];
-            gallery.innerHTML = '';
-            loadMore();
-        }
-
-        async function update() {
-            try {
-                const res = await fetch(API_URL);
-                const data = await res.json();
-                
-                // Update Runner UI
-                isRunning = data.isRunning;
-                if (isRunning) {
-                    btnStart.style.display = 'none';
-                    btnStop.style.display = 'block';
-                    inputUrl.disabled = true;
-                    runnerStatus.innerText = "Running Analysis...";
-                    runnerStatus.className = "runner-status status-running";
-                } else {
-                    btnStart.style.display = 'block';
-                    btnStop.style.display = 'none';
-                     inputUrl.disabled = false;
-                    runnerStatus.innerText = "Idle";
-                    runnerStatus.className = "runner-status";
-                }
-                
-                // Update Stats
-                document.getElementById('count').innerText = data.analyzedCount;
-                document.getElementById('shot-count').innerText = data.screenshots.length;
-
-                const traceLink = document.getElementById('trace-link');
-                if (data.latestTrace) {
-                    traceLink.href = data.latestTrace;
-                    traceLink.style.display = 'inline-block';
-                }
-                
-                tags = data.tags || {};
-                updateVisibleTags();
-
-                serverScreenshots = data.screenshots;
-                
-                if (filteredScreenshots.length === 0 && visualScreenshots.length === 0 && serverScreenshots.length > 0) {
-                     applyFilterAndReset();
-                } else {
-                    let newFiltered = [];
-                    if (currentFilter === 'ALL') {
-                        newFiltered = [...serverScreenshots];
-                    } else {
-                        newFiltered = serverScreenshots.filter(url => getScreenshotType(url) === currentFilter);
-                    }
-                    
-                    if (newFiltered.length > 0) {
-                        const currentTop = filteredScreenshots[0];
-                        const newItems = [];
-                        
-                        for(let i=0; i<newFiltered.length; i++) {
-                            if (newFiltered[i] === currentTop) break;
-                            newItems.push(newFiltered[i]);
-                        }
-                        
-                        filteredScreenshots = newFiltered;
-                        
-                        if (newItems.length > 0) {
-                             for (let i = newItems.length - 1; i >= 0; i--) {
-                                const url = newItems[i];
-                                if (!visualScreenshots.includes(url)) {
-                                    const card = createCard(url);
-                                    card.style.animation = "fadeIn 0.5s";
-                                    gallery.insertBefore(card, gallery.firstChild);
-                                    visualScreenshots.unshift(url);
-                                }
-                            }
-                        }
-                    } else {
-                        filteredScreenshots = newFiltered;
-                    }
-                }
-                
-                if (isModalOpen) updateModalNav();
-
-            } catch (e) {
-                console.error("Dashboard update failed:", e);
-            }
-        }
-        
-        async function startAnalysis() {
-            const url = inputUrl.value;
-            if(!url) return alert('Please enter a URL');
-            
-            btnStart.classList.add('btn-disabled');
-            runnerStatus.innerText = "Starting...";
-            
-            try {
-                const res = await fetch('/api/analyze', {
-                    method: 'POST',
-                    body: JSON.stringify({ url, depth: 5 })
-                });
-                const json = await res.json();
-                if(json.error) alert(json.error);
-            } catch(e) {
-                alert('Failed to start: ' + e);
-            }
-        }
-        
-        async function stopAnalysis() {
-            if(!confirm('Are you sure you want to stop the analysis?')) return;
-            try {
-                await fetch('/api/stop', { method: 'POST' });
-            } catch(e) {}
-        }
-        
-        async function setTag(status) {
-            if (!currentModalUrl) return;
-            tags[currentModalUrl] = status;
-            updateQAButtons(status);
-            updateVisibleTags();
-            try {
-                await fetch('/api/tag', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url: currentModalUrl, status })
-                });
-            } catch (e) {}
-        }
-        
-        function updateQAButtons(currentStatus) {
-            document.querySelectorAll('.qa-btn').forEach(btn => btn.classList.remove('selected'));
-            if (currentStatus === 'PASS') document.querySelector('.btn-pass').classList.add('selected');
-            if (currentStatus === 'FAIL') document.querySelector('.btn-fail').classList.add('selected');
-            if (currentStatus === 'BLOCK') document.querySelector('.btn-block').classList.add('selected');
-        }
-        
-        function updateVisibleTags() {
-             document.querySelectorAll('.shot-card').forEach(card => {
-                 const url = card.dataset.url;
-                 const status = tags[url];
-                 const existingTag = card.querySelector('.qa-tag');
-                 if (existingTag) existingTag.remove();
-                 
-                 if (status) {
-                     const tag = document.createElement('span');
-                     tag.className = `qa-tag qa-${status}`;
-                     tag.innerText = status;
-                     card.appendChild(tag);
-                 }
-             });
-        }
-
-        function loadMore() {
-            // [FIX] Robust Infinite Scroll: Find where we actually are in the filtered list
-            // This prevents issues if new items were prepended (shifting indices)
-            let start = 0;
-            if (visualScreenshots.length > 0) {
-                const lastUrl = visualScreenshots[visualScreenshots.length - 1];
-                const lastIdx = filteredScreenshots.indexOf(lastUrl);
-                if (lastIdx !== -1) {
-                    start = lastIdx + 1;
-                } else {
-                    // Fallback if last item disappeared from master list (rare)
-                    start = visualScreenshots.length;
-                }
-            }
-
-            if (start >= filteredScreenshots.length) {
-                loading.classList.remove('visible');
-                return;
-            }
-
-            loading.classList.add('visible');
-            
-            const end = Math.min(start + BATCH_SIZE, filteredScreenshots.length);
-            
-            const fragment = document.createDocumentFragment();
-            for (let i = start; i < end; i++) {
-                const url = filteredScreenshots[i];
-                // Avoid duplicates (double check)
-                if (!visualScreenshots.includes(url)) {
-                    fragment.appendChild(createCard(url));
-                    visualScreenshots.push(url);
-                }
-            }
-            
-            gallery.appendChild(fragment);
-            loading.classList.remove('visible');
-        }
-
-        function createCard(url) {
-            const name = url.split('/').pop().replace('screenshot-', '').replace('.webp', '');
-            const type = getScreenshotType(url);
-            const badgeClass = `badge-${type.toLowerCase()}`;
-            const status = tags[url];
-            const div = document.createElement('div');
-            div.className = 'shot-card';
-            div.dataset.url = url;
-            div.onclick = () => openModal(url);
-            let statusHtml = '';
-            if (status) statusHtml = `<span class="qa-tag qa-${status}">${status}</span>`;
-            
-            div.innerHTML = `
-                ${statusHtml}
-                <span class="badge ${badgeClass}">${type}</span>
-                <div style="cursor:pointer">
-                    <img data-src="${url}" class="shot-img" alt="${name}">
-                </div>
-                <div class="shot-info">${name}</div>
-            `;
-            const img = div.querySelector('img');
-            const obs = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        const target = entry.target;
-                        target.src = target.dataset.src;
-                        target.onload = () => target.classList.add('loaded');
-                        obs.unobserve(target);
-                    }
-                });
-            });
-            obs.observe(img);
-            return div;
-        }
-
-        function openModal(url) {
-            currentModalUrl = url;
-            isModalOpen = true;
-            document.getElementById('modal').classList.add('active');
-            updateModalImage();
-        }
-
-        function closeModal() {
-            isModalOpen = false;
-            document.getElementById('modal').classList.remove('active');
-        }
-
-        function updateModalImage() {
-            if (!currentModalUrl) return;
-            const idx = filteredScreenshots.indexOf(currentModalUrl);
-            const name = currentModalUrl.split('/').pop().replace('screenshot-', '').replace('.webp', '');
-            const img = document.getElementById('modal-img');
-            img.src = currentModalUrl;
-            const total = filteredScreenshots.length;
-            document.getElementById('modal-caption').innerText = `Image ${idx + 1} of ${total} (${currentFilter}) - ${name}`;
-            updateQAButtons(tags[currentModalUrl]);
-            updateModalNav();
-            preloadNeighbors(idx);
-        }
-        
-        function updateModalNav() {
-            const idx = filteredScreenshots.indexOf(currentModalUrl);
-            const prevBtn = document.querySelector('.prev-btn');
-            const nextBtn = document.querySelector('.next-btn');
-
-            if (idx <= 0) {
-                prevBtn.style.display = 'none';
-            } else {
-                prevBtn.style.display = 'flex';
-            }
-
-            if (idx >= filteredScreenshots.length - 1) {
-                nextBtn.style.display = 'none';
-            } else {
-                nextBtn.style.display = 'flex';
-            }
-        }
-
-        function nextImage() {
-            const idx = filteredScreenshots.indexOf(currentModalUrl);
-            if (idx !== -1 && idx < filteredScreenshots.length - 1) {
-                currentModalUrl = filteredScreenshots[idx + 1];
-                updateModalImage();
-            }
-        }
-
-        function prevImage() {
-            const idx = filteredScreenshots.indexOf(currentModalUrl);
-            if (idx > 0) {
-                currentModalUrl = filteredScreenshots[idx - 1];
-                updateModalImage();
-            }
-        }
-        
-        function preloadNeighbors(idx) {
-            if (idx < filteredScreenshots.length - 1) {
-                new Image().src = filteredScreenshots[idx + 1];
-            }
-            if (idx > 0) {
-                new Image().src = filteredScreenshots[idx - 1];
-            }
-        }
-
-        document.addEventListener('keydown', (e) => {
-            if (!isModalOpen) return;
-            if (e.key === 'ArrowLeft') prevImage();
-            if (e.key === 'ArrowRight') nextImage();
-            if (e.key === 'Escape') closeModal();
-            if (e.key === "1") setTag('PASS');
-            if (e.key === "2") setTag('FAIL');
-            if (e.key === "3") setTag('BLOCK');
-        });
-
-        update();
-        setInterval(update, 3000);
-        
-        const styleSheet = document.createElement("style");
-        styleSheet.innerText = `
-            @keyframes fadeIn {
-                from { opacity: 0; transform: translateY(-10px); }
-                to { opacity: 1; transform: translateY(0); }
-            }
-        `;
-        document.head.appendChild(styleSheet);
+    <!-- Mermaid CDN -->
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true, theme: 'dark' });
     </script>
+
+    <!-- Main Module -->
+    <script type="module" src="./scripts/main.js"></script>
 </body>
 </html>

@@ -1,7 +1,8 @@
 import { program } from 'commander';
-import { Scraper } from './scraper.js';
+import { Scraper, ScrapeOptions } from './scraper.js';
 import { Analyzer } from '../../scripts/analyzer.js';
 import { Generator } from '../../scripts/generator.js';
+import { urlToPathName, getDomainSegment } from './utils/pathUtils.js';
 import { AnalysisResult } from '../../types/index.js';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -41,8 +42,8 @@ program.action(async (options) => {
     const limit = parseInt(options.limit, 10) || 50;
     const maxDepth = parseInt(options.depth, 10) || 1;
 
-    console.log(`\n[TestMaker] Target: ${url}`);
-    console.log(`[TestMaker] Mode: BFS (Depth: ${maxDepth}, Limit: ${limit})`);
+    console.log(`\n[TestMaker] Target: ${url} `);
+    console.log(`[TestMaker] Mode: BFS(Depth: ${maxDepth}, Limit: ${limit})`);
 
     const scraper = new Scraper();
     const analyzer = new Analyzer();
@@ -50,7 +51,7 @@ program.action(async (options) => {
 
     // [FIX] Auto-enable recursive mode if depth > 1
     if (maxDepth > 1 && !options.recursive) {
-        console.log(`[TestMaker] Depth ${maxDepth} > 1 detected. Auto-enabling recursive mode.`);
+        console.log(`[TestMaker] Depth ${maxDepth} > 1 detected.Auto - enabling recursive mode.`);
         options.recursive = true;
     }
 
@@ -72,13 +73,12 @@ program.action(async (options) => {
 
             console.log(`\n[TestMaker] --- [D${currentDepth}] Analyzing: ${currentUrl} ---`);
 
-            const urlParsed = new URL(currentUrl);
-            const pageDomain = urlParsed.hostname.replace(/\./g, '-');
-            const urlPathName = urlParsed.pathname.replace(/\//g, '-').replace(/^-|-$/g, '') || 'index';
+            const pageDomain = getDomainSegment(currentUrl);
+            const urlPathName = urlToPathName(currentUrl);
             const targetJsonFile = path.join(baseOutputDir, 'json', pageDomain, `${pageDomain}-${urlPathName}.json`);
 
             if (fs.existsSync(targetJsonFile) && !options.force) {
-                console.log(`[TestMaker] Loading from cache: ${targetJsonFile}`);
+                console.log(`[TestMaker] Loading from cache: ${targetJsonFile} `);
                 try {
                     const cache: AnalysisResult = JSON.parse(fs.readFileSync(targetJsonFile, 'utf-8'));
                     if (options.recursive && currentDepth < maxDepth) {
@@ -90,22 +90,33 @@ program.action(async (options) => {
                 } catch (e) { }
             }
 
+            const isAuth = urlPathName.includes('login') || urlPathName.includes('logout') || urlPathName.includes('sign-in') || urlPathName.includes('sign-up') || urlPathName.includes('reset-password') || urlPathName.includes('forgot-password');
+
             const scrapeResult = await scraper.scrape({
                 url: currentUrl,
                 outputDir: path.join(baseOutputDir, 'screenshots', pageDomain),
-                authFile: fs.existsSync(tempAuthFile) ? tempAuthFile : options.authFile,
+                authFile: options.authFile || (fs.existsSync(tempAuthFile) ? tempAuthFile : undefined),
                 saveAuthFile: tempAuthFile,
                 username: options.username,
                 password: options.password,
-                screenshotName: `screenshot-${urlPathName}.png`,
+                screenshotName: isAuth ? undefined : `screenshot - ${urlPathName}.png`,
                 headless: options.headless
             });
 
-            const { elements, pageTitle, discoveredLinks, sidebarLinks } = scrapeResult as any;
+            const { elements, pageTitle, discoveredLinks, sidebarLinks, goldenPath } = scrapeResult as any;
 
             console.log(`[TestMaker] Found ${sidebarLinks?.length || 0} sidebar links, ${discoveredLinks?.length || 0} other links`);
             if (sidebarLinks?.length > 0) {
-                console.log(`[TestMaker] Sidebar: ${sidebarLinks.slice(0, 5).join(', ')}${sidebarLinks.length > 5 ? '...' : ''}`);
+                console.log(`[TestMaker] Sidebar: ${sidebarLinks.slice(0, 5).join(', ')}${sidebarLinks.length > 5 ? '...' : ''} `);
+            }
+
+            // Display Golden Path analysis
+            if (goldenPath) {
+                const statusIcon = goldenPath.isStable ? '✓' : '✗';
+                console.log(`[TestMaker] Golden Path ${statusIcon} Stable: ${goldenPath.isStable}, Confidence: ${goldenPath.confidence.toFixed(2)} `);
+                if (goldenPath.reasons.length > 0) {
+                    console.log(`[TestMaker]   Reasons: ${goldenPath.reasons.join('; ')} `);
+                }
             }
 
             if (options.recursive) {
@@ -117,7 +128,11 @@ program.action(async (options) => {
                 found.forEach(l => {
                     try {
                         if (new URL(l).hostname === initialDomain && !visited.has(l)) {
-                            queue.push({ url: l, depth: nextDepth });
+                            const lower = l.toLowerCase();
+                            const isAuth = lower.includes('reset-password') || lower.includes('forgot-password') || lower.includes('login') || lower.includes('logout') || lower.includes('sign-in') || lower.includes('sign-up');
+                            if (!isAuth) {
+                                queue.push({ url: l, depth: nextDepth });
+                            }
                         }
                     } catch (e) { }
                 });
@@ -136,6 +151,7 @@ program.action(async (options) => {
                 scenarios,
                 discoveredLinks,
                 sidebarLinks,
+                goldenPath,
                 metadata: {
                     totalElements: elements.length,
                     byType: stats as any,
@@ -156,10 +172,25 @@ program.action(async (options) => {
             await new Promise(r => setTimeout(r, 500));
         }
 
-        console.log(`\n[TestMaker] --- Execution Summary ---`);
-        console.log(`[TestMaker] Analyzed Pages (${analyzedCount}):`);
-        analyzedUrls.forEach((u, i) => console.log(`${i + 1}. ${u}`));
-        console.log(`\n[TestMaker] Finished. Analyzed: ${analyzedCount}, Cached: ${skippedCount}`);
+        console.log(`\n[TestMaker]-- - Execution Summary-- - `);
+        console.log(`[TestMaker] Analyzed Pages(${analyzedCount}): `);
+        analyzedUrls.forEach((u, i) => console.log(`${i + 1}. ${u} `));
+        console.log(`\n[TestMaker] Finished.Analyzed: ${analyzedCount}, Cached: ${skippedCount} `);
+
+        // Auto-start Supervisor after successful analysis
+        if (analyzedCount > 0) {
+            console.log(`\n[TestMaker] Starting Supervisor for Golden Path testing...`);
+            const { spawn } = await import('child_process');
+            const supervisorProcess = spawn('npm', ['run', 'supervisor'], {
+                stdio: 'inherit',
+                shell: true,
+                detached: false
+            });
+
+            supervisorProcess.on('exit', (code) => {
+                console.log(`\n[TestMaker] Supervisor exited with code ${code} `);
+            });
+        }
     } catch (e) {
         console.error('[TestMaker] Fatal Error:', e);
         process.exit(1);

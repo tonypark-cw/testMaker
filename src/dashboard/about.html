@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TestMaker - System Architecture</title>
+    <link rel="stylesheet" href="./styles/main.css">
+    <link rel="stylesheet" href="./styles/header.css">
+    <style>
+        body { padding: 40px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .back-link { display: inline-block; margin-bottom: 20px; color: #888; text-decoration: none; font-size: 14px; }
+        .back-link:hover { color: white; }
+        .section { background: #1a1a1a; padding: 30px; border-radius: 10px; margin-bottom: 30px; }
+        h1 { color: #4da6ff; margin-top: 0; }
+        h2 { border-bottom: 1px solid #333; padding-bottom: 10px; margin-top: 0; font-size: 18px; color: #ccc; }
+        
+        /* Status Box */
+        .status-box { 
+            background: #111; 
+            border: 1px solid #333; 
+            padding: 20px; 
+            border-radius: 6px; 
+            font-family: monospace;
+            color: #4da6ff;
+            margin-top: 20px;
+        }
+        .status-label { color: #666; font-size: 12px; margin-bottom: 5px; display: block; }
+        .status-value { font-size: 16px; font-weight: bold; }
+        .status-time { color: #444; font-size: 12px; float: right; }
+
+        /* CSS Flowchart */
+        .flowchart { display: flex; flex-direction: column; gap: 30px; align-items: center; padding: 20px; }
+        .layer-container { display: flex; gap: 40px; justify-content: center; width: 100%; }
+        
+        .node {
+            background: #252525;
+            border: 2px solid #555;
+            border-radius: 8px;
+            padding: 20px;
+            width: 250px;
+            text-align: center;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        .node h3 { margin: 0 0 10px 0; font-size: 16px; color: white; }
+        .node p { margin: 0; font-size: 13px; color: #aaa; }
+        .node:hover { transform: translateY(-2px); border-color: #777; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+
+        /* Specific Node Colors */
+        .node.mgr { border-color: #4da6ff; }
+        .node.mgr h3 { color: #4da6ff; }
+        .node.exec { border-color: #fff; }
+        .node.exec h3 { color: #fff; }
+        .node.heal { border-color: #ff4d4d; }
+        .node.heal h3 { color: #ff4d4d; }
+
+        /* Connectors (Pseudo-elements) */
+        .arrow-down::after {
+            content: '↓';
+            display: block;
+            text-align: center;
+            color: #555;
+            font-size: 24px;
+            margin: 10px 0;
+        }
+        
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="back-link">← Back to Dashboard</a>
+        
+        <div class="section">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h1>System Architecture & Status</h1>
+                <div id="live-indicator" style="color:#4da6ff; font-size:12px;">● Live Monitoring</div>
+            </div>
+
+            <div class="status-box">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <div style="flex:1;">
+                        <span class="status-label">CURRENT SUPERVISOR ACTIVITY</span>
+                        <span class="status-time" id="status-time">--:--:--</span>
+                        <div class="status-value" id="status-text">Not Running</div>
+                    </div>
+                    <button id="btn-stop-supervisor" style="
+                        background: #ff4d4d;
+                        color: white;
+                        border: none;
+                        padding: 8px 16px;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-weight: bold;
+                        display: none;
+                    ">Stop Supervisor</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>System Architecture (CSS Diagram)</h2>
+            <div class="flowchart">
+                <!-- Layer 1 -->
+                <div class="layer-container">
+                    <div class="node mgr">
+                        <h3>Test Supervisor</h3>
+                        <p>Process Monitor<br>(Heartbeat & Auto-Restart)</p>
+                    </div>
+                </div>
+
+                <div class="arrow-down"></div>
+
+                <!-- Layer 2 -->
+                <div class="layer-container">
+                    <div class="node exec">
+                        <h3>Test Runner</h3>
+                        <p>Playwright Worker<br>(Executes Golden Path)</p>
+                    </div>
+                    <div class="node heal">
+                        <h3>Healer Module</h3>
+                        <p>Context Capture<br>(On Failure Only)</p>
+                    </div>
+                </div>
+
+                 <div class="arrow-down"></div>
+
+                <!-- Layer 3 -->
+                <div class="layer-container">
+                    <div class="node">
+                        <h3>Dashboard Server</h3>
+                        <p>Visualization & Monitoring<br>(Reads Artifacts)</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Poll for status
+        async function fetchStatus() {
+            try {
+                const res = await fetch('/api/stats');
+                const data = await res.json();
+                if (data.supervisorStatus) {
+                    const s = data.supervisorStatus;
+                    const statusText = document.getElementById('status-text');
+                    const statusTime = document.getElementById('status-time');
+                    
+                    // Format: "RUNNING - [ACTIVITY] Browsing Inventory..."
+                    let display = s.status;
+                    if (s.currentTask) {
+                        display += ` — ${s.currentTask}`;
+                    }
+                    
+                    statusText.innerText = display;
+                    
+                    if (s.timestamp) {
+                        const date = new Date(s.timestamp);
+                        statusTime.innerText = isNaN(date.getTime()) ? '' : date.toLocaleTimeString();
+                    } else {
+                        statusTime.innerText = '';
+                    }
+
+                    if (s.status === 'RUNNING') {
+                        statusText.style.color = '#4da6ff';
+                        document.getElementById('btn-stop-supervisor').style.display = 'block';
+                    } else if (s.status.includes('STOPPED')) {
+                        statusText.style.color = '#ff4d4d';
+                        document.getElementById('btn-stop-supervisor').style.display = 'none';
+                    } else {
+                        statusText.style.color = '#888';
+                        document.getElementById('btn-stop-supervisor').style.display = 'none';
+                    }
+                } else {
+                    // No supervisor status - not running
+                    document.getElementById('status-text').innerText = 'Not Running (Start with: npm run supervisor)';
+                    document.getElementById('status-text').style.color = '#666';
+                    document.getElementById('btn-stop-supervisor').style.display = 'none';
+                }
+            } catch (e) { 
+                console.error(e);
+                document.getElementById('status-text').innerText = 'Connection Lost';
+                document.getElementById('status-text').style.color = '#666';
+                document.getElementById('btn-stop-supervisor').style.display = 'none';
+            }
+        }
+
+        // Stop Supervisor
+        document.getElementById('btn-stop-supervisor').addEventListener('click', async () => {
+            if (!confirm('Stop Supervisor process?')) return;
+            try {
+                const res = await fetch('/api/stop-supervisor', { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    alert('Supervisor stopped');
+                    fetchStatus();
+                } else {
+                    alert('Failed to stop: ' + (data.error || 'Unknown error'));
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        });
+
+        setInterval(fetchStatus, 2000);
+        fetchStatus();
+    </script>
+</body>
+</html>

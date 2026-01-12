@@ -35,3 +35,21 @@ Autonomous repair of page discovery issues in `testMaker-fix`. Target: 40+ pages
 - **Action**: Modified `scraper.ts` to fallback to global sidebar button search if container not found (copying `main` logic).
 - **Action**: Added immediate link capture to Sidebar Phase.
 - **Status**: Running verification (Run #4).
+
+## Session Summary [2026-01-12]
+- **Completed**:
+    - Refactored `index.html` into modular structure (`styles/`, `scripts/`).
+    - Implemented **Depth Filters** (Level 1, 2, 3+) with fix for relative path calculation.
+    - Implemented **QA Filters** (PASS, FAIL, BLOCK, UNTAGGED).
+    - Enabled **Mixed Filtering** (Conjunctive logic for Type + Depth + QA).
+    - Restored and consolidated `docs/PROJECT_BRIEFING.md`.
+    - Fixed UI layout issues in `header.css`.
+- **Decisions**:
+    - Moved from single-file `index.html` to ESM-based modular architecture.
+    - Adopted conjunctive filtering logic in `state.js` and `gallery.js`.
+- **Next Steps**:
+    - **Fix Golden Path Tagging**: The automatic tagging logic (`isGolden`) is failing because `getScreenshotDepth` and `isGolden` rely on URL parsing, but input is a flat filename path. Needs regex-based parser.
+- **Context**:
+    - `src/dashboard/scripts/gallery.js`: Central logic for filtering and rendering.
+    - `src/dashboard/styles/header.css`: Filter UI styles.
+    - `task.md`: Phase 5 mostly done, Phase 6 (Bug Fixes) started.

@@ -18,6 +18,7 @@ Autonomous repair of page discovery issues in `testMaker-fix`. Target: 40+ pages
 | 2026-01-02 14:00 | fix | `--recursive` | 20+ | **Passed** | **Autonomous Repair**: Fixed recursion-nav bug & phase isolation. |
 | 2026-01-02 16:00 | fix | `--recursive` | 10+ | **Passed** | **Regression Fix**: Safe auto-scroll (try-catch) & stability wait. |
 | 2026-01-02 16:30 | fix | `optimize` | TBD | **Pending** | **Speed Optimization**: Reduced timeouts (Login, Scroll, Polling). |
+| 2026-01-13 15:45 | fix | `--limit 15 --depth 2` | 60+ | **Passed** | **Session Stabilization**: Fixed 403 errors by injecting `Company-Id`. Discovered multiple dashboard pages. |
 | **Status**: resolved | | | | | |
 
 ## Timeline & Attempts
@@ -36,20 +37,15 @@ Autonomous repair of page discovery issues in `testMaker-fix`. Target: 40+ pages
 - **Action**: Added immediate link capture to Sidebar Phase.
 - **Status**: Running verification (Run #4).
 
-## Session Summary [2026-01-12]
-- **Completed**:
-    - Refactored `index.html` into modular structure (`styles/`, `scripts/`).
-    - Implemented **Depth Filters** (Level 1, 2, 3+) with fix for relative path calculation.
-    - Implemented **QA Filters** (PASS, FAIL, BLOCK, UNTAGGED).
-    - Enabled **Mixed Filtering** (Conjunctive logic for Type + Depth + QA).
-    - Restored and consolidated `docs/PROJECT_BRIEFING.md`.
-    - Fixed UI layout issues in `header.css`.
-- **Decisions**:
-    - Moved from single-file `index.html` to ESM-based modular architecture.
-    - Adopted conjunctive filtering logic in `state.js` and `gallery.js`.
+
+## Session Summary [2026-01-13]
+- **Issue**: Session loss (Logout) immediately after login due to 403 Forbidden errors on dashboard APIs.
+- **Action**: 
+    - Performed API Reverse Engineering using `src/tools/captureAuth.ts`.
+    - Identified missing `company-id` header required by multi-tenant backend.
+    - Implemented modular header injection in `src/core/runner.ts` controlled by `.env`.
+    - Refined navigation arrows logic and contrast in `src/dashboard/index.html`.
+- **Result**: **Success**. Session remains stable throughout the entire run. Discovered 60+ links spanning all dashboard modules (Accounting, Sales, Inventory, etc.).
 - **Next Steps**:
-    - **Fix Golden Path Tagging**: The automatic tagging logic (`isGolden`) is failing because `getScreenshotDepth` and `isGolden` rely on URL parsing, but input is a flat filename path. Needs regex-based parser.
-- **Context**:
-    - `src/dashboard/scripts/gallery.js`: Central logic for filtering and rendering.
-    - `src/dashboard/styles/header.css`: Filter UI styles.
-    - `task.md`: Phase 5 mostly done, Phase 6 (Bug Fixes) started.
+    - Monitor backend fixes to eventually remove the `company-id` injection workaround.
+    - Test stability on `dev.ianai.co` environment.

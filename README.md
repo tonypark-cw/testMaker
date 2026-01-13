@@ -430,6 +430,9 @@ testMaker/
 │   │   ├── server.ts        # HTTP 서버
 │   │   └── scripts/         # 프론트엔드 스크립트
 │   │
+│   ├── tools/
+│   │   └── generate_auth.ts # 인증 상태 생성 도구
+│   │
 │   └── utils.ts             # 유틸리티 함수
 │
 ├── scripts/

@@ -127,6 +127,43 @@ private static visitedExpansionButtons = new Set<string>();   // L15: 확장한 
 | Dashboard (Web UI) | ✅ |
 | Worker Mode (Isolated Logs) | ✅ |
 | Metadata for all shots | ✅ |
+| Golden Path Analysis | 🔲 Planned |
+
+---
+
+## Golden Path Analysis (Planned)
+
+페이지 안정성 및 테스트 적합성을 자동 평가하는 기능.
+
+### 개요
+| 항목 | 설명 |
+|------|------|
+| **목적** | 테스트에 적합한 안정적인 페이지 식별 |
+| **출력** | confidence score (0-1), isStable, reasons |
+| **표시** | CLI 로그 + 대시보드 badge |
+
+### Confidence Score 계산
+| 조건 | 감점 | 설명 |
+|------|------|------|
+| Loading indicator | -0.4 | 로더, 스피너 감지 |
+| Error message | -0.5 | alert, error 클래스 |
+| Testable elements < 3 | -0.3 | 최소 3개 필요 |
+| No actionable content | -0.2 | 버튼, 폼 없음 |
+
+### 안정성 판단
+- **Stable**: 로더 없음 AND 에러 없음
+- **권장 임계값**: confidence ≥ 0.6
+
+### 구현 파일
+| 파일 | 변경 내용 |
+|------|----------|
+| `types/index.ts` | GoldenPathInfo 타입 추가 |
+| `src/core/types.ts` | ScrapeResult.goldenPath 필드 |
+| `src/core/scraper.ts` | analyzeGoldenPath() 메서드 |
+| `src/core/runner.ts` | CLI 출력 |
+| `src/dashboard/server.ts` | 대시보드 표시 |
+
+**상세 구현 계획:** [GOLDEN_PATH_IMPLEMENTATION.md](./GOLDEN_PATH_IMPLEMENTATION.md)
 
 ---
 

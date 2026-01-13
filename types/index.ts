@@ -98,16 +98,13 @@ export type ScenarioCategory =
     | 'crud-operation'
     | 'general';
 
-/** Golden Path Information */
-export interface GoldenPathInfo {
-    /** Page is in stable state (no loading indicators, no errors) */
-    isStable: boolean;
-    /** Page has sufficient testable elements */
-    hasTestableElements: boolean;
-    /** Confidence score (0-1) for page being a valid test starting point */
-    confidence: number;
-    /** Reasons for the stability assessment */
-    reasons: string[];
+/** 모달 발견 정보 */
+export interface ModalDiscovery {
+    triggerText: string;
+    modalTitle: string;
+    elements: any[]; // Using any[] for now as scraper returns simplified element structure for modals
+    links: string[];
+    screenshotPath?: string;
 }
 
 /** 분석 결과 */
@@ -120,7 +117,8 @@ export interface AnalysisResult {
     scenarios: TestScenario[];
     discoveredLinks: string[];
     sidebarLinks?: string[];
-    goldenPath?: GoldenPathInfo;
+    modalDiscoveries?: ModalDiscovery[];
+    actionChain?: any[]; // Recorded interactions
     metadata: {
         totalElements: number;
         byType: Record<string, number>;
@@ -133,7 +131,7 @@ export interface AnalysisResult {
 /** 생성 옵션 */
 export interface GeneratorOptions {
     outputDir: string;
-    formats: ('markdown' | 'playwright' | 'both')[];
+    formats: string[];
     baseUrl?: string;
     includeScreenshots?: boolean;
 }
@@ -150,3 +148,15 @@ export const SCENARIO_HINTS: Record<ScenarioCategory, string[]> = {
     'crud-operation': ['create', 'edit', 'delete', 'update', 'add', 'remove'],
     'general': [],
 };
+
+/**
+ * Golden Path analysis result
+ * Evaluates page stability and testability
+ */
+export interface GoldenPathInfo {
+    isStable: boolean;            // Overall stability assessment
+    hasTestableElements: boolean; // Minimum testable elements present
+    confidence: number;           // 0.0 to 1.0 confidence score
+    reasons: string[];            // Human-readable analysis reasons
+}
+

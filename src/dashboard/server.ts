@@ -1,10 +1,11 @@
 import * as http from 'http';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as url from 'url';
 import { fileURLToPath } from 'url';
-import { spawn, execSync } from 'child_process';
+import { spawn } from 'child_process';
 import * as dotenv from 'dotenv';
-import { filenameToRoute, filenameToSlug } from '../core/utils/pathUtils.js';
+import * as crypto from 'crypto';
 
 dotenv.config();
 
@@ -13,22 +14,103 @@ const __dirname = path.dirname(__filename);
 
 const PORT = 3000;
 const OUTPUT_DIR = path.resolve('./output');
+const DATA_DIR = path.resolve('./data');
 const SCREENSHOTS_DIR = path.join(OUTPUT_DIR, 'screenshots');
-const TAGS_FILE = path.join(OUTPUT_DIR, 'qa-tags.json');
-const SUPERVISOR_STATUS_FILE = path.join(OUTPUT_DIR, 'supervisor_status.json');
+const TAGS_FILE = path.join(DATA_DIR, 'qa-tags.json');
+const REASONS_FILE = path.join(DATA_DIR, 'qa-reasons.json');
+
+// [FIX] Robust Mode Detection
+const isExternalWorkerMode = process.env.EXTERNAL_WORKER?.trim().toLowerCase() === 'true';
 
 // Server State
 let isRunning = false;
 let currentProcess: any = null;
+let jobQueue: Array<{ url: string, depth?: number, limit?: number }> = [];
+
+// Helper Functions
+function loadTags() {
+    if (fs.existsSync(TAGS_FILE)) {
+        try { return JSON.parse(fs.readFileSync(TAGS_FILE, 'utf-8')); } catch { }
+    }
+    return {};
+}
+
+function loadReasons() {
+    // const REASONS_FILE = path.join(OUTPUT_DIR, 'qa-reasons.json'); // Use global
+    if (fs.existsSync(REASONS_FILE)) {
+        try { return JSON.parse(fs.readFileSync(REASONS_FILE, 'utf-8')); } catch { }
+    }
+    return {};
+}
+
+const processQueue = () => {
+    if (isRunning || jobQueue.length === 0) return;
+
+    const nextJob = jobQueue[0]; // Peek
+    if (!nextJob) return;
+
+    // [FIX] If external worker is preferred, we don't spawn here.
+    if (isExternalWorkerMode) {
+        // We wait for the worker to pull it via /api/worker/next
+        return;
+    }
+
+    jobQueue.shift(); // Remove from queue now that we are spawning
+    try {
+        if (process.env.EXTERNAL_WORKER !== 'true') {
+            console.log(`[Dashboard] Starting queued job for ${nextJob.url}...`);
+        }
+        isRunning = true;
+
+        const args = ['run', 'analyze', '--', '--url', nextJob.url, '--force'];
+        if (nextJob.depth) args.push('--depth', String(nextJob.depth));
+        if (nextJob.limit) args.push('--limit', String(nextJob.limit));
+
+        currentProcess = spawn('npm', args, { stdio: 'inherit', shell: true });
+
+        currentProcess.on('close', (code: number) => {
+            console.log(`[Dashboard] Job finished with code ${code}`);
+            isRunning = false;
+            currentProcess = null;
+            setTimeout(processQueue, 1000); // Check next job
+        });
+
+        currentProcess.on('error', (err: Error) => {
+            console.error('[Dashboard] Failed to start process:', err);
+            isRunning = false;
+            currentProcess = null;
+            setTimeout(processQueue, 1000);
+        });
+    } catch (e) {
+        console.error('[Dashboard] Job execution error:', e);
+        isRunning = false;
+        setTimeout(processQueue, 1000);
+    }
+};
+
+// Hash Cache to avoid recalculating MD5 every few seconds
+const hashCache = new Map<string, { mtime: number, hash: string }>();
+
+function getFileHash(filePath: string): string {
+    const stat = fs.statSync(filePath);
+    const mtime = stat.mtimeMs;
+    const cached = hashCache.get(filePath);
+
+    if (cached && cached.mtime === mtime) {
+        return cached.hash;
+    }
+
+    const content = fs.readFileSync(filePath);
+    const hash = crypto.createHash('md5').update(content).digest('hex');
+    hashCache.set(filePath, { mtime, hash });
+    return hash;
+}
 
 // Basic Auth Credentials
 const AUTH_USER = process.env.DASHBOARD_USER;
 const AUTH_PASS = process.env.DASHBOARD_PASS;
 
-const server = http.createServer((req, res) => {
-    // [SECURITY] Track Client IP
-    trackClient(req);
-
+const server = http.createServer(async (req, res) => {
     // [SECURITY] Basic Authentication
     const auth = req.headers['authorization'];
     if (!auth) {
@@ -52,8 +134,7 @@ const server = http.createServer((req, res) => {
     // URL Parsing
     const baseURL = 'http://' + (req.headers.host || 'localhost');
     const reqUrl = new URL(req.url || '', baseURL);
-    let pathname = reqUrl.pathname || '/';
-    try { pathname = decodeURIComponent(pathname); } catch (e) { }
+    const pathname = reqUrl.pathname || '/';
 
     // CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -71,35 +152,26 @@ const server = http.createServer((req, res) => {
         let body = '';
         req.on('data', chunk => body += chunk);
         req.on('end', () => {
-            if (isRunning) {
-                res.writeHead(409, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ error: 'Analysis already running' }));
-                return;
-            }
-
             try {
-                const { url, depth } = JSON.parse(body);
-                console.log(`[Dashboard] Starting analysis for ${url} (Depth: ${depth || 3})...`);
+                const { url, depth, limit } = JSON.parse(body);
 
-                isRunning = true;
+                if (isRunning) {
+                    console.log(`[Dashboard] Analysis running, adding to queue: ${url}`);
+                    jobQueue.push({ url, depth, limit });
+                    res.writeHead(202, { 'Content-Type': 'application/json' }); // 202 Accepted
+                    res.end(JSON.stringify({ success: true, message: 'Analysis queued', queueLength: jobQueue.length }));
+                    return;
+                }
 
-                // Spawn the analysis process
-                const args = ['run', 'analyze', '--', '--url', url, '--force'];
-                if (depth) args.push('--depth', String(depth));
+                if (isExternalWorkerMode) {
+                    console.log(`[Dashboard] Job queued for Worker: ${url}`);
+                } else {
+                    console.log(`[Dashboard] Starting Analysis: ${url} (Depth: ${depth || 3})...`);
+                }
 
-                currentProcess = spawn('npm', args, { stdio: 'inherit', shell: true });
-
-                currentProcess.on('close', (code: number) => {
-                    console.log(`[Dashboard] Analysis finished with code ${code}`);
-                    isRunning = false;
-                    currentProcess = null;
-                });
-
-                currentProcess.on('error', (err: Error) => {
-                    console.error('[Dashboard] Failed to start process:', err);
-                    isRunning = false;
-                    currentProcess = null;
-                });
+                // Add to queue and process immediately
+                jobQueue.push({ url, depth, limit });
+                processQueue();
 
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ success: true, message: 'Analysis started' }));
@@ -128,22 +200,34 @@ const server = http.createServer((req, res) => {
         return;
     }
 
-    // API: Stop Supervisor (POST)
-    if (pathname === '/api/stop-supervisor' && req.method === 'POST') {
-        try {
-            execSync('pkill -9 -f "tsx src/core/supervisor.ts"');
+    // API: Worker Poll (GET)
+    if (pathname === '/api/worker/next' && req.method === 'GET') {
+        const nextJob = jobQueue.shift();
+        if (nextJob) {
+            console.log(`[Dashboard] WORKER MAPPED: Job sent to worker -> ${nextJob.url}`);
+            isRunning = true;
             res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ success: true, message: 'Supervisor stopped' }));
-        } catch (e: any) {
-            // pkill returns exit code 1 if no process found - this is OK
-            if (e.status === 1) {
-                res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ success: true, message: 'Supervisor is not running' }));
-            } else {
-                res.writeHead(500, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ error: String(e) }));
-            }
+            res.end(JSON.stringify(nextJob));
+        } else {
+            // console.log(`[Dashboard] Worker Poll (Queue Empty)`);
+            res.writeHead(204);
+            res.end();
         }
+        return;
+    }
+
+    // API: Worker Status (POST)
+    if (pathname === '/api/worker/status' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => body += chunk);
+        req.on('end', () => {
+            try {
+                const { running } = JSON.parse(body);
+                isRunning = !!running;
+                res.writeHead(200);
+                res.end();
+            } catch (e) { res.writeHead(400); res.end(); }
+        });
         return;
     }
 
@@ -153,8 +237,8 @@ const server = http.createServer((req, res) => {
         req.on('data', chunk => body += chunk);
         req.on('end', () => {
             try {
-                const { url, status } = JSON.parse(body);
-                updateTag(url, status);
+                const { url, status, hash } = JSON.parse(body);
+                updateTag(url, status, hash);
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ success: true }));
             } catch (e) {
@@ -165,10 +249,30 @@ const server = http.createServer((req, res) => {
         return;
     }
 
+    // API: Reason (POST)
+    if (pathname === '/api/reason' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => body += chunk);
+        req.on('end', () => {
+            try {
+                const { url, reason } = JSON.parse(body);
+                const reasons = loadReasons();
+                reasons[url] = reason;
+                fs.writeFileSync(REASONS_FILE, JSON.stringify(reasons, null, 2));
+                res.writeHead(200);
+                res.end(JSON.stringify({ success: true }));
+            } catch (e) {
+                res.writeHead(500);
+                res.end(JSON.stringify({ error: String(e) }));
+            }
+        });
+        return;
+    }
+
     // API: Stats
-    if (pathname === '/api/stats') {
+    if (pathname === '/api/stats' && req.method === 'GET') {
         try {
-            const stats = getStats();
+            const stats = await getStats();
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify(stats));
         } catch (e) {
@@ -180,7 +284,8 @@ const server = http.createServer((req, res) => {
 
     // Static Files
     if (pathname.startsWith('/output/')) {
-        const filePath = path.join(process.cwd(), pathname);
+        const decodedPath = decodeURIComponent(pathname);
+        const filePath = path.join(process.cwd(), decodedPath);
         if (!filePath.startsWith(process.cwd())) {
             res.writeHead(403); res.end('Forbidden'); return;
         }
@@ -196,10 +301,9 @@ const server = http.createServer((req, res) => {
         return;
     }
 
-    // UI: Index or About
-    if (pathname === '/' || pathname === '/index.html' || pathname === '/about.html') {
-        const basename = pathname === '/' ? 'index.html' : pathname.substring(1);
-        const uiPath = path.join(__dirname, basename);
+    // UI: Index
+    if (pathname === '/' || pathname === '/index.html') {
+        const uiPath = path.join(__dirname, 'index.html');
         if (fs.existsSync(uiPath)) {
             res.writeHead(200, { 'Content-Type': 'text/html' });
             fs.createReadStream(uiPath).pipe(res);
@@ -209,53 +313,142 @@ const server = http.createServer((req, res) => {
         return;
     }
 
-    // UI: Static Assets (Styles & Scripts)
-    if (pathname.startsWith('/styles/') || pathname.startsWith('/scripts/')) {
-        let safePath = '';
-        if (pathname === '/scripts/utils/pathUtils.js') {
-            safePath = path.join(__dirname, '../core/utils/pathUtils.js');
-        } else {
-            safePath = path.join(__dirname, pathname).replace(/^(\.\.[\/\\])+/, '');
-        }
-
-        if (fs.existsSync(safePath)) {
-            const ext = path.extname(safePath).toLowerCase();
-            const mime = {
-                '.css': 'text/css',
-                '.js': 'application/javascript',
-                '.map': 'application/json'
-            }[ext] || 'text/plain';
-
-            res.writeHead(200, { 'Content-Type': mime });
-            fs.createReadStream(safePath).pipe(res);
-            return;
-        }
-
-        res.writeHead(404);
-        res.end('Asset not found');
-        return;
-    }
-
     res.writeHead(404);
     res.end('Not Found');
 });
 
-function updateTag(url: string, status: string) {
+function updateTag(url: string, status: string, hash?: string) {
     let tags: Record<string, string> = {};
     if (fs.existsSync(TAGS_FILE)) {
         try { tags = JSON.parse(fs.readFileSync(TAGS_FILE, 'utf-8')); } catch { }
     }
-    tags[url] = status;
+    // [FIX] Tag by URL + Hash (Visual Identity)
+    const key = hash ? `${url}#${hash}` : url;
+    tags[key] = status;
     fs.writeFileSync(TAGS_FILE, JSON.stringify(tags, null, 2));
 }
 
-// Path utils removed and moved to src/core/utils/pathUtils.ts
+// Cache for web URLs to avoid repeated disk reads
+const webUrlCache: Record<string, string> = {};
 
-function getStats() {
+function getWebUrlForScreenshot(screenshotFullPath: string): any {
+    if (webUrlCache[screenshotFullPath]) return webUrlCache[screenshotFullPath];
+
+    const filename = path.basename(screenshotFullPath, path.extname(screenshotFullPath));
+    const domainDir = path.basename(path.dirname(screenshotFullPath));
+    const domainWithDots = domainDir.replace(/-/g, '.');
+
+    // [FIX] Simplified JSON lookup: Look for exactly filename.json in domain dir
+    const possiblePaths = [
+        path.join(SCREENSHOTS_DIR, 'json', domainWithDots, `${filename}.json`),
+        path.join(SCREENSHOTS_DIR, 'json', domainWithDots, `${domainWithDots}-${filename}.json`)
+    ];
+
+    for (const jsonPath of possiblePaths) {
+        if (fs.existsSync(jsonPath)) {
+            try {
+                const data = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
+                if (data.url) {
+                    return data; // Return full metadata object
+                }
+            } catch (e) { }
+        }
+    }
+
+    return null;
+}
+
+// [OPTIMIZATION] Enhanced Cache for getStats to reduce disk I/O
+// Separate caches for different data types with appropriate TTLs
+let screenshotCache: any[] | null = null;
+let lastDirMtime: number = 0;
+let lastCacheTime: number = 0;
+let lastAnalyzedCount: number = 0;
+let lastLatestTrace: string = '';
+let cachedLatestScanTime: number = 0;
+
+const CACHE_TTL = 5000; // 5 seconds - increased from 2s for better performance
+
+// Helper to get the maximum mtime across directory and subdirectories (shallow check)
+function getEffectiveDirMtime(dir: string): number {
+    let maxMtime = 0;
+    try {
+        if (!fs.existsSync(dir)) return 0;
+
+        const dirStat = fs.statSync(dir);
+        maxMtime = dirStat.mtimeMs;
+
+        // Check immediate subdirectories only (not recursive for performance)
+        const items = fs.readdirSync(dir);
+        for (const item of items) {
+            const fullPath = path.join(dir, item);
+            try {
+                const stat = fs.statSync(fullPath);
+                if (stat.isDirectory() && stat.mtimeMs > maxMtime) {
+                    maxMtime = stat.mtimeMs;
+                }
+            } catch (e) { }
+        }
+    } catch (e) { }
+    return maxMtime;
+}
+
+async function getStats(forceRefresh = false) {
+    const now = Date.now();
+    let shouldRefresh = forceRefresh;
+
+    // Check if cache is still valid by TTL
+    if (!screenshotCache || (now - lastCacheTime) > CACHE_TTL) {
+        // TTL expired, check if directory actually changed
+        try {
+            const currentDirMtime = getEffectiveDirMtime(SCREENSHOTS_DIR);
+            if (currentDirMtime !== lastDirMtime) {
+                shouldRefresh = true;
+                lastDirMtime = currentDirMtime;
+            }
+        } catch (e) {
+            shouldRefresh = true;
+        }
+    }
+
+    // If cache is valid and no refresh needed, return cached data quickly
+    if (!shouldRefresh && screenshotCache) {
+        // Only refresh dynamic data (isRunning, tags, reasons, queueLength)
+        let tags: Record<string, string> = {};
+        if (fs.existsSync(TAGS_FILE)) {
+            try { tags = JSON.parse(fs.readFileSync(TAGS_FILE, 'utf-8')); } catch { }
+        }
+
+        // Check running status (lightweight check)
+        let isActuallyRunning = isRunning || jobQueue.length > 0;
+        if (!isActuallyRunning) {
+            try {
+                const { exec } = await import('child_process');
+                const util = await import('util');
+                const execAsync = util.promisify(exec);
+                const { stdout } = await execAsync('ps aux | grep "src/core/cli.ts" | grep -v grep', { encoding: 'utf-8', timeout: 500 });
+                if (stdout && stdout.trim()) {
+                    isActuallyRunning = true;
+                }
+            } catch (e) { }
+        }
+
+        return {
+            analyzedCount: lastAnalyzedCount,
+            screenshots: screenshotCache,
+            latestTrace: lastLatestTrace,
+            tags,
+            reasons: loadReasons(),
+            isRunning: isActuallyRunning,
+            queueLength: jobQueue.length,
+            latestScanTime: cachedLatestScanTime,
+            cached: true
+        };
+    }
+
+    // --- FULL SCAN (only when cache is invalid or forced) ---
     let analyzedCount = 0;
-    // Helper to track unique screenshots per date: Date -> Map<NormalizedPath, FileEntry>
-    let dailyUnique: Record<string, Map<string, { url: string, mtime: number }>> = {};
-
+    let screenshots: any[] = [];
     let latestTrace = '';
     let tags: Record<string, string> = {};
 
@@ -264,10 +457,23 @@ function getStats() {
         try { tags = JSON.parse(fs.readFileSync(TAGS_FILE, 'utf-8')); } catch { }
     }
 
-    const uniquePages = new Set();
+    // Count JSON reports
+    const jsonDir = path.join(SCREENSHOTS_DIR, 'json');
+    if (fs.existsSync(jsonDir)) {
+        const domains = fs.readdirSync(jsonDir);
+        domains.forEach(d => {
+            const dPath = path.join(jsonDir, d);
+            if (fs.statSync(dPath).isDirectory()) {
+                const files = fs.readdirSync(dPath).filter(f => f.endsWith('.json'));
+                analyzedCount += files.length;
+            }
+        });
+    }
 
-    // 1. Process Screenshots
+    // Get recent screenshots
+    let latestScanTime = 0;
     if (fs.existsSync(SCREENSHOTS_DIR)) {
+        const allFiles: { path: string, time: number, hash: string }[] = [];
         const traverse = (dir: string) => {
             try {
                 const items = fs.readdirSync(dir);
@@ -278,168 +484,80 @@ function getStats() {
                         traverse(fullPath);
                     } else if (item.endsWith('.webp') || item.endsWith('.png')) {
                         const relativePath = path.relative(process.cwd(), fullPath);
-                        const url = '/' + relativePath;
-
-                        // [ACCURACY] Normalize page name for counting & deduplication
-                        const route = filenameToRoute(item).toLowerCase();
-                        uniquePages.add(route);
-
-                        // [DATE GROUPING] Extract date from filesystem mtime
-                        const mdate = new Date(stat.mtime);
-                        const date = mdate.toISOString().split('T')[0]; // YYYY-MM-DD
-
-                        if (!dailyUnique[date]) dailyUnique[date] = new Map();
-
-                        // Deduplication Logic: Keep only the latest file for this normalized path
-                        const existing = dailyUnique[date].get(route);
-                        if (!existing || stat.mtimeMs > existing.mtime) {
-                            dailyUnique[date].set(route, { url, mtime: stat.mtimeMs });
-                        }
+                        if (stat.mtimeMs > latestScanTime) latestScanTime = stat.mtimeMs;
+                        allFiles.push({
+                            path: '/' + relativePath,
+                            time: stat.mtimeMs,
+                            hash: getFileHash(fullPath)
+                        });
                     }
                 });
             } catch (e) { }
         };
         traverse(SCREENSHOTS_DIR);
+
+        // Map to objects instead of strings
+        screenshots = allFiles
+            .sort((a, b) => b.time - a.time)
+            .map(f => {
+                const metadata = getWebUrlForScreenshot(path.join(process.cwd(), f.path));
+                return {
+                    url: f.path,
+                    hash: f.hash,
+                    time: f.time,
+                    webUrl: metadata ? metadata.url : '',
+                    metadata: metadata,
+                    // [NEW] Golden Path Info (Flattened for UI)
+                    confidence: metadata?.goldenPath?.confidence ?? null,
+                    isStable: metadata?.goldenPath?.isStable ?? null,
+                    goldenPathReasons: metadata?.goldenPath?.reasons ?? []
+                };
+            });
     }
 
-    // Convert Map back to array for frontend
-    let screenshotsByDate: Record<string, { url: string, mtime: number }[]> = {};
-    Object.keys(dailyUnique).forEach(date => {
-        screenshotsByDate[date] = Array.from(dailyUnique[date].values());
-    });
+    // Find latest trace
+    const traces = fs.readdirSync(OUTPUT_DIR).filter(f => f.startsWith('trace-') && f.endsWith('.zip'));
+    if (traces.length > 0) {
+        traces.sort().reverse();
+        latestTrace = '/output/' + traces[0];
+    }
 
-    // 2. Process Crawler JSONs
-    const jsonDir = path.join(OUTPUT_DIR, 'json');
-    if (fs.existsSync(jsonDir)) {
+    // Check if any analyze process is running (even from terminal)
+    let isActuallyRunning = isRunning || jobQueue.length > 0;
+
+    if (!isActuallyRunning) {
         try {
-            const domains = fs.readdirSync(jsonDir);
-            domains.forEach(d => {
-                const dPath = path.join(jsonDir, d);
-                if (fs.statSync(dPath).isDirectory()) {
-                    const files = fs.readdirSync(dPath).filter(f => f.endsWith('.json'));
-                    files.forEach(f => uniquePages.add(`json-${d}-${f}`));
-                }
-            });
+            const { exec } = await import('child_process');
+            const util = await import('util');
+            const execAsync = util.promisify(exec);
+            const { stdout } = await execAsync('ps aux | grep "src/core/cli.ts" | grep -v grep', { encoding: 'utf-8', timeout: 500 });
+            if (stdout && stdout.trim()) {
+                isActuallyRunning = true;
+            }
         } catch (e) { }
     }
 
-    analyzedCount = uniquePages.size;
-
-    // Convert to final format: Record<string, string[]>
-    const finalScreenshotsByDate: Record<string, string[]> = {};
-    const availableDates = Object.keys(screenshotsByDate).sort().reverse();
-
-    availableDates.forEach(date => {
-        // Sort by mtime descending (newest first)
-        screenshotsByDate[date].sort((a, b) => b.mtime - a.mtime);
-
-        // Keep latest per logical path
-        const seen = new Set();
-        const deduplicated = screenshotsByDate[date].filter(item => {
-            const fileName = item.url.split('/').pop() || '';
-            const norm = filenameToRoute(fileName);
-            if (seen.has(norm)) return false;
-            seen.add(norm);
-            return true;
-        }).map(item => item.url);
-
-        finalScreenshotsByDate[date] = deduplicated;
-    });
-
-    // Find latest trace
-    if (fs.existsSync(OUTPUT_DIR)) {
-        const traces = fs.readdirSync(OUTPUT_DIR).filter(f => f.startsWith('trace-') && f.endsWith('.zip'));
-        if (traces.length > 0) {
-            traces.sort().reverse();
-            latestTrace = '/output/' + traces[0];
-        }
-    }
-
-    // Supervisor Status
-    let supervisorStatus = { status: 'UNKNOWN', timestamp: '' };
-    if (fs.existsSync(SUPERVISOR_STATUS_FILE)) {
-        try { supervisorStatus = JSON.parse(fs.readFileSync(SUPERVISOR_STATUS_FILE, 'utf-8')); } catch { }
-    }
-
-    // [HEALTH CHECK] Ensure isRunning is accurate
-    if (currentProcess && currentProcess.exitCode !== null) {
-        console.log('[Dashboard] Found zombie process reference, resetting state.');
-        isRunning = false;
-        currentProcess = null;
-    }
-
-    // [METADATA INJECTION] Enrich screenshots with confidence scores
-    // We change the structure of screenshots from string[] to object[] in the API response
-    // But we need to maintain backward compatibility if possible, or update frontend.
-    // Let's return objects: { url: string, confidence?: number }
-
-    const enrichedScreenshotsByDate: Record<string, { url: string, confidence?: number }[]> = {};
-
-    availableDates.forEach(date => {
-        const urls = finalScreenshotsByDate[date];
-        enrichedScreenshotsByDate[date] = urls.map(url => {
-            const entry: any = { url };
-
-            // Try to find matching JSON
-            // Screenshot: /output/screenshots/domain/screenshot-name.png
-            // JSON: /output/json/domain/domain-name.json
-            // We need to infer the domain and name from the URL.
-            // URL format: /output/screenshots/stage-ianai-co/screenshot-app_home.png
-
-            try {
-                const parts = url.split('/');
-                const fileName = parts.pop() || '';
-                const domain = parts[parts.length - 1]; // stage-ianai-co
-
-                const slug = filenameToSlug(fileName);
-                const jsonFileName = `${domain}-${slug}.json`;
-                const jsonPath = path.join(OUTPUT_DIR, 'json', domain, jsonFileName);
-
-                if (fs.existsSync(jsonPath)) {
-                    const data = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
-                    if (data.goldenPath && typeof data.goldenPath.confidence === 'number') {
-                        entry.confidence = data.goldenPath.confidence;
-                    }
-                }
-            } catch (e) { }
-
-            return entry;
-        });
-    });
+    // Update all caches
+    screenshotCache = screenshots;
+    lastCacheTime = now;
+    lastAnalyzedCount = analyzedCount;
+    lastLatestTrace = latestTrace;
+    cachedLatestScanTime = Math.max(latestScanTime, lastDirMtime);
 
     return {
         analyzedCount,
-        screenshots: enrichedScreenshotsByDate[availableDates[0]] || [],
-        screenshotsByDate: enrichedScreenshotsByDate,
-        availableDates,
+        screenshots,
         latestTrace,
         tags,
-        isRunning,
-        supervisorStatus,
-        activeClientCount: Object.keys(connectedClients).length
+        reasons: loadReasons(),
+        isRunning: isActuallyRunning,
+        queueLength: jobQueue.length,
+        latestScanTime: cachedLatestScanTime
     };
 }
 
-
-// Client IP Tracking
-const connectedClients: Record<string, number> = {};
-
-function trackClient(req: http.IncomingMessage) {
-    const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || 'unknown';
-    const now = Date.now();
-
-    if (!connectedClients[ip]) {
-        console.log(`[Dashboard] New client connected: ${ip}`);
-    }
-    connectedClients[ip] = now;
-
-    // Cleanup old clients (> 30s inactive)
-    Object.keys(connectedClients).forEach(clientIp => {
-        if (now - connectedClients[clientIp] > 30000) delete connectedClients[clientIp];
-    });
-}
-
 server.listen(PORT, () => {
+    console.log(`[Dashboard] Mode: ${isExternalWorkerMode ? '🎨 EXTERNAL WORKER (Job Queue only)' : '🚀 INTERNAL RUNNER (Classic)'}`);
     console.log(`[Dashboard] Live Monitoring running at http://localhost:${PORT}`);
     console.log(`[Dashboard] 🔒 Protected. User: ${AUTH_USER} / Pass: *******`);
     console.log(`[Dashboard] Server updated at ${new Date().toLocaleTimeString()} - with Runner & Tagging`);

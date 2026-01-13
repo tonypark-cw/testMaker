@@ -430,9 +430,12 @@ testMaker/
 │   │   ├── server.ts        # HTTP 서버
 │   │   └── scripts/         # 프론트엔드 스크립트
 │   │
-│   └── scripts/
-│       ├── analyzer.ts      # 요소 분석 및 그룹화
-│       └── generator.ts     # TC/Playwright 코드 생성
+│   └── utils.ts             # 유틸리티 함수
+│
+├── scripts/
+│   ├── analyzer.ts          # 요소 분석 및 그룹화
+│   ├── generator.ts         # TC/Playwright 코드 생성
+│   └── heal.ts              # 비정상 종료 시 복구 로직
 │
 ├── types/
 │   └── index.ts             # TypeScript 타입 정의
@@ -447,6 +450,10 @@ testMaker/
 │   ├── markdown/
 │   ├── playwright/
 │   └── screenshots/
+│
+├── docs/
+│   ├── progress_log.md      # 개발 진행 이력
+│   └── PROJECT_BRIEFING.md  # 프로젝트 브리핑
 │
 ├── package.json
 ├── playwright.config.ts

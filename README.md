@@ -523,14 +523,14 @@ interface TestScenario {
 - [x] Dashboard 웹 UI
 - [x] Supervisor 프로세스 관리
 - [x] Self-Healing 컨텍스트 캡처
+- [x] SPA 라우트 인터셉션
+- [x] 네비게이션 버튼 클릭 탐색
+- [x] 탭/아코디언 콘텐츠 탐색
+- [x] iframe 콘텐츠 탐색
+- [x] 프레임워크별 Link 감지
 
 ### 추후 개발 예정
 
-- [x] SPA 라우트 인터셉션 (Phase 6) ✅
-- [x] 네비게이션 버튼 클릭 탐색 (Phase 7) ✅
-- [x] 탭/아코디언 콘텐츠 탐색 (Phase 8) ✅
-- [x] iframe 콘텐츠 탐색 (Phase 9) ✅
-- [x] 프레임워크별 Link 감지 (Phase 10) ✅
 - [ ] BDD (Gherkin) 지원
 - [ ] AI 기반 예상 결과 추론
 

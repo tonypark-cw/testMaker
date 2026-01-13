@@ -4,141 +4,1264 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TestMaker Live Dashboard</title>
-    <link rel="stylesheet" href="./styles/main.css">
-    <link rel="stylesheet" href="./styles/header.css">
-    <link rel="stylesheet" href="./styles/gallery.css">
-    <link rel="stylesheet" href="./styles/modal.css">
-    <link rel="stylesheet" href="./styles/home_status.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            background-color: #111;
+            color: #eee;
+            margin: 0;
+            padding: 20px;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #333;
+            flex-wrap: wrap; 
+            gap: 20px;
+        }
+        h1 { margin: 0; font-size: 24px; color: #fff; }
+        .stats {
+            display: flex;
+            gap: 20px;
+        }
+        .card {
+            background: #1e1e2e;
+            padding: 15px 25px;
+            border-radius: 8px;
+            min-width: 120px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .card .value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #4da6ff;
+            display: block;
+        }
+        .card .label {
+            font-size: 12px;
+            color: #aaa;
+            margin-top: 5px;
+            display: block;
+        }
+        .trace-btn {
+            background: #28a745;
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-size: 14px;
+            display: none; /* Hidden until trace available */
+            transition: background 0.2s;
+        }
+        .trace-btn:hover { background: #218838; }
+
+        /* Runner UI */
+        .runner-box {
+            background: #2a2a35;
+            padding: 10px;
+            border-radius: 8px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .runner-input {
+            background: #111;
+            border: 1px solid #444;
+            color: #fff;
+            padding: 8px;
+            border-radius: 4px;
+            width: 250px;
+            font-size: 13px;
+        }
+        .runner-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+            color: white;
+        }
+        .btn-start { background: #28a745; }
+        .btn-start:hover { background: #218838; }
+        .btn-stop { background: #dc3545; display: none; }
+        .btn-stop:hover { background: #c82333; }
+        .btn-disabled { opacity: 0.5; pointer-events: none; }
+        .runner-status {
+            font-size: 12px;
+            color: #aaa;
+            margin-left: 5px;
+        }
+        .status-running { color: #4da6ff; animation: pulse 1.5s infinite; }
+
+        /* Filters */
+        .filter-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        .filter-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .filter-btn {
+            background: #2a2a35;
+            border: 1px solid #444;
+            color: #ccc;
+            padding: 6px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .filter-btn:hover { background: #3a3a45; }
+        .filter-btn.active {
+            background: #4da6ff;
+            color: #000;
+            border-color: #4da6ff;
+            font-weight: bold;
+        }
+
+        /* Filter Count Badges */
+        .filter-count {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: bold;
+            vertical-align: middle;
+        }
+        .filter-btn.active .filter-count {
+            background: rgba(0, 0, 0, 0.3);
+            color: white;
+        }
+
+        /* Status Specific Badges */
+        .status-pass .filter-count { background: #10b981; color: white; }
+        .status-fail .filter-count { background: #ef4444; color: white; }
+        .status-block .filter-count { background: #f59e0b; color: #000; }
+        .status-untagged .filter-count { background: #475569; color: white; }
+
+        .filter-btn.status-pass.active { background: #10b981; color: #000; }
+        .filter-btn.status-fail.active { background: #ef4444; color: #000; }
+        .filter-btn.status-block.active { background: #f59e0b; color: #000; }
+        .filter-btn.status-untagged.active { background: #475569; color: #fff; }
+
+        /* Gallery Grid */
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            padding-bottom: 50px;
+        }
+        .shot-card {
+            background: #1e1e2e;
+            border-radius: 8px;
+            overflow: hidden;
+            transition: transform 0.2s;
+            position: relative;
+        }
+        .shot-card:hover {
+            transform: translateY(-3px);
+            z-index: 10;
+        }
+        .shot-img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            object-position: top;
+            display: block;
+            background: #000;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .shot-img.loaded { opacity: 1; }
+        
+        .shot-info {
+            padding: 8px;
+            font-size: 11px;
+            color: #888;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        /* Badges */
+        .badge {
+            position: absolute;
+            top: 5px; right: 5px;
+            padding: 3px 6px;
+            border-radius: 4px;
+            font-size: 9px;
+            font-weight: bold;
+            color: white;
+            pointer-events: none;
+            text-transform: uppercase;
+        }
+        /* Neutral Type Badges (User Request) */
+        .badge-modal, .badge-detail, .badge-page, .badge-dup {
+            background-color: #334155; 
+            color: #e2e8f0;
+            border: 1px solid #475569;
+        }
+        /* The following individual badge styles are now overridden by the neutral style above */
+        /* .badge-modal { background: #9d46ff; } */
+        /* .badge-detail { background: #10b981; } */
+        /* .badge-page { background: #64748b; } */
+
+        /* Duplicate Badge */
+        .duplicate-badge {
+            position: absolute;
+            bottom: 30px; right: 5px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #000;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 800;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            z-index: 5;
+            pointer-events: none; /* [FIX] Allow clicks to pass through to the card */
+        }
+
+        /* QA Status Tags */
+        .qa-tag {
+            position: absolute;
+            top: 5px; left: 5px;
+            padding: 3px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: bold;
+            color: white;
+            text-transform: uppercase;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+        .qa-PASS { background: #28a745; }
+        .qa-FAIL { background: #dc3545; }
+        .qa-BLOCK { background: #ffc107; color: #000; }
+
+        /* Lightbox */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        .modal.active { display: flex; }
+        .modal-title {
+            position: absolute;
+            top: 25px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #fff;
+            font-size: 16px;
+            font-weight: bold;
+            max-width: 80%;
+            white-space: nowrap;
+            overflow: visible; /* [FIX] Allow dropdown menu to be visible outside */
+            text-overflow: ellipsis;
+            background: rgba(0,0,0,0.5);
+            padding: 5px 15px;
+            border-radius: 20px;
+            z-index: 1010;
+        }
+        .modal-img {
+            max-width: 90%;
+            max-height: 70vh;
+            border-radius: 4px;
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+            margin-top: 40px;
+            background: white; /* Ensure transparent images are visible */
+            object-fit: contain;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .modal-caption {
+            margin-top: 10px;
+            color: #ccc;
+            font-size: 13px;
+            text-align: center;
+        }
+        .modal-hint {
+            font-size: 11px;
+            color: #666;
+            margin-top: 5px;
+        }
+        .modal-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(0,0,0,0.5); /* Stronger background for contrast */
+            color: white;
+            border: 1px solid rgba(255,255,255,0.2);
+            padding: 0;
+            cursor: pointer;
+            font-size: 24px;
+            border-radius: 50%;
+            width: 50px; height: 50px;
+            display: flex; align-items: center; justify-content: center;
+            transition: 0.2s;
+            outline: none;
+            z-index: 2000; /* Ensure it stays above everything in the modal */
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+        .modal-nav:hover { background: rgba(255,255,255,0.25); }
+        .prev-btn { left: 30px; }
+        .next-btn { right: 30px; }
+        
+        .close-container {
+            position: absolute;
+            top: 20px; right: 30px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .back-btn {
+            background: #333;
+            color: #ddd;
+            border: 1px solid #555;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .back-btn:hover { background: #444; }
+        .close-icon {
+            background: transparent;
+            color: #aaa;
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+            line-height: 1;
+        }
+        .close-icon:hover { color: #fff; }
+
+        .qa-toolbar {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+            background: #2a2a35;
+            padding: 5px;
+            border-radius: 30px;
+        }
+        .qa-btn {
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 12px;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: 0.2s;
+            color: white;
+        }
+        .qa-btn:hover { opacity: 1; transform: scale(1.05); }
+        .qa-btn.selected { opacity: 1; box-shadow: 0 0 8px currentColor; transform: scale(1.1); }
+        
+        .btn-pass { background: #28a745; }
+        .btn-fail { background: #dc3545; }
+        .btn-block { background: #ffc107; color: black; }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-size: 13px;
+            display: none;
+        }
+        .loading.visible { display: block; }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        /* History List */
+        .history-list {
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            padding-bottom: 10px;
+            scrollbar-width: thin;
+        }
+        .history-item {
+            flex: 0 0 100px;
+            cursor: pointer;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 2px solid transparent;
+            position: relative;
+            transition: 0.2s;
+        }
+        .history-item:hover { border-color: #4da6ff; }
+        .history-item.active { border-color: #4da6ff; box-shadow: 0 0 10px rgba(77, 166, 255, 0.5); }
+        .history-thumb { width: 100%; height: 60px; object-fit: cover; }
+        .history-label { font-size: 9px; padding: 2px; background: rgba(0,0,0,0.7); text-align: center; color: #fff; }
+        .history-status-dot {
+            position: absolute;
+            top: 4px; right: 4px;
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            border: 1px solid white;
+        }
+    </style>
 </head>
 <body>
 
     <header>
-        <!-- Row 1: Title & Stats -->
-        <div class="header-top">
-            <div class="header-left">
-                <div style="display:flex; align-items:center; gap:15px;">
-                    <h1 style="margin:0;">TestMaker Live <span style="font-size:14px; color:#4da6ff; vertical-align:middle;">●</span></h1>
-                    <a href="/about.html" class="status-link-btn" id="supervisor-link">
-                        <span id="supervisor-status" class="status-badge" title="Click for System Status & Architecture">IDLE</span>
-                    </a>
-                </div>
+        <div style="display:flex; flex-direction: column; gap: 10px;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <h1>TestMaker Live <span style="font-size:14px; color:#4da6ff; vertical-align:middle;">●</span></h1>
             </div>
             
-            <div class="header-right">
-                 <a href="#" id="trace-link" class="trace-btn" target="_blank">Download Trace</a>
-                 <div class="stats">
-                    <div class="card">
-                        <span class="value" id="gp-count">0</span>
-                        <span class="label">Verified Golden Path</span>
-                    </div>
-                    <div class="stat-card" style="position: relative; overflow: visible;">
-                        <span class="stat-value" id="exp-count">0</span>
-                        <span class="label">Exploration Captures</span>
-                        <div id="stats-tooltip" style="display: none;">Loading...</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Row 2: Controls (Address, Runner, Tabs) -->
-        <div class="header-controls">
             <!-- Runner Box -->
             <div class="runner-box">
-                <input type="text" id="target-url" class="runner-input" placeholder="Enter target URL to analyze..." value="https://stage.ianai.co/">
-                <button id="btn-start" class="runner-btn btn-start">Start Analysis</button>
-                <button id="btn-stop" class="runner-btn btn-stop">Stop</button>
-                <span id="runner-status" class="runner-status">Idle</span>
-            </div>
-
-            <!-- Main Tabs -->
-            <div class="main-tabs">
-                <button class="tab-btn active" onclick="window.setTab('GOLDEN')">⭐ GOLDEN PATH</button>
-                <button class="tab-btn" onclick="window.setTab('EXPLORATION')">🔍 EXPLORATION</button>
+             <input type="text" id="target-url" class="runner-input" placeholder="Enter target URL to analyze..." value="https://stage.ianai.co/">
+             <button id="btn-start" class="runner-btn btn-start" onclick="startAnalysis()">Start Analysis</button>
+             <button id="btn-stop" class="runner-btn btn-stop" onclick="stopAnalysis()">Stop</button>
+             <button id="btn-reanalyze-fail" class="runner-btn" onclick="reanalyzeFailures()" style="display:none; background: #d35400; font-size: 13px;">Re-analyze FAIL (<span id="fail-count-btn">0</span>)</button>
+             <span id="runner-status" class="runner-status">Idle</span>
+             <span id="queue-status" class="runner-status" style="display:none; background: #2980b9;">Queue: 0</span>
             </div>
         </div>
-
-        <!-- Row 3: Filters & Date -->
-        <div class="filters">
-            <span class="filter-group-label">Type:</span>
-            <button class="filter-btn active" onclick="setFilter('ALL')">ALL <span class="count-badge"></span></button>
-            <button class="filter-btn" onclick="setFilter('MODAL')">Modal <span class="count-badge"></span></button>
-            <button class="filter-btn" onclick="setFilter('PAGE')">Page <span class="count-badge"></span></button>
-            <button class="filter-btn" onclick="setFilter('DETAIL')">Detail <span class="count-badge"></span></button>
-            
-            <span class="filter-group-separator">|</span>
-            
-            <span class="filter-group-label">Depth:</span>
-            <button class="filter-btn active" onclick="setFilter('DEPTH_ALL')">ALL <span class="count-badge"></span></button>
-            <button class="filter-btn" onclick="setFilter('LEVEL 1')">Level 1 <span class="count-badge"></span></button>
-            <button class="filter-btn" onclick="setFilter('LEVEL 2')">Level 2 <span class="count-badge"></span></button>
-            <button class="filter-btn" onclick="setFilter('LEVEL 3+')">Level 3+ <span class="count-badge"></span></button>
-
-            <div id="qa-filters" style="display:inline">
-                <span class="filter-group-separator">|</span>
-                <span class="filter-group-label">QA:</span>
-                <button class="filter-btn active" onclick="setFilter('QA_ALL')">ALL <span class="count-badge"></span></button>
-                <button class="filter-btn btn-filter-pass" onclick="setFilter('PASS')">PASS <span class="count-badge"></span></button>
-                <button class="filter-btn btn-filter-fail" onclick="setFilter('FAIL')">FAIL <span class="count-badge"></span></button>
-                <button class="filter-btn btn-filter-untagged" onclick="setFilter('UNTAGGED')">UNTAGGED <span class="count-badge"></span></button>
+        
+        <div style="display:flex; align-items:center; gap:20px;">
+             <a href="#" id="trace-link" class="trace-btn" target="_blank">Download Trace</a>
+             <div class="stats">
+                <div class="card">
+                    <span class="value" id="count">0</span>
+                    <span class="label">Analyzed Pages</span>
+                </div>
+                <div class="card">
+                    <span class="value" id="shot-count">0</span>
+                    <span class="label">Screenshots</span>
+                </div>
             </div>
-            
-            <!-- Date Filter (Right Aligned) -->
-            <span id="date-filter-group" style="margin-left: auto;">
-                <select id="date-filter" class="filter-select">
-                    <option value="" disabled selected>Select Date...</option>
-                </select>
-            </span>
         </div>
     </header>
 
+    <div class="filter-bar">
+        <div class="filter-group" id="type-filters">
+            <button class="filter-btn active" onclick="setFilter('ALL')">ALL <span id="count-all" class="filter-count">0</span></button>
+            <button class="filter-btn" onclick="setFilter('PAGE')">PAGE <span id="count-page" class="filter-count">0</span></button>
+            <button class="filter-btn" onclick="setFilter('MODAL')">MODAL <span id="count-modal" class="filter-count">0</span></button>
+            <button class="filter-btn" onclick="setFilter('DETAIL')">DETAIL <span id="count-detail" class="filter-count">0</span></button>
+            <button class="filter-btn" onclick="setFilter('DUP')">DUP <span id="count-duplicate" class="filter-count">0</span></button>
+        </div>
 
-    <div class="gallery" id="gallery">
-        <!-- Skeleton Loading State -->
-        <div class="skeleton-card"><div class="skeleton-img skeleton-shimmer"></div><div class="skeleton-text skeleton-shimmer"></div></div>
-        <div class="skeleton-card"><div class="skeleton-img skeleton-shimmer"></div><div class="skeleton-text skeleton-shimmer"></div></div>
-        <div class="skeleton-card"><div class="skeleton-img skeleton-shimmer"></div><div class="skeleton-text skeleton-shimmer"></div></div>
-        <div class="skeleton-card"><div class="skeleton-img skeleton-shimmer"></div><div class="skeleton-text skeleton-shimmer"></div></div>
-        <div class="skeleton-card"><div class="skeleton-img skeleton-shimmer"></div><div class="skeleton-text skeleton-shimmer"></div></div>
-        <div class="skeleton-card"><div class="skeleton-img skeleton-shimmer"></div><div class="skeleton-text skeleton-shimmer"></div></div>
-        <div class="skeleton-card"><div class="skeleton-img skeleton-shimmer"></div><div class="skeleton-text skeleton-shimmer"></div></div>
-        <div class="skeleton-card"><div class="skeleton-img skeleton-shimmer"></div><div class="skeleton-text skeleton-shimmer"></div></div>
-        <div class="skeleton-card"><div class="skeleton-img skeleton-shimmer"></div><div class="skeleton-text skeleton-shimmer"></div></div>
-        <div class="skeleton-card"><div class="skeleton-img skeleton-shimmer"></div><div class="skeleton-text skeleton-shimmer"></div></div>
+        <div class="filter-group" id="status-filters">
+            <button class="filter-btn status-pass" onclick="setStatusFilter('PASS')">PASS <span id="count-pass" class="filter-count">0</span></button>
+            <button class="filter-btn status-fail" onclick="setStatusFilter('FAIL')">FAIL <span id="count-fail" class="filter-count">0</span></button>
+            <button class="filter-btn status-block" onclick="setStatusFilter('BLOCK')">BLOCK <span id="count-block" class="filter-count">0</span></button>
+            <button class="filter-btn status-untagged" onclick="setStatusFilter('UNTAGGED')">? <span id="count-untagged" class="filter-count">0</span></button>
+        </div>
     </div>
+
+    <div class="gallery" id="gallery"></div>
     <div class="loading" id="loading">Loading more...</div>
     <div id="sentinel" style="height: 20px; margin-top: 20px;"></div>
 
     <!-- Lightbox Modal -->
     <div class="modal" id="modal">
+        <div class="modal-title" id="modal-title"></div>
         <div class="close-container">
-            <button class="back-btn">Back to Gallery</button>
-            <button class="close-icon">&times;</button>
+            <button class="back-btn" onclick="closeModal()">Back to Gallery</button>
+            <button class="close-icon" onclick="closeModal()">&times;</button>
         </div>
         
-        <button class="modal-nav prev-btn">&#10094;</button>
-        <button class="modal-nav next-btn">&#10095;</button>
+        <button class="modal-nav prev-btn" onclick="prevImage()">&#10094;</button>
+        <button class="modal-nav next-btn" onclick="nextImage()">&#10095;</button>
         
         <img src="" alt="" class="modal-img" id="modal-img">
         
         <div class="qa-toolbar">
-            <button class="qa-btn btn-pass">PASS</button>
-            <button class="qa-btn btn-fail">FAIL</button>
-
+            <button class="qa-btn btn-pass" onclick="setTag('PASS')">PASS</button>
+            <button class="qa-btn btn-fail" onclick="setTag('FAIL')">FAIL</button>
+            <button class="qa-btn btn-block" onclick="setTag('BLOCK')">BLOCK</button>
+        </div>
+        
+        <div id="fail-reason-container" style="display:none; width: 80%; margin-top: 10px;">
+            <textarea id="fail-reason" placeholder="Why did this fail? (e.g. Missing element, layout issue...)" style="width: 100%; height: 60px; background: #1e293b; color: white; border: 1px solid #475569; padding: 8px; border-radius: 4px; font-family: sans-serif; resize: vertical; margin-bottom: 5px;"></textarea>
+            <div style="display: flex; justify-content: flex-end; align-items: center; gap: 10px;">
+                <span id="reason-status" style="color: #94a3b8; font-size: 11px;"></span>
+                <button onclick="saveReason()" style="background: #3b82f6; border: none; color: white; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">Save</button>
+            </div>
         </div>
 
-        <div class="modal-caption" id="modal-caption"></div>
+        <div class="modal-history-container" style="width: 80%; margin-top: 20px;">
+            <div style="font-size: 13px; font-weight: 600; color: #94a3b8; margin-bottom: 8px;">CAPTURE HISTORY</div>
+            <div id="modal-history" class="history-list"></div>
+        </div>
         <div class="modal-hint">Use ← → arrow keys to navigate</div>
     </div>
 
-    <!-- About Modal Removed (Migrated to /about.html) -->
+    <script>
+        const API_URL = '/api/stats';
+        
+        // State
+        let serverScreenshots = [];
+        let filteredScreenshots = [];
+        let visualScreenshots = [];
+        let tags = {};
+        let reasons = {}; // New: Failure Reasons
+        let currentModalUrl = null;
+        let currentModalHash = null;
+        let currentWebUrl = null;
+        let isModalOpen = false;
+        let currentFilter = 'ALL';
+        let currentStatusFilter = 'ALL';
+        let isRunning = false;
+        let queueLength = 0;
+        let lastScanTime = 0;
+        let scrollObserver = null;
 
-    <!-- Mermaid CDN -->
-    <script type="module">
-        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-        mermaid.initialize({ startOnLoad: true, theme: 'dark' });
+        // Constants
+        const BATCH_SIZE = 24;
+
+        // DOM Elements
+        const gallery = document.getElementById('gallery');
+        const loading = document.getElementById('loading');
+        const sentinel = document.getElementById('sentinel');
+        const btnStart = document.getElementById('btn-start');
+        const btnStop = document.getElementById('btn-stop');
+        const inputUrl = document.getElementById('target-url');
+        const runnerStatus = document.getElementById('runner-status');
+
+        function setFilter(filter) {
+            currentFilter = filter;
+            document.querySelectorAll('#type-filters .filter-btn').forEach(btn => {
+                const btnText = btn.childNodes[0].textContent.trim();
+                btn.classList.toggle('active', btnText === filter);
+            });
+            applyFilterAndReset();
+        }
+
+        function setStatusFilter(status) {
+            if (currentStatusFilter === status) currentStatusFilter = 'ALL';
+            else currentStatusFilter = status;
+
+            document.querySelectorAll('#status-filters .filter-btn').forEach(btn => {
+                const btnText = btn.childNodes[0].textContent.trim();
+                if (status === 'UNTAGGED') {
+                     btn.classList.toggle('active', currentStatusFilter === 'UNTAGGED' && btnText === '?');
+                } else {
+                     btn.classList.toggle('active', currentStatusFilter === status && btnText === status);
+                }
+            });
+            applyFilterAndReset();
+        }
+        
+        function getScreenshotType(url) {
+            const lower = url.toLowerCase();
+            if (lower.includes('modal-')) return 'MODAL';
+            if (lower.includes('detail-')) return 'DETAIL';
+            return 'PAGE';
+        }
+
+        function applyFilterAndReset() {
+            // [STRATEGY] Group by URL (webUrl) to show capture versions
+            const urlGroups = new Map();
+            serverScreenshots.forEach(shot => {
+                const url = shot.webUrl || shot.url;
+                if (!urlGroups.has(url)) {
+                    urlGroups.set(url, { 
+                        webUrl: url,
+                        captures: [], 
+                        latest: null 
+                    });
+                }
+                const group = urlGroups.get(url);
+                group.captures.push(shot);
+            });
+
+            // Sort captures within groups and pick latest
+            let baseList = [];
+            urlGroups.forEach(group => {
+                group.captures.sort((a, b) => b.time - a.time);
+                group.latest = group.captures[0];
+                
+                // Determine statuses
+                const effectiveUrl = group.latest.webUrl || group.latest.url;
+                const latestStatus = tags[`${effectiveUrl}#${group.latest.hash}`] || tags[effectiveUrl] || 'UNTAGGED';
+                
+                // [FIX] Check if ANY history item matches the filter (Deep Search)
+                // If filter is FAIL, we want to see this group if it EVER failed (or has a failed version)
+                // Actually, arguably we only want to see if the *current* is FAIL, OR if we are auditing history?
+                // The user requirement implies they want to see "Captured History" so likely auditing.
+                // Let's allow match if ANY item matches.
+                
+                let matchesStatus = false;
+                if (currentStatusFilter === 'ALL') {
+                    matchesStatus = true;
+                } else {
+                    matchesStatus = group.captures.some(cap => {
+                        const cUrl = cap.webUrl || cap.url;
+                        const s = tags[`${cUrl}#${cap.hash}`] || tags[cUrl] || 'UNTAGGED';
+                        return s === currentStatusFilter;
+                    });
+                }
+
+                if (matchesStatus) {
+                    baseList.push({
+                        ...group.latest,
+                        history: group.captures,
+                        count: group.captures.length,
+                        primaryStatus: latestStatus
+                    });
+                }
+            });
+
+            // Apply Type Filter
+            if (currentFilter !== 'ALL') {
+                if (currentFilter === 'DUP') {
+                    baseList = baseList.filter(shot => shot.count > 1);
+                } else {
+                    baseList = baseList.filter(shot => getScreenshotType(shot.url) === currentFilter);
+                }
+            }
+
+            filteredScreenshots = baseList;
+            visualScreenshots = [];
+            gallery.innerHTML = '';
+            loadMore();
+            
+            // Re-connect observer
+            if (scrollObserver && sentinel) {
+                scrollObserver.disconnect();
+                scrollObserver.observe(sentinel);
+            }
+        }
+
+        async function update() {
+            try {
+                const res = await fetch(API_URL);
+                const data = await res.json();
+                
+                // Update Runner UI
+                isRunning = data.isRunning;
+                queueLength = data.queueLength || 0;
+                
+                const queueStatus = document.getElementById('queue-status');
+                if (queueLength > 0) {
+                    queueStatus.style.display = 'inline-block';
+                    queueStatus.innerText = `Queue: ${queueLength}`;
+                } else {
+                    queueStatus.style.display = 'none';
+                }
+
+                // Update Status
+                const effectiveRunningState = data.isRunning || (data.queueLength && data.queueLength > 0);
+                if (effectiveRunningState) {
+                    runnerStatus.innerText = data.queueLength > 0 
+                        ? `Queueing (${data.queueLength})...` 
+                        : "Running...";
+                    runnerStatus.className = 'status-badge status-running';
+                    btnStart.style.display = 'none';
+                    btnStop.style.display = 'inline-block';
+                    inputUrl.disabled = true;
+                } else {
+                    runnerStatus.innerText = "Idle";
+                    runnerStatus.className = 'status-badge status-idle';
+                    btnStart.style.display = 'block';
+                    btnStart.classList.remove('btn-disabled'); // Re-enable
+                    btnStop.style.display = 'none';
+                    inputUrl.disabled = false;
+                }
+                
+                tags = data.tags || {};
+                reasons = data.reasons || {}; // Load reasons
+                updateVisibleTags();
+
+                const oldLength = serverScreenshots.length;
+                serverScreenshots = data.screenshots;
+                
+                // Group by hash AND tag for counting (Split by Tag Strategy)
+                const groups = new Map();
+                serverScreenshots.forEach(shot => {
+                    const status = tags[shot.url] || 'UNTAGGED';
+                    // Key = hash + status. If status differs, they form separate groups.
+                    const key = `${shot.hash}|${status}`;
+                    
+                    if (!groups.has(key)) {
+                        groups.set(key, { 
+                            ...shot, 
+                            count: 0, 
+                            urls: [], // Explicitly track URLs
+                            primaryStatus: status 
+                        });
+                    }
+                    const group = groups.get(key);
+                    group.count++;
+                    group.urls.push(shot.url); // Accumulate URL
+                });
+                const uniqueShots = Array.from(groups.values());
+
+                // Update Stats (Unique Counts)
+                document.getElementById('count').innerText = data.analyzedCount;
+                document.getElementById('shot-count').innerText = uniqueShots.length;
+
+                const traceLink = document.getElementById('trace-link');
+                if (data.latestTrace) {
+                    traceLink.href = data.latestTrace;
+                    traceLink.style.display = 'inline-block';
+                }
+                
+                // Calculate Counts for Buttons (Actual Visual Content Totals)
+                const typeCounts = { ALL: uniqueShots.length, MODAL: 0, DETAIL: 0, PAGE: 0, DUP: 0 };
+                const statusCounts = { PASS: 0, FAIL: 0, BLOCK: 0, UNTAGGED: 0 };
+                const filteredCounts = { ALL: 0, MODAL: 0, DETAIL: 0, PAGE: 0, DUP: 0 };
+
+                // [FIX] Update Stats to look at Groups + History
+                // We need to count how many "Items" (Cards) match each filter
+                
+                const tempUrlGroups = new Map();
+                serverScreenshots.forEach(shot => {
+                    const url = shot.webUrl || shot.url;
+                    if (!tempUrlGroups.has(url)) {
+                        tempUrlGroups.set(url, []);
+                    }
+                    tempUrlGroups.get(url).push(shot);
+                });
+
+                // Reset visual counts
+                // statusCounts: Global count of ITEMS
+                // filteredCounts: Filtered subset
+
+                tempUrlGroups.forEach((captures, url) => {
+                    // Group Status: Latest
+                    captures.sort((a, b) => b.time - a.time);
+                    const latest = captures[0];
+                    const effectiveUrl = latest.webUrl || latest.url;
+                    const latestStatus = tags[`${effectiveUrl}#${latest.hash}`] || tags[effectiveUrl] || 'UNTAGGED';
+                    const type = getScreenshotType(latest.url);
+
+                    // [FIX] Update Global Type Counts
+                    if (typeCounts[type] !== undefined) typeCounts[type]++;
+                    if (captures.length > 1) typeCounts.DUP++;
+                    
+                    // 1. Global Status Counts (Unique Pages/Items)
+                    if (statusCounts[latestStatus] !== undefined) {
+                        statusCounts[latestStatus]++;
+                    } else {
+                        statusCounts.UNTAGGED++;
+                    }
+                    
+                    // 2. Check "Matching Status" for the current filter
+                    let matchesCurrentStatus = false;
+                    if (currentStatusFilter === 'ALL') {
+                        matchesCurrentStatus = true;
+                    } else {
+                         matchesCurrentStatus = captures.some(cap => {
+                            const cUrl = cap.webUrl || cap.url;
+                            const s = tags[`${cUrl}#${cap.hash}`] || tags[cUrl] || 'UNTAGGED';
+                            return s === currentStatusFilter;
+                        });
+                    }
+
+                    if (matchesCurrentStatus) {
+                        filteredCounts.ALL++;
+                        if (filteredCounts[type] !== undefined) filteredCounts[type]++;
+                        if (captures.length > 1) filteredCounts.DUP++;
+                    }
+                });
+
+                const appendFiltered = (total, filtered) => {
+                    if (currentStatusFilter === 'ALL') return total;
+                    return `${total} (${filtered})`;
+                };
+
+                document.getElementById('count-all').innerText = appendFiltered(typeCounts.ALL, filteredCounts.ALL);
+                document.getElementById('count-modal').innerText = appendFiltered(typeCounts.MODAL, filteredCounts.MODAL);
+                document.getElementById('count-detail').innerText = appendFiltered(typeCounts.DETAIL, filteredCounts.DETAIL);
+                document.getElementById('count-page').innerText = appendFiltered(typeCounts.PAGE, filteredCounts.PAGE);
+                document.getElementById('count-duplicate').innerText = appendFiltered(typeCounts.DUP, filteredCounts.DUP);
+
+                document.getElementById('count-pass').innerText = statusCounts.PASS;
+                document.getElementById('count-fail').innerText = statusCounts.FAIL;
+                document.getElementById('count-block').innerText = statusCounts.BLOCK;
+                document.getElementById('count-untagged').innerText = statusCounts.UNTAGGED;
+
+                const failBtn = document.getElementById('btn-reanalyze-fail');
+                const failCount = statusCounts.FAIL;
+                document.getElementById('fail-count-btn').innerText = failCount;
+                if (failCount > 0) {
+                    failBtn.style.display = 'inline-block';
+                } else {
+                    failBtn.style.display = 'none';
+                }
+                
+                if (filteredScreenshots.length === 0 && visualScreenshots.length === 0 && serverScreenshots.length > 0) {
+                     applyFilterAndReset();
+                } else if (serverScreenshots.length !== oldLength || (data.latestScanTime && data.latestScanTime > lastScanTime)) {
+                    lastScanTime = data.latestScanTime || 0;
+                    applyFilterAndReset();
+                }
+                
+                if (isModalOpen) updateModalNav();
+
+            } catch (e) {
+                console.error("Dashboard update failed:", e);
+            }
+        }
+        
+        async function startAnalysis() {
+            const url = inputUrl.value;
+            if(!url) return alert('Please enter a URL');
+            
+            console.log(`[UI] Requesting analysis for: ${url}`);
+            btnStart.classList.add('btn-disabled');
+            runnerStatus.innerText = "Starting...";
+            
+            try {
+                const res = await fetch('/api/analyze', {
+                    method: 'POST',
+                    body: JSON.stringify({ url, depth: 5 })
+                });
+                const json = await res.json();
+                console.log(`[UI] Server Response:`, json);
+                if(json.error) alert(json.error);
+            } catch(e) {
+                console.error(`[UI] Fetch Error:`, e);
+                alert('Failed to start: ' + e);
+            }
+        }
+        
+        async function stopAnalysis() {
+            if(!confirm('Are you sure you want to stop the analysis?')) return;
+            try {
+                await fetch('/api/stop', { method: 'POST' });
+            } catch(e) {}
+        }
+
+        async function reanalyzeFailures() {
+            const failUrls = Object.entries(tags)
+                .filter(([url, status]) => status === 'FAIL')
+                .map(([url]) => url);
+
+            if (failUrls.length === 0) return alert('No FAIL items to re-analyze.');
+            if (!confirm(`Queue re-analysis for ${failUrls.length} failed pages?`)) return;
+
+            // [FIX] Instant Feedback
+            btnStart.classList.add('btn-disabled');
+            runnerStatus.innerText = "Queueing...";
+
+            // Enqueue all failed URLs
+            let queuedCount = 0;
+            for (const failShotPath of failUrls) {
+                // Find original Web URL
+                const shot = serverScreenshots.find(s => s.url === failShotPath);
+                const originalUrl = shot ? shot.webUrl : null;
+
+                if (!originalUrl) {
+                    console.error(`Skipping ${failShotPath} - Unknown Web URL`);
+                    continue;
+                }
+
+                try {
+                    await fetch('/api/analyze', {
+                        method: 'POST',
+                        body: JSON.stringify({ url: originalUrl, depth: 4, limit: 50 }) // Shallow depth for re-check
+                    });
+                    queuedCount++;
+                } catch(e) { console.error(e); }
+            }
+            alert(`Queued ${queuedCount} pages for re-analysis.`);
+            update(); // Trigger immediate update
+        }
+        
+        async function setTag(status) {
+            if (!currentModalUrl || !currentWebUrl) return;
+            
+            const key = currentModalHash ? `${currentWebUrl}#${currentModalHash}` : currentWebUrl;
+            tags[key] = status;
+            
+            updateQAButtons(status);
+            updateVisibleTags();
+            updateHistoryList(); // Refresh history badges
+            
+            try {
+                await fetch('/api/tag', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: currentWebUrl, status, hash: currentModalHash })
+                });
+            } catch (e) {}
+
+            // [FIX] Auto-advance in all filters for better throughput
+            setTimeout(() => nextImage(), 300);
+        }
+        
+        function updateQAButtons(currentStatus) {
+            document.querySelectorAll('.qa-btn').forEach(btn => btn.classList.remove('selected'));
+            if (currentStatus === 'PASS') document.querySelector('.btn-pass').classList.add('selected');
+            if (currentStatus === 'FAIL') {
+                document.querySelector('.btn-fail').classList.add('selected');
+                document.getElementById('fail-reason-container').style.display = 'block';
+                const key = currentModalHash ? `${currentWebUrl}#${currentModalHash}` : currentWebUrl;
+                document.getElementById('fail-reason').value = reasons[key] || '';
+            } else {
+                document.getElementById('fail-reason-container').style.display = 'none';
+            }
+            if (currentStatus === 'BLOCK') document.querySelector('.btn-block').classList.add('selected');
+        }
+
+        async function saveReason() {
+             const reason = document.getElementById('fail-reason').value;
+             const statusEl = document.getElementById('reason-status');
+             
+             const key = currentModalHash ? `${currentWebUrl}#${currentModalHash}` : currentWebUrl;
+             reasons[key] = reason;
+             statusEl.innerText = 'Saving...';
+             try {
+                 await fetch('/api/reason', {
+                     method: 'POST',
+                     headers: { 'Content-Type': 'application/json' },
+                     body: JSON.stringify({ url: currentWebUrl, reason, hash: currentModalHash })
+                 });
+                 statusEl.innerText = 'Saved!';
+                 setTimeout(() => statusEl.innerText = '', 2000);
+             } catch(e) {
+                 statusEl.innerText = 'Error saving';
+             }
+        }
+        
+        function updateVisibleTags() {
+             document.querySelectorAll('.shot-card').forEach(card => {
+                 const url = card.dataset.url;
+                 const shot = serverScreenshots.find(s => s.url === url);
+                 if (!shot) return;
+                 const webUrl = shot.webUrl || url;
+                 const status = tags[`${webUrl}#${shot.hash}`] || tags[webUrl];
+                 
+                 const existingTag = card.querySelector('.qa-tag');
+                 if (existingTag) existingTag.remove();
+                 
+                 if (status) {
+                     const tag = document.createElement('span');
+                     tag.className = `qa-tag qa-${status}`;
+                     tag.innerText = status;
+                     card.appendChild(tag);
+                 }
+             });
+        }
+
+        async function loadMore() {
+            let start = 0;
+            if (visualScreenshots.length > 0) {
+                const lastIdx = filteredScreenshots.indexOf(visualScreenshots[visualScreenshots.length - 1]);
+                if (lastIdx !== -1) start = lastIdx + 1;
+            }
+
+            if (start >= filteredScreenshots.length) {
+                loading.classList.remove('visible');
+                return;
+            }
+
+            loading.classList.add('visible');
+            const end = Math.min(start + BATCH_SIZE, filteredScreenshots.length);
+            const fragment = document.createDocumentFragment();
+            for (let i = start; i < end; i++) {
+                const shot = filteredScreenshots[i];
+                if (!visualScreenshots.includes(shot)) {
+                    fragment.appendChild(createCard(shot));
+                    visualScreenshots.push(shot);
+                }
+            }
+            gallery.appendChild(fragment);
+            loading.classList.remove('visible');
+
+            // [FIX] If sentinel is still visible, load more immediately
+            // This handles cases where the screen is too large for one batch
+            requestAnimationFrame(() => {
+                const rect = sentinel.getBoundingClientRect();
+                if (rect.top < window.innerHeight + 200 && visualScreenshots.length < filteredScreenshots.length) {
+                    loadMore();
+                }
+            });
+        }
+
+        function createCard(shot) {
+            const url = shot.url;
+            const webUrl = shot.webUrl || url;
+            const name = webUrl.split('/').pop().substring(0, 50) || 'home';
+            const type = getScreenshotType(url);
+            const badgeClass = `badge-${type.toLowerCase()}`;
+            const status = tags[`${webUrl}#${shot.hash}`] || tags[webUrl];
+            
+            const div = document.createElement('div');
+            div.className = 'shot-card';
+            div.dataset.url = url;
+            div.onclick = () => openModal(url, shot.hash, webUrl);
+            
+            let statusHtml = '';
+            if (status) statusHtml = `<span class="qa-tag qa-${status}">${status}</span>`;
+            
+            let dupHtml = '';
+            if (shot.count > 1) {
+                dupHtml = `<span class="duplicate-badge">v${shot.count}</span>`;
+            }
+
+            // [NEW] Golden Path Quality Badge
+            let confidenceHtml = '';
+            // Check strictly for null/undefined as 0 is valid
+            if (shot.confidence !== null && shot.confidence !== undefined && !isNaN(shot.confidence)) {
+                const score = Math.round(shot.confidence * 100);
+                const color = score >= 80 ? '#10b981' : (score >= 50 ? '#f59e0b' : '#ef4444');
+                confidenceHtml = `<span style="position:absolute; bottom:30px; left:5px; background:${color}; color:#fff; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:800; box-shadow:0 2px 4px rgba(0,0,0,0.5); z-index:5;" title="${shot.isStable ? 'Stable' : 'Unstable'}">${score}%</span>`;
+            }
+
+            div.innerHTML = `
+                ${statusHtml}
+                <span class="badge ${badgeClass}">${type}</span>
+                ${dupHtml}
+                ${confidenceHtml}
+                <div style="cursor:pointer">
+                    <img data-src="${url}" class="shot-img" alt="${name}">
+                </div>
+                <div class="shot-info">${name}</div>
+            `;
+            const img = div.querySelector('img');
+            const obs = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const target = entry.target;
+                        target.src = target.dataset.src;
+                        target.onload = () => target.classList.add('loaded');
+                        obs.unobserve(target);
+                    }
+                });
+            });
+            obs.observe(img);
+            return div;
+        }
+
+        function openModal(url, hash, webUrl) {
+            console.log(`[UI] Opening Modal: ${webUrl} (${hash}) / Path: ${url}`);
+            currentModalUrl = url;
+            currentModalHash = hash;
+            currentWebUrl = webUrl;
+            isModalOpen = true;
+            document.getElementById('modal').classList.add('active');
+            updateModalImage();
+        }
+
+        function closeModal() {
+            isModalOpen = false;
+            document.getElementById('modal').classList.remove('active');
+        }
+
+        function updateModalImage() {
+            if (!currentModalUrl) return;
+            
+            // [FIX] Robust Lookup: Try webUrl first, then specific url
+            let group = filteredScreenshots.find(s => (s.webUrl || s.url) === currentWebUrl);
+            
+            const img = document.getElementById('modal-img');
+            img.src = currentModalUrl;
+            img.classList.remove('loaded');
+            img.onload = () => img.classList.add('loaded');
+            
+            const titleEl = document.getElementById('modal-title');
+            titleEl.innerText = currentWebUrl || currentModalUrl;
+            titleEl.title = currentWebUrl;
+            
+            const key = currentModalHash ? `${currentWebUrl}#${currentModalHash}` : currentWebUrl;
+            const status = tags[key] || 'UNTAGGED';
+            updateQAButtons(status);
+            
+            // Navigate info
+            if (group) {
+                const idx = filteredScreenshots.indexOf(group);
+                updateHistoryList();
+                updateModalNav();
+            } else {
+                // Fallback for direct links or items not in current filter
+                document.getElementById('modal-history').innerHTML = '<div style="font-size:11px; color:#666; padding:10px;">Context not found in current filter</div>';
+                const prevBtn = document.querySelector('.prev-btn');
+                const nextBtn = document.querySelector('.next-btn');
+                prevBtn.style.display = 'none';
+                nextBtn.style.display = 'none';
+            }
+        }
+
+        function updateHistoryList() {
+            const group = filteredScreenshots.find(s => s.webUrl === currentWebUrl);
+            if (!group || !group.history) return;
+
+            const historyContainer = document.getElementById('modal-history');
+            historyContainer.innerHTML = '';
+
+            group.history.forEach(capture => {
+                const isActive = capture.url === currentModalUrl;
+                const status = tags[`${capture.webUrl}#${capture.hash}`] || tags[capture.webUrl] || 'UNTAGGED';
+                const timeStr = new Date(capture.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                const item = document.createElement('div');
+                item.className = `history-item ${isActive ? 'active' : ''}`;
+                item.onclick = (e) => {
+                    e.stopPropagation();
+                    currentModalUrl = capture.url;
+                    currentModalHash = capture.hash;
+                    updateModalImage();
+                };
+
+                item.innerHTML = `
+                    <img src="${capture.url}" class="history-thumb">
+                    <div class="history-status-dot qa-${status}"></div>
+                    <div class="history-label">${timeStr}</div>
+                `;
+                historyContainer.appendChild(item);
+            });
+        }
+        
+        function updateModalNav() {
+            // Find the current group in the filtered list
+            const group = filteredScreenshots.find(s => (s.webUrl || s.url) === currentWebUrl);
+            const idx = group ? filteredScreenshots.indexOf(group) : -1;
+            
+            const prevBtn = document.querySelector('.prev-btn');
+            const nextBtn = document.querySelector('.next-btn');
+            
+            if (!prevBtn || !nextBtn) return;
+
+            // Show current index status in console for easy debugging
+            console.log(`[ModalNav] URL: ${currentWebUrl}, Index: ${idx}/${filteredScreenshots.length - 1}`);
+
+            // Logic: Hide prev on first item, hide next on last item
+            // Default to flex for display centering
+            if (idx > 0) {
+                prevBtn.style.display = 'flex';
+            } else {
+                prevBtn.style.display = 'none';
+            }
+
+            if (idx !== -1 && idx < filteredScreenshots.length - 1) {
+                nextBtn.style.display = 'flex';
+            } else {
+                nextBtn.style.display = 'none';
+            }
+        }
+
+        function nextImage() {
+            const group = filteredScreenshots.find(s => (s.webUrl || s.url) === currentWebUrl);
+            const idx = filteredScreenshots.indexOf(group);
+            if (idx !== -1 && idx < filteredScreenshots.length - 1) {
+                const nextGroup = filteredScreenshots[idx + 1];
+                openModal(nextGroup.url, nextGroup.hash, nextGroup.webUrl || nextGroup.url);
+            }
+        }
+
+        function prevImage() {
+            const group = filteredScreenshots.find(s => (s.webUrl || s.url) === currentWebUrl);
+            const idx = filteredScreenshots.indexOf(group);
+            if (idx > 0) {
+                const prevGroup = filteredScreenshots[idx - 1];
+                openModal(prevGroup.url, prevGroup.hash, prevGroup.webUrl || prevGroup.url);
+            }
+        }
+        
+        function preloadNeighbors(idx) {
+            if (idx < filteredScreenshots.length - 1) {
+                new Image().src = filteredScreenshots[idx + 1].url;
+            }
+            if (idx > 0) {
+                new Image().src = filteredScreenshots[idx - 1].url;
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (!isModalOpen) return;
+            console.log(`[UI] KeyDown: ${e.key} (Target: ${e.target.tagName})`);
+            
+            // If user is typing in the reason box, don't trigger navigation
+            if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') {
+                if (e.key === 'Escape') {
+                   e.target.blur(); // Escape to exit typing
+                }
+                return;
+            }
+
+            if (e.key === 'ArrowLeft') { e.preventDefault(); prevImage(); }
+            if (e.key === 'ArrowRight') { e.preventDefault(); nextImage(); }
+            if (e.key === 'Escape') closeModal();
+            if (e.key === "1") setTag('PASS');
+            if (e.key === "2") setTag('FAIL');
+            if (e.key === "3") setTag('BLOCK');
+        });
+        // Expose to global scope for inline onclick
+        window.switchDuplicate = function(url) {
+            console.log("Switching to duplicate:", url);
+            currentModalUrl = url;
+            updateModalImage();
+        };
+
+        // Initial Load
+        update();
+        
+        // [FIX] Infinite Scroll Observer
+        if ('IntersectionObserver' in window) {
+            scrollObserver = new IntersectionObserver((entries) => {
+                if (entries[0].isIntersecting) {
+                    loadMore();
+                }
+            }, { rootMargin: '200px' });
+            if (sentinel) scrollObserver.observe(sentinel);
+        }
+
+        setInterval(update, 2000);
+        
+        const styleSheet = document.createElement("style");
+        styleSheet.innerText = `
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+            .dropdown-menu {
+                position: absolute;
+                top: 100%;
+                left: 0;
+                background: #1e293b;
+                border: 1px solid #334155;
+                border-radius: 4px;
+                padding: 4px 0;
+                min-width: 300px;
+                max-width: 90vw;
+                max-height: 50vh;
+                overflow-y: auto;
+                z-index: 9999;
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+                display: none;
+            }
+            .dropdown-menu.show { display: block; animation: fadeIn 0.2s; }
+            .dropdown-item {
+                padding: 8px 12px;
+                cursor: pointer;
+                font-size: 13px;
+                color: #cbd5e1;
+                border-bottom: 1px solid #334155;
+            }
+            .dropdown-item:last-child { border-bottom: none; }
+            .dropdown-item:hover { background: #334155; color: white; }
+            .dropdown-item.active { background: #0ea5e9; color: white; }
+        `;
+        document.head.appendChild(styleSheet);
     </script>
-
-    <!-- Main Module -->
-    <script type="module" src="./scripts/main.js"></script>
 </body>
 </html>

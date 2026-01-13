@@ -1,7 +1,6 @@
 import * as http from 'http';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as url from 'url';
 import { fileURLToPath } from 'url';
 import { spawn, execSync } from 'child_process';
 import * as dotenv from 'dotenv';
@@ -229,9 +228,11 @@ const server = http.createServer((req, res) => {
 
             res.writeHead(200, { 'Content-Type': mime });
             fs.createReadStream(safePath).pipe(res);
-        } else {
-            res.writeHead(404); res.end('Asset not found');
+            return;
         }
+
+        res.writeHead(404);
+        res.end('Asset not found');
         return;
     }
 

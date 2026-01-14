@@ -19,8 +19,8 @@ export class Scraper {
   // RL State Manager (Shared)
   private static rlManager: RLStateManager | null = null;
 
-  // [NEW] Action Chain for Golden Path
-  private static actionChain: Array<{
+  // [NEW] Action Chain for Golden Path - Moved to instance-level or job-level
+  private actionChain: Array<{
     type: 'click' | 'nav' | 'input';
     selector: string;
     label: string;
@@ -138,13 +138,23 @@ export class Scraper {
     };
   }
 
-  static async processPage(page: Page, url: string, config: ScraperConfig, outputDir: string): Promise<ScrapeResult> {
+  static async processPage(page: Page, url: string, config: ScraperConfig, outputDir: string, previousActions: any[] = [], previousPath: string[] = []): Promise<ScrapeResult> {
+    const scraper = new Scraper();
+    scraper.actionChain = [...previousActions];
+
+    // [Unified Timestamp] Group by Hour for grouping & organization
+    const now = new Date();
+    const offset = now.getTimezoneOffset() * 60000;
+    const localIso = new Date(now.getTime() - offset).toISOString();
+    const timestamp = localIso.replace(/[:.]/g, '-').substring(0, 13);
+
     // Initialize RL Manager if needed
     if (!Scraper.rlManager) {
       Scraper.rlManager = new RLStateManager(outputDir);
     }
 
-    const discoveredLinks: string[] = [];
+    const discoveredLinks: Array<{ url: string; path: string[] }> = [];
+    const clickedRowTexts = new Set<string>(); // [NEW] Deduplication for row clicks
     const modalDiscoveries: Array<{
       triggerText: string;
       modalTitle: string;
@@ -157,6 +167,13 @@ export class Scraper {
 
     // --- NAVIGATION ---
     try {
+      // [Stability] Block localhost connections (Dev config leak protection)
+      await page.route(/localhost|127\.0\.0\.1/, async (route) => {
+        const u = route.request().url();
+        console.log(`[Scraper] 🛡️ Blocked request to localhost: ${u}`);
+        await route.abort();
+      });
+
       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
       await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => { });
     } catch (e) {
@@ -167,7 +184,7 @@ export class Scraper {
     // [FIX] Smart Dashboard Navigation
     const currentUrl = page.url();
     if (currentUrl.includes('/app/logged-in') || currentUrl.endsWith('/app') || currentUrl.endsWith('/app/')) {
-      console.log(`[Scraper] Detected transition page, forcing navigation to /app/home...`);
+      console.log('[Scraper] Detected transition page, forcing navigation to /app/home...');
       await page.waitForTimeout(1000);
       await page.goto(new URL('/app/home', url).toString(), { waitUntil: 'networkidle' }).catch(() => { });
     }
@@ -196,7 +213,7 @@ export class Scraper {
 
     // [NEW] Settle UI and Cleanup Ghost Elements
     const settleAndCleanup = async () => {
-      console.log(`[Scraper] Settling UI and cleaning ghost elements...`);
+      console.log('[Scraper] Settling UI and cleaning ghost elements...');
       // [FIX] Removed (1,1) click as it hits the Dashboard logo.
       // Instead, try to close open menus by sending Escape (carefully) or clicking a safe void area if possible.
       // For now, relies on CSS hiding strategy above.
@@ -245,7 +262,7 @@ export class Scraper {
 
     const extractModalContent = async (triggerText: string) => {
       if (!(await isModalOpen())) return null;
-      console.log(`[Scraper] Modal detected, extracting content...`);
+      console.log('[Scraper] Modal detected, extracting content...');
 
       const modalData = await page.evaluate(() => {
         const modal = document.querySelector('.ianai-Modal-content, .mantine-Modal-content, [role="dialog"], .ianai-Drawer-content, .mantine-Drawer-content');
@@ -274,7 +291,7 @@ export class Scraper {
           const stats = await sharp(png).stats();
           const isBlank = stats.channels.every(ch => ch.mean > 250 && ch.stdev < 10);
           if (isBlank) {
-            console.log(`[Scraper] Skipping blank modal screenshot`);
+            console.log('[Scraper] Skipping blank modal screenshot');
           } else {
             const webp = await sharp(png).webp({ quality: 80 }).toBuffer();
             const hash = crypto.createHash('md5').update(webp).digest('hex');
@@ -285,7 +302,6 @@ export class Scraper {
             } else {
               Scraper.capturedModalHashes.add(hash);
               const safeName = modalData.modalTitle.replace(/[^a-zA-Z0-9가-힣]/g, '_').substring(0, 40) || 'modal';
-              const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
               screenshotPath = path.join(outputDir, `modal-${safeName}_${timestamp}.webp`);
 
               if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
@@ -322,7 +338,7 @@ export class Scraper {
       // [NEW] Record Action
       try {
         const txt = await handle.innerText().catch(() => '') || await handle.getAttribute('aria-label') || 'element';
-        Scraper.actionChain.push({
+        scraper.actionChain.push({
           type: 'click',
           selector: (await handle.getAttribute('class')) || 'unknown',
           label: txt.substring(0, 30),
@@ -344,7 +360,7 @@ export class Scraper {
     };
 
     // --- PHASE 2: SPA Route Interception ---
-    console.log(`[Scraper] Setting up SPA route interception...`);
+    console.log('[Scraper] Setting up SPA route interception...');
     await page.evaluate(() => {
       if (!(window as any).__discoveredRoutes) (window as any).__discoveredRoutes = new Set();
       const methods = ['pushState', 'replaceState'];
@@ -359,7 +375,7 @@ export class Scraper {
     });
 
     // --- PHASE 3: Stability Wait ---
-    console.log(`[Scraper] Waiting for page stability...`);
+    console.log('[Scraper] Waiting for page stability...');
     await page.waitForFunction(() => {
       const loaders = ['.mantine-Loader-root', '.loader', '.spinner', '.loading', '[aria-busy="true"]', '.ant-spin', '.nprogress-bar'];
       for (let i = 0; i < loaders.length; i++) {
@@ -387,6 +403,80 @@ export class Scraper {
       });
     });
 
+    // --- PHASE 3.5: EARLY SCREENSHOT (Clean State) ---
+    // [CHANGE] Moved before Discovery phases to capture pristine page state
+    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+    let screenshotPath = '';
+    try {
+      await settleAndCleanup();
+
+      // Generate meaningful filename from URL path
+      const urlObj = new URL(url);
+      const pageName = urlObj.pathname.replace(/\//g, '-').replace(/^-|-$/g, '') || 'index';
+
+      screenshotPath = path.join(outputDir, `${pageName}_${timestamp}.webp`);
+
+      const png = await page.screenshot({ fullPage: true, type: 'png' });
+
+      // Check if screenshot is mostly blank (white/empty page)
+      const stats = await sharp(png).stats();
+      const isBlank = stats.channels.every(ch => ch.mean > 250 && ch.stdev < 10);
+      if (isBlank) {
+        console.log(`[Scraper] ⚠️ Warning: Screenshot appears blank (High brightness/Low contrast) for ${url}`);
+      }
+      const webp = await sharp(png).webp({ quality: 80 }).toBuffer();
+      const hash = crypto.createHash('md5').update(webp).digest('hex');
+
+      fs.writeFileSync(screenshotPath, webp);
+
+      // Save metadata JSON
+      const domain = new URL(url).hostname;
+      const jsonDir = path.join(path.dirname(screenshotPath), 'json', domain);
+      if (!fs.existsSync(jsonDir)) fs.mkdirSync(jsonDir, { recursive: true });
+
+      const jsonFilename = `${pageName}_${timestamp}.json`;
+      const jsonPath = path.join(jsonDir, jsonFilename);
+      fs.writeFileSync(jsonPath, JSON.stringify({
+        url,
+        timestamp: localIso,
+        hash,
+        capturePhase: 'early', // [NEW] Mark as early capture
+        functionalPath: previousPath.join(' > ') // [NEW] 3-Way Mapping
+      }, null, 2));
+
+      // [RL] Calculate Reliability Score
+      const { score, reasons } = await ReliabilityScorer.calculateScore(page, screenshotPath);
+      console.log(`[RL] Reliability Score: ${score.toFixed(2)} (${reasons.join(', ') || 'Clean'})`);
+
+      // [RL] Record State
+      if (Scraper.rlManager) {
+        Scraper.rlManager.recordState({
+          url,
+          action: 'initial_capture',
+          timestamp: new Date().toISOString(),
+          reliabilityScore: score,
+          contaminationReasons: reasons,
+          screenshotHash: hash
+        });
+      }
+
+      // Update JSON with score
+      try {
+        const data = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
+        data.reliabilityScore = score;
+        data.contaminationReasons = reasons;
+        fs.writeFileSync(jsonPath, JSON.stringify(data, null, 2));
+      } catch (e) { }
+
+      if (hash === Scraper.lastScreenshotHash) {
+        // Duplicate detection log (optional)
+      }
+      Scraper.lastScreenshotHash = hash;
+      console.log(`[Scraper] ✓ Early screenshot captured: ${screenshotPath}`);
+    } catch (e) {
+      console.error(`[Scraper] Early screenshot failed: ${e}`);
+    }
+
     // --- PHASE 4: Menu Expansion (Cache-aware) ---
     console.log(`[Scraper] Expanding menus (Cached: ${Scraper.visitedExpansionButtons.size})...`);
     const visitedMenus = Array.from(Scraper.visitedExpansionButtons);
@@ -403,12 +493,22 @@ export class Scraper {
     }, visitedMenus);
 
     let expandedCount = 0;
+    let navigationCount = 0; // [OPTIMIZATION] Track navigations to prevent infinite loop
     for (const t of potentialMenus) {
+      if (navigationCount > 3) {
+        console.log('[Scraper] Too many menu expansions triggered navigation. Stopping expansion phase to save time.');
+        break;
+      }
       try {
         const validButtons = await page.locator(`button:has-text("${t}"), [role="button"]:has-text("${t}")`).all();
         // [UPGRADE] Iterate all matching buttons, not just first
+        let activeButtonsChecked = 0; // [FIX] Moved declaration before usage
         for (const btn of validButtons) {
+          // [OPTIMIZATION] Limit buttons checked per text to avoid duplicates
+          if (activeButtonsChecked > 3) break;
+
           if (await btn.isVisible()) {
+            activeButtonsChecked++;
             await smartClick(btn);
             Scraper.visitedExpansionButtons.add(t);
             expandedCount++;
@@ -416,10 +516,18 @@ export class Scraper {
 
             if (page.url() !== targetUrl) {
               const navigatedUrl = page.url();
-              if (navigatedUrl.startsWith('http')) discoveredLinks.push(navigatedUrl);
+              if (navigatedUrl.startsWith('http')) {
+                discoveredLinks.push({
+                  url: navigatedUrl,
+                  path: [...previousPath, t] // Add menu label to path
+                });
+              }
               console.log(`[Scraper] Menu expansion navigated to: ${navigatedUrl}. Returning...`);
-              await page.goto(targetUrl, { waitUntil: 'networkidle' }).catch(() => { });
+
+              // [OPTIMIZATION] Use domcontentloaded instead of networkidle for faster return
+              await page.goto(targetUrl, { waitUntil: 'domcontentloaded' }).catch(() => { });
               await page.waitForTimeout(500);
+              navigationCount++;
             } else {
               // Capture links from expanded menu
               const newLinks = await page.evaluate(() => {
@@ -431,7 +539,12 @@ export class Scraper {
                 return res;
               });
               if (newLinks.length > 0) {
-                newLinks.forEach(l => discoveredLinks.push(l));
+                newLinks.forEach(l => {
+                  discoveredLinks.push({
+                    url: l,
+                    path: [...previousPath, t] // Inherit menu breadcrumb
+                  });
+                });
                 console.log(`[Scraper] Captured ${newLinks.length} links from expanded menu "${t}".`);
               }
             }
@@ -442,7 +555,7 @@ export class Scraper {
     console.log(`[Scraper] Expanded ${expandedCount} NEW menu items.`);
 
     // --- AUTO-SCROLL ---
-    console.log(`[Scraper] Scrolling to discover more content...`);
+    console.log('[Scraper] Scrolling to discover more content...');
     try {
       if (page.isClosed()) return { url, pageTitle: 'Closed', elements: [], links: [], newlyDiscoveredCount: 0 };
       await page.waitForTimeout(500);
@@ -461,7 +574,7 @@ export class Scraper {
         });
       });
     } catch (e) {
-      console.log(`[Scraper] Auto - scroll interrupted or page closed.`);
+      console.log('[Scraper] Auto - scroll interrupted or page closed.');
       if (page.isClosed()) return { url, pageTitle: 'Closed', elements: [], links: [], newlyDiscoveredCount: 0 };
     }
 
@@ -473,6 +586,9 @@ export class Scraper {
       let sidebarRoots: Element[] = [];
 
       // [UPGRADE] Find ALL potential sidebars, not just the first one
+      const specificSidebars = document.querySelectorAll('nav[class*="_navBar_"], div[class*="_navLinks_"]');
+      if (specificSidebars.length > 0) sidebarRoots.push(...Array.from(specificSidebars));
+
       for (const sel of sidebarSelectors) {
         sidebarRoots.push(...Array.from(document.querySelectorAll(sel)));
       }
@@ -491,6 +607,10 @@ export class Scraper {
       } else {
         // Last resort: Query broadly but filter strictly later
         btns = Array.from(document.querySelectorAll('.navBar button, [class*="navBar"] button, [class*="sidebar"] button, aside button, [class*="UnstyledButton"]')) as HTMLElement[];
+
+        // [Verified Selector] Add specific class from inspection
+        const verifiedBtns = document.querySelectorAll('button[class*="_control_"], button[class*="ianai-UnstyledButton-root"]');
+        btns.push(...Array.from(verifiedBtns) as HTMLElement[]);
       }
 
       const excludeTexts = ['miscellaneous', 'support', 'logout', '피드백', '지원', 'help', '공지사항'];
@@ -537,7 +657,10 @@ export class Scraper {
           }
 
           if (navigated) {
-            discoveredLinks.push(page.url());
+            discoveredLinks.push({
+              url: page.url(),
+              path: [...previousPath, b.cleanText] // Add sidebar label
+            });
             await page.goto(targetUrl, { waitUntil: 'networkidle' }).catch(() => { });
           } else {
             const newLinks = await page.evaluate(() => {
@@ -549,7 +672,12 @@ export class Scraper {
               return res;
             });
             if (newLinks.length > 0) {
-              newLinks.forEach(l => discoveredLinks.push(l));
+              newLinks.forEach(l => {
+                discoveredLinks.push({
+                  url: l,
+                  path: [...previousPath, b.cleanText] // Inherit sidebar breadcrumb
+                });
+              });
               console.log(`[Scraper] Sidebar click "${b.cleanText}" revealed ${newLinks.length} links.`);
             }
 
@@ -561,8 +689,23 @@ export class Scraper {
       } catch (e) { }
     }
 
+    // --- PHASE 5.5: List Entry (View All) ---
+    console.log('[Scraper] Checking for "View All" triggers...');
+    const viewAllBtns = await page.getByRole('button', { name: /View All|View more|더보기/i }).all();
+    for (const btn of viewAllBtns) {
+      if (await btn.isVisible()) {
+        console.log('[Scraper] Clicking "View All" to enter list view...');
+        await smartClick(btn);
+        await page.waitForTimeout(2000);
+        const currentIterationUrl = page.url();
+        if (!discoveredLinks.some(l => l.url === currentIterationUrl)) {
+          discoveredLinks.push({ url: currentIterationUrl, path: [...previousPath, 'View All'] });
+        }
+      }
+    }
+
     // --- PHASE 6: Table-based Row-Click Discovery ---
-    console.log(`[Scraper] Discovering detail pages via Table/Grid/List Row Click...`);
+    console.log('[Scraper] Discovering detail pages via Table/Grid/List Row Click...');
     const tables = await page.$$('table, [role="table"], [role="grid"], [role="treegrid"], .mantine-Table-root, [class*="Table"], [class*="Grid"], [class*="List"]');
     console.log(`[Scraper] Found ${tables.length} tables to investigate.`);
 
@@ -578,6 +721,13 @@ export class Scraper {
         await closeModals();
         const rowText = await row.evaluate((el: HTMLElement) => el.innerText?.trim().substring(0, 50).replace(/\n/g, ' | ') || '');
         if (rowText.toLowerCase().includes('name') && rowText.toLowerCase().includes('type')) continue;
+
+        // [NEW] Deduplication check
+        if (clickedRowTexts.has(rowText)) {
+          // console.log(`[Scraper] Skipping redundant row click: "${rowText}"`);
+          continue;
+        }
+        clickedRowTexts.add(rowText);
 
         console.log(`[Scraper] Clicking target row: "${rowText}"`);
         const preUrl = page.url();
@@ -623,7 +773,7 @@ export class Scraper {
         page.on('request', networkListener);
 
         await smartClick(target);
-        console.log(`[Scraper] Row click sent.Monitoring for response...`);
+        console.log('[Scraper] Row click sent.Monitoring for response...');
 
         let handled = false;
         for (let p = 0; p < 10; p++) {
@@ -635,7 +785,7 @@ export class Scraper {
             if (modal) {
               console.log(`[Scraper] ✓ Modal found: "${modal.modalTitle}"`);
               modalDiscoveries.push(modal);
-              discoveredLinks.push(...modal.links);
+              discoveredLinks.push(...modal.links.map(l => ({ url: l, path: [...previousPath, 'Modal Link'] })));
             }
             handled = true;
             await closeModals();
@@ -684,7 +834,7 @@ export class Scraper {
             // Generate meaningful detail page filename
             const detailUrlObj = new URL(curUrl);
             const detailPath = detailUrlObj.pathname.replace(/\//g, '-').replace(/^-|-$/g, '') || 'detail';
-            let scPath: string | undefined = path.join(outputDir, `detail - ${detailPath.substring(0, 50)}.webp`);
+            let scPath: string | undefined = path.join(outputDir, `detail-${detailPath.substring(0, 50)}_${timestamp}.webp`);
             try {
               if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
               const png = await page.screenshot({ fullPage: true, type: 'png' });
@@ -709,8 +859,11 @@ export class Scraper {
               screenshotPath: scPath
             });
 
-            discoveredLinks.push(curUrl);
-            console.log(`[Scraper] Detail captured, returning to list...`);
+            discoveredLinks.push({
+              url: curUrl,
+              path: [...previousPath, `Detail: ${rowText.substring(0, 20)}`] // Add detail context
+            });
+            console.log('[Scraper] Detail captured, returning to list...');
             await page.goBack({ waitUntil: 'networkidle' }).catch(() => { });
             await page.waitForTimeout(500);
             if (page.url() !== preUrl) await page.goto(preUrl, { waitUntil: 'networkidle' });
@@ -729,8 +882,48 @@ export class Scraper {
     }
     if (emptyTables > 0) console.log(`[Scraper] Skipped ${emptyTables} empty tables.`);
 
+    // --- PHASE 6.5: Pagination Discovery ---
+    console.log('[Scraper] Checking for Pagination...');
+    // Mantine / Common Pagination Selectors
+    const nextBtns = await page.$$('button[class*="pagination-control"]:not([disabled]), button[class*="Pagination-control"]:not([disabled]), [aria-label="Next page"]:not([disabled]), [title="Next"]:not([disabled]), .mantine-Pagination-control:has([class*="tabler-icon-chevron-right"]), button:has(svg[class*="chevron-right"])');
+
+    if (nextBtns.length > 0) {
+      console.log(`[Scraper] Found ${nextBtns.length} potential 'Next' buttons.`);
+      for (const btn of nextBtns) {
+        if (await btn.isVisible()) {
+          const isDisabled = await btn.getAttribute('disabled') !== null || await btn.getAttribute('aria-disabled') === 'true';
+          if (!isDisabled) {
+            console.log('[Scraper] Clicking Pagination \'Next\' button...');
+            const preUrl = page.url();
+            await smartClick(btn);
+            await page.waitForTimeout(2000);
+            if (page.url() !== preUrl) {
+              console.log(`[Scraper] Pagination navigated to: ${page.url()}`);
+              discoveredLinks.push({ url: page.url(), path: [...previousPath, 'Next Page'] });
+              // Go back to preserve state for other phases if needed, or just capture this link
+              await page.goBack().catch(() => { });
+              await page.waitForTimeout(1000);
+            }
+          }
+        }
+      }
+    } else {
+      // Numbered pagination check (e.g., jump to page 2)
+      const page2Btn = await page.$('button:has-text("2"), [role="button"]:has-text("2")');
+      if (page2Btn) {
+        const label = await page2Btn.innerText();
+        if (label.trim() === '2') { // Strict check to avoid "2024" etc
+          console.log('[Scraper] Found \'Page 2\' button. Clicking...');
+          await smartClick(page2Btn);
+          await page.waitForTimeout(2000);
+          discoveredLinks.push({ url: page.url(), path: [...previousPath, 'Page 2'] });
+          await page.goBack().catch(() => { });
+        }
+      }
+    }
+
     // --- PHASE 7: Global Action Discovery ---
-    console.log(`[Scraper] Global Action Discovery...`);
+    console.log('[Scraper] Global Action Discovery...');
     const allBtns = await page.$$('button, [role="button"], a[class*="Button"], a[class*="btn"]');
     const matches: { b: any; t: string }[] = [];
 
@@ -765,113 +958,18 @@ export class Scraper {
           if (modal) {
             console.log(`[Scraper] ✓ Action "${m.t}" opened modal: "${modal.modalTitle}"`);
             modalDiscoveries.push(modal);
-            discoveredLinks.push(...modal.links);
+            discoveredLinks.push(...modal.links.map(l => ({ url: l, path: [...previousPath, 'Action: ' + m.t] })));
           }
           await closeModals();
         } else if (page.url() !== preUrl && page.url().startsWith('http')) {
           console.log(`[Scraper] ✓ Action "${m.t}" navigated to: ${page.url()} `);
-          discoveredLinks.push(page.url());
+          discoveredLinks.push({ url: page.url(), path: [...previousPath, 'Action: ' + m.t] });
           await page.goBack({ waitUntil: 'networkidle' }).catch(() => { });
         }
       } catch (e) { }
     }
 
-    // --- SCREENSHOT ---
-    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
-    let screenshotPath = '';
-    try {
-      // Wait for any remaining loaders to finish before final screenshot
-      await page.waitForFunction(() => {
-        const loaders = ['.mantine-Loader-root', '.loader', '.spinner', '.loading', '[aria-busy="true"]', '.ant-spin', '.nprogress-bar', '.ianai-Loader'];
-        for (let i = 0; i < loaders.length; i++) {
-          const el = document.querySelector(loaders[i]);
-          if (el) {
-            const style = window.getComputedStyle(el);
-            if (style.display !== 'none' && style.visibility !== 'hidden' && parseFloat(style.opacity) > 0) {
-              return false;
-            }
-          }
-        }
-        return true;
-      }, { timeout: 5000 }).catch(() => { });
-
-      await settleAndCleanup();
-
-      // Generate meaningful filename from URL path
-      const urlObj = new URL(url);
-      const pageName = urlObj.pathname.replace(/\//g, '-').replace(/^-|-$/g, '') || 'index';
-
-      // [FIX] Normalize /app and /app/ to 'home' to avoid duplicates
-      // [FIX] Group by Hour (User Request) - Truncate to YYYY-MM-DD-HH
-      // Use local time (Asia/Seoul is target, but system time is best)
-      const now = new Date();
-      const offset = now.getTimezoneOffset() * 60000;
-      const localIso = new Date(now.getTime() - offset).toISOString();
-      console.log(`[Timezone Debug] Now: ${now.toISOString()}, Offset: ${now.getTimezoneOffset()}, LocalIso: ${localIso}`);
-      const timestamp = localIso.replace(/[:.]/g, '-').substring(0, 13);
-      screenshotPath = path.join(outputDir, `${pageName}_${timestamp}.webp`);
-
-      const png = await page.screenshot({ fullPage: true, type: 'png' });
-
-      // Check if screenshot is mostly blank (white/empty page)
-      const stats = await sharp(png).stats();
-      const isBlank = stats.channels.every(ch => ch.mean > 250 && ch.stdev < 10);
-      if (isBlank) {
-        console.log(`[Scraper] Skipping blank screenshot for ${url}`);
-        screenshotPath = '';
-      } else {
-        const webp = await sharp(png).webp({ quality: 80 }).toBuffer();
-        const hash = crypto.createHash('md5').update(webp).digest('hex');
-
-        // We always save with timestamp now to provide history, but still check hash to log duplicates
-        fs.writeFileSync(screenshotPath, webp);
-
-        // [FIX] Save metadata with EXACT SAME timestamped name for easy mapping
-        const domain = new URL(url).hostname;
-        const jsonDir = path.join(path.dirname(screenshotPath), 'json', domain);
-        if (!fs.existsSync(jsonDir)) fs.mkdirSync(jsonDir, { recursive: true });
-
-        const jsonFilename = `${pageName}_${timestamp}.json`;
-        const jsonPath = path.join(jsonDir, jsonFilename);
-        fs.writeFileSync(jsonPath, JSON.stringify({
-          url,
-          timestamp: localIso, // [FIX] Use local time
-          hash,
-          // [NEW] Save Action Chain
-          actionChain: Scraper.actionChain
-        }, null, 2));
-
-        // [RL] Calculate Reliability Score
-        const { score, reasons } = await ReliabilityScorer.calculateScore(page, screenshotPath);
-        console.log(`[RL] Reliability Score: ${score.toFixed(2)} (${reasons.join(', ') || 'Clean'})`);
-
-        // [RL] Record State
-        if (Scraper.rlManager) {
-          Scraper.rlManager.recordState({
-            url,
-            action: Scraper.actionChain.length > 0 ? Scraper.actionChain[Scraper.actionChain.length - 1].label : 'nav',
-            timestamp: new Date().toISOString(),
-            reliabilityScore: score,
-            contaminationReasons: reasons,
-            screenshotHash: hash
-          });
-        }
-
-        // [RL] Update JSON with score
-        try {
-          // Re-read and update
-          const data = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
-          data.reliabilityScore = score;
-          data.contaminationReasons = reasons;
-          fs.writeFileSync(jsonPath, JSON.stringify(data, null, 2));
-        } catch (e) { }
-
-        if (hash === Scraper.lastScreenshotHash) {
-          // console.log(`[Scraper] Note: Visual duplicate of previous step: ${ url } `);
-        }
-        Scraper.lastScreenshotHash = hash;
-      }
-    } catch (e) { }
+    // [REMOVED] Screenshot moved to Phase 3.5 (Early Capture)
 
     // --- FULL EXTRACTION (For Analyzer) ---
     // Use stack-based iteration to avoid esbuild's __name helper issue in browser context
@@ -1028,7 +1126,7 @@ export class Scraper {
     });
 
     const elements = result.elements as TestableElement[];
-    discoveredLinks.push(...result.links);
+    discoveredLinks.push(...result.links.map(l => ({ url: l, path: previousPath })));
 
     // Analyze Golden Path stability
     const goldenPath = await this.analyzeGoldenPath(page, elements);
@@ -1038,13 +1136,15 @@ export class Scraper {
       url,
       pageTitle: await page.title(),
       elements,
-      links: discoveredLinks,
+      links: discoveredLinks.map(l => l.url),
+      discoveredLinks: discoveredLinks, // [NEW] Full link + path info
       sidebarLinks: result.sidebarLinks,
       screenshotPath,
       modalDiscoveries,
       newlyDiscoveredCount: discoveredLinks.length,
       goldenPath, // [NEW] Golden Path Info
-      actionChain: Scraper.actionChain
+      actionChain: scraper.actionChain,
+      functionalPath: previousPath.join(' > ') // Join breadcrumbs
     };
 
   }

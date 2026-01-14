@@ -6,6 +6,8 @@ import { Analyzer } from '../../scripts/analyzer.js';
 import { Generator } from '../../scripts/generator.js';
 import { AnalysisResult } from '../../types/index.js';
 import { ScrapeJob, ScraperConfig } from './types.js';
+import { RecoveryManager } from './RecoveryManager.js';
+import { NetworkManager } from './NetworkManager.js';
 
 export class Runner {
     private browser: Browser | null = null;
@@ -19,6 +21,9 @@ export class Runner {
     // Components
     private analyzer = new Analyzer();
     private generator = new Generator();
+    private recoveryManager = new RecoveryManager(50); // [RECOVERY] Modular error handling
+    private networkManager = new NetworkManager(); // [NETWORK] CORS-safe header injection
+    private normalizedUrlMap = new Map<string, string>(); // [CACHE] URL normalization results
 
     // Stats
     private analyzedCount = 0;
@@ -32,6 +37,9 @@ export class Runner {
         this.isRunning = true;
 
         if (!fs.existsSync(this.outputDir)) fs.mkdirSync(this.outputDir, { recursive: true });
+
+        // [NEW] Multi-Epoch Accumulation Logic
+        this.loadHealthyVisitedUrls();
 
         // 1. Launch & Auth
         this.browser = await chromium.launch({ headless: this.config.headless });
@@ -62,10 +70,13 @@ export class Runner {
         }
 
         // Initial Job - [FIX] Use current page URL if it changed (e.g. redirect to /app/home)
+        // Initial Job - [FIX] Use current page URL if it changed (e.g. redirect to /app/home)
         const startUrl = loginPage.url();
-        console.log(`[Runner] Starting exploration from: ${startUrl}`);
-        this.queue.push({ url: startUrl, depth: 0 });
-        this.visitedUrls.add(startUrl);
+        const normalizedStart = this.normalizeUrl(startUrl);
+        const safeStartUrl = normalizedStart.replace(/\/\/.*@/, '//***@');
+        console.log(`[Runner] Starting exploration from: ${safeStartUrl}`);
+        this.queue.push({ url: normalizedStart, depth: 0, actionChain: [] });
+        this.visitedUrls.add(normalizedStart);
 
         // [CRITICAL FIX] Store authenticated page for ALL workers to reuse
         // This preserves the login session throughout the entire crawl
@@ -79,17 +90,15 @@ export class Runner {
     }
 
     private async performLogin(page: Page): Promise<boolean> {
-        // [DEBUG] Network Logging for Login Diagnosis
-        page.on('request', request => {
-            if (request.method() === 'POST' && (request.url().includes('login') || request.url().includes('auth') || request.url().includes('sign-in'))) {
-                console.log(`[Network] POST Login Request: ${request.url()}`);
-                console.log(`[Network] Payload: ${request.postData()}`);
-            }
-        });
+
 
         page.on('response', async response => {
             if (response.status() >= 400 && (response.url().includes('login') || response.url().includes('auth') || response.url().includes('api'))) {
                 console.log(`[Network] ${response.status()} Error on: ${response.url()}`);
+
+                // [RECOVERY] Delegate to RecoveryManager
+                await this.recoveryManager.checkAndTriggerRecovery(page);
+
                 try {
                     const body = await response.text();
                     console.log(`[Network] Error Body: ${body.substring(0, 500)}`);
@@ -131,22 +140,30 @@ export class Runner {
                     await passwordLocator.blur();
                     await page.waitForTimeout(500);
 
-                    // [CRITICAL] Wait for Invisible Turnstile to generate token
-                    // Turnstile runs in background (no UI), needs 3-5 seconds
-                    console.log('[Runner] Waiting 5 seconds for invisible Turnstile token generation...');
-                    await page.waitForTimeout(5000);
-                    console.log('[Runner] Proceeding with login submission');
+
 
                     // Click submit button
                     const submitBtn = page.locator('button[type="submit"], input[type="submit"], button:has-text("Log in"), button:has-text("Sign in"), button:has-text("로그인")').first();
                     if (await submitBtn.isVisible().catch(() => false)) {
                         // [REVERSE ENGINEERING WORKAROUND] Force inject missing session headers
                         // Inject BEFORE clicking to ensure even the very first redirect APIs are covered
-                        if (process.env.INJECT_CUSTOM_HEADERS === 'true' && process.env.CUSTOM_COMPANY_ID) {
-                            console.log(`[Runner] 💉 Injecting custom session headers (Company-Id: ${process.env.CUSTOM_COMPANY_ID})`);
-                            await this.context!.setExtraHTTPHeaders({
-                                'company-id': process.env.CUSTOM_COMPANY_ID
-                            });
+                        if (process.env.INJECT_CUSTOM_HEADERS === 'true') {
+                            let targetCompanyId = '';
+
+                            if (this.config.url.includes('stage.ianai.co')) {
+                                targetCompanyId = process.env.COMPANY_ID_STAGE || '';
+                                console.log('[Runner] Environment: STAGE detected');
+                            } else if (this.config.url.includes('dev.ianai.co')) {
+                                targetCompanyId = process.env.COMPANY_ID_DEV || '';
+                                console.log('[Runner] Environment: DEV detected');
+                            }
+
+                            if (targetCompanyId) {
+                                // [FIX] Use NetworkManager for safe, selective injection (Avoids CORS errors)
+                                await this.networkManager.enableHeaderInjection(this.context!, targetCompanyId);
+                            } else {
+                                console.log('[Runner] ⚠️ No matching Company ID found for this environment.');
+                            }
                         }
 
                         // [FIX] Wait for state to settle
@@ -169,7 +186,8 @@ export class Runner {
 
                         // Check login success - should be redirected away from login page
                         const currentUrl = page.url();
-                        console.log(`[Runner] Post-login URL: ${currentUrl}`);
+                        const safeLogUrl = currentUrl.replace(/\/\/.*@/, '//***@'); // [SECURITY] Sanitize credentials
+                        console.log(`[Runner] Post-login URL: ${safeLogUrl}`);
 
 
 
@@ -256,18 +274,39 @@ export class Runner {
             return;
         }
 
+        // [FIX] Zombie Page Recovery
+        if (this.authenticatedPage.isClosed()) {
+            console.warn('[Runner] ⚠️ Authenticated page is CLOSED (Zombie). Attempting to recover session...');
+            try {
+                const newPage = await this.context!.newPage();
+                const success = await this.performLogin(newPage);
+                if (success) {
+                    console.log('[Runner] ✓ Session recovered successfully!');
+                    this.authenticatedPage = newPage;
+                } else {
+                    console.error('[Runner] ❌ Recovery failed. Aborting worker.');
+                    return;
+                }
+            } catch (e) {
+                console.error(`[Runner] Critical Error during recovery: ${e}`);
+                return;
+            }
+        }
+
         const page = this.authenticatedPage;
 
         // [DEBUG] Forward browser logs to node console
         page.on('console', msg => {
             if (msg.type() === 'log' || msg.type() === 'warning' || msg.type() === 'error') {
-                console.log(`[Browser] ${msg.text()}`);
+                const text = msg.text();
+                const truncated = text.length > 300 ? text.substring(0, 300) + '... (truncated)' : text;
+                console.log(`[Browser] ${truncated}`);
             }
         });
 
         try {
             console.log(`[Runner] Worker started for: ${job.url}`);
-            const result = await Scraper.processPage(page, job.url, this.config, this.outputDir);
+            const result = await Scraper.processPage(page, job.url, this.config, this.outputDir, job.actionChain || [], job.functionalPath || []);
 
             // [NEW] Golden Path Logging
             if (result.goldenPath) {
@@ -320,15 +359,25 @@ export class Runner {
 
             // --- QUEUE DISCOVERY ---
             if (job.depth < this.config.depth) {
-                for (const link of result.links) {
+                const resultsWithLinks = (result as any).discoveredLinks || [];
+                for (const discovery of resultsWithLinks) {
+                    const link = discovery.url;
+                    const path = discovery.path;
+                    const normalizedLink = this.normalizeUrl(link);
                     // Check visited
-                    if (!this.visitedUrls.has(link)) {
+                    if (!this.visitedUrls.has(normalizedLink)) {
                         try {
-                            const linkHost = new URL(link).hostname;
+                            const linkHost = new URL(normalizedLink).hostname;
                             const baseHost = new URL(this.config.url).hostname;
                             if (linkHost === baseHost) {
-                                this.visitedUrls.add(link);
-                                this.queue.push({ url: link, depth: job.depth + 1, sourceUrl: job.url });
+                                this.visitedUrls.add(normalizedLink);
+                                this.queue.push({
+                                    url: normalizedLink,
+                                    depth: job.depth + 1,
+                                    sourceUrl: job.url,
+                                    actionChain: result.actionChain, // Cumulative path
+                                    functionalPath: path // Inherited breadcrumbs
+                                });
                             }
                         } catch (e) { }
                     }
@@ -336,11 +385,38 @@ export class Runner {
             }
         } catch (e) {
             console.error(`[Runner] Worker failed on ${job.url}:`, e);
-        } finally {
-            await page.close();
         }
+        // [FIX] Don't close authenticatedPage - it's shared across all workers
+        // Page will be cleaned up when context.close() is called in stop()
     }
 
+
+    private loadHealthyVisitedUrls() {
+        const initialDomain = new URL(this.config.url).hostname.replace(/\./g, '-');
+        const jsonDir = path.join(this.outputDir, '..', 'json', initialDomain);
+
+        if (fs.existsSync(jsonDir)) {
+            const files = fs.readdirSync(jsonDir).filter(f => f.endsWith('.json'));
+            console.log(`[Runner] Pre-scanning ${files.length} pages for cumulative health check...`);
+
+            for (const file of files) {
+                try {
+                    const content = JSON.parse(fs.readFileSync(path.join(jsonDir, file), 'utf-8'));
+                    const normalizedUrl = this.normalizeUrl(content.url);
+                    const isHealthy = (content.metadata?.totalElements || 0) > 10;
+
+                    if (isHealthy) {
+                        this.visitedUrls.add(normalizedUrl);
+                        console.log(`[Runner] Accumulated Healthy: ${normalizedUrl}`);
+                    } else {
+                        // Mark as NOT visited so we retry the zombie page
+                        this.visitedUrls.delete(normalizedUrl);
+                        console.log(`[Runner] Marked Zombie for Retry: ${normalizedUrl}`);
+                    }
+                } catch (e) { }
+            }
+        }
+    }
 
     async stop() {
         if (!this.isRunning) return;
@@ -355,5 +431,23 @@ export class Runner {
             await this.context.close();
         }
         if (this.browser) await this.browser.close();
+    }
+
+    private normalizeUrl(url: string): string {
+        try {
+            const u = new URL(url);
+            let p = u.pathname;
+            // Alias /app and /app/ to /app/home
+            if (p === '/app' || p === '/app/' || p === '/app/home') {
+                u.pathname = '/app/home';
+            }
+            // Remove trailing slash for consistency (e.g. /app/users/ -> /app/users)
+            if (u.pathname.length > 1 && u.pathname.endsWith('/')) {
+                u.pathname = u.pathname.slice(0, -1);
+            }
+            return u.toString();
+        } catch (e) {
+            return url;
+        }
     }
 }

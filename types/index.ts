@@ -71,6 +71,40 @@ export type ActionType =
     | 'focus'
     | 'navigate';
 
+/**
+ * Action Record for Golden Path tracking
+ * Records user journey through the application
+ */
+export interface ActionRecord {
+    /** Action type performed */
+    type: 'click' | 'nav' | 'input' | 'scroll' | 'wait';
+    /** CSS selector of target element */
+    selector: string;
+    /** Human-readable label */
+    label: string;
+    /** ISO timestamp */
+    timestamp: string;
+    /** URL where action occurred */
+    url: string;
+    /** Optional value for input actions */
+    value?: string;
+}
+
+/**
+ * Simplified element for modal content
+ * Lighter than full TestableElement for modal discoveries
+ */
+export interface ModalElement {
+    /** CSS selector */
+    selector: string;
+    /** Element tag name */
+    tag: string;
+    /** Element text or label */
+    label: string;
+    /** Element type */
+    type: ElementType | 'other';
+}
+
 /** 테스트 시나리오 (그룹화된 액션들) */
 export interface TestScenario {
     /** 시나리오 ID */
@@ -100,10 +134,15 @@ export type ScenarioCategory =
 
 /** 모달 발견 정보 */
 export interface ModalDiscovery {
+    /** Text of the trigger element (button/link) */
     triggerText: string;
+    /** Modal title or heading */
     modalTitle: string;
-    elements: any[]; // Using any[] for now as scraper returns simplified element structure for modals
+    /** Elements found inside the modal */
+    elements: ModalElement[];
+    /** Links discovered in modal */
     links: string[];
+    /** Screenshot path if captured */
     screenshotPath?: string;
 }
 
@@ -118,7 +157,8 @@ export interface AnalysisResult {
     discoveredLinks: string[];
     sidebarLinks?: string[];
     modalDiscoveries?: ModalDiscovery[];
-    actionChain?: any[]; // Recorded interactions
+    /** Recorded user interactions for Golden Path */
+    actionChain?: ActionRecord[];
     metadata: {
         totalElements: number;
         byType: Record<string, number>;

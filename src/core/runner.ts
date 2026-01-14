@@ -102,7 +102,7 @@ export class Runner {
                 try {
                     const body = await response.text();
                     console.log(`[Network] Error Body: ${body.substring(0, 500)}`);
-                } catch (e) { }
+                } catch { /* ignore */ }
             }
         });
 
@@ -336,16 +336,13 @@ export class Runner {
                 actionChain: result.actionChain, // [NEW] Pass action chain
                 metadata: {
                     totalElements: result.elements.length,
-                    byType: stats as any,
+                    byType: stats as Record<string, number>,
                     domain: new URL(job.url).hostname,
                     bySection: { 0: result.elements.length }
                 }
             };
 
-            // --- GENERATE ---
             // Determine output folder based on domain
-            const urlParsed = new URL(job.url);
-            const pageDomain = urlParsed.hostname.replace(/\./g, '-');
             const subDir = path.join(this.outputDir, '..'); // Assuming outputDir is the screenshots folder
 
             await this.generator.generate(analysisResult, {
@@ -359,7 +356,7 @@ export class Runner {
 
             // --- QUEUE DISCOVERY ---
             if (job.depth < this.config.depth) {
-                const resultsWithLinks = (result as any).discoveredLinks || [];
+                const resultsWithLinks = result.discoveredLinks || [];
                 for (const discovery of resultsWithLinks) {
                     const link = discovery.url;
                     const path = discovery.path;
@@ -379,7 +376,7 @@ export class Runner {
                                     functionalPath: path // Inherited breadcrumbs
                                 });
                             }
-                        } catch (e) { }
+                        } catch { /* ignore */ }
                     }
                 }
             }
@@ -413,7 +410,7 @@ export class Runner {
                         this.visitedUrls.delete(normalizedUrl);
                         console.log(`[Runner] Marked Zombie for Retry: ${normalizedUrl}`);
                     }
-                } catch (e) { }
+                } catch { /* ignore */ }
             }
         }
     }
@@ -446,7 +443,7 @@ export class Runner {
                 u.pathname = u.pathname.slice(0, -1);
             }
             return u.toString();
-        } catch (e) {
+        } catch {
             return url;
         }
     }

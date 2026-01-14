@@ -229,7 +229,7 @@ export class Scraper {
             await page.waitForTimeout(300);
           }
         }
-      } catch (e) { }
+      } catch { /* ignore */ }
 
       await page.evaluate(() => {
         // Hide common floating elements that might get stuck
@@ -322,13 +322,13 @@ export class Scraper {
                   hash,
                   type: 'modal'
                 }, null, 2));
-              } catch (e) { }
+              } catch { /* ignore */ }
 
               console.log(`[Scraper] Saved unique modal: ${safeName} (version ${hash.substring(0, 6)})`);
             }
           }
         }
-      } catch (e) { }
+      } catch { /* ignore */ }
 
       return { triggerText, modalTitle: modalData.modalTitle, elements: modalData.elements, links: modalData.links, screenshotPath };
     };
@@ -345,7 +345,7 @@ export class Scraper {
           timestamp: new Date().toISOString(),
           url: page.url()
         });
-      } catch (e) { }
+      } catch { /* ignore */ }
 
       try {
         const box = await handle.boundingBox();
@@ -354,7 +354,7 @@ export class Scraper {
         } else {
           await handle.click({ force: true }).catch(() => handle.evaluate((el: HTMLElement) => el.click()));
         }
-      } catch (e) {
+      } catch {
         await handle.click({ force: true }).catch(() => { });
       }
     };
@@ -466,7 +466,7 @@ export class Scraper {
         data.reliabilityScore = score;
         data.contaminationReasons = reasons;
         fs.writeFileSync(jsonPath, JSON.stringify(data, null, 2));
-      } catch (e) { }
+      } catch { /* ignore */ }
 
       if (hash === Scraper.lastScreenshotHash) {
         // Duplicate detection log (optional)
@@ -550,7 +550,7 @@ export class Scraper {
             }
           }
         }
-      } catch (e) { }
+      } catch { /* ignore */ }
     }
     console.log(`[Scraper] Expanded ${expandedCount} NEW menu items.`);
 
@@ -573,7 +573,7 @@ export class Scraper {
           }, 30);
         });
       });
-    } catch (e) {
+    } catch {
       console.log('[Scraper] Auto - scroll interrupted or page closed.');
       if (page.isClosed()) return { url, pageTitle: 'Closed', elements: [], links: [], newlyDiscoveredCount: 0 };
     }
@@ -686,7 +686,7 @@ export class Scraper {
             await closeModals();
           }
         }
-      } catch (e) { }
+      } catch { /* ignore */ }
     }
 
     // --- PHASE 5.5: List Entry (View All) ---
@@ -849,7 +849,7 @@ export class Scraper {
                 const webp = await sharp(png).webp({ quality: 80 }).toBuffer();
                 fs.writeFileSync(scPath, webp);
               }
-            } catch (e) { scPath = undefined; }
+            } catch { scPath = undefined; }
 
             modalDiscoveries.push({
               triggerText: `Row Click: ${rowText} `,
@@ -876,7 +876,7 @@ export class Scraper {
 
         page.off('request', networkListener);
         await closeModals();
-      } catch (e) {
+      } catch {
         await closeModals();
       }
     }
@@ -933,7 +933,7 @@ export class Scraper {
         if (/new|create|add|plus|generate|edit|view|scan|print|수정|보기|생성|추가|등록|신규|인쇄/i.test(t)) {
           matches.push({ b, t });
         }
-      } catch (e) { }
+      } catch { /* ignore */ }
     }
 
     // Prioritize Create/New actions
@@ -966,7 +966,7 @@ export class Scraper {
           discoveredLinks.push({ url: page.url(), path: [...previousPath, 'Action: ' + m.t] });
           await page.goBack({ waitUntil: 'networkidle' }).catch(() => { });
         }
-      } catch (e) { }
+      } catch { /* ignore */ }
     }
 
     // [REMOVED] Screenshot moved to Phase 3.5 (Early Capture)
@@ -1112,7 +1112,7 @@ export class Scraper {
                 }
                 console.log(`[Scraper] Dropped link (Cross-domain): ${url.hostname}`);
               }
-            } catch (e) { }
+            } catch { /* ignore */ }
           }
         });
       });

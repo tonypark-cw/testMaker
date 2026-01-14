@@ -1,9 +1,9 @@
-import { Page } from 'playwright';
+import { Page, ElementHandle, Request } from 'playwright';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as crypto from 'crypto';
 import sharp from 'sharp';
-import { TestableElement } from '../../types/index.js';
+import { ActionRecord, ModalDiscovery, TestableElement } from '../../types/index.js';
 import { ScrapeResult, ScraperConfig } from './types.js';
 import { ReliabilityScorer } from './rl/ReliabilityScorer.js';
 import { RLStateManager } from './rl/RLStateManager.js';
@@ -138,7 +138,7 @@ export class Scraper {
     };
   }
 
-  static async processPage(page: Page, url: string, config: ScraperConfig, outputDir: string, previousActions: any[] = [], previousPath: string[] = []): Promise<ScrapeResult> {
+  static async processPage(page: Page, url: string, config: ScraperConfig, outputDir: string, previousActions: ActionRecord[] = [], previousPath: string[] = []): Promise<ScrapeResult> {
     const scraper = new Scraper();
     scraper.actionChain = [...previousActions];
 
@@ -155,13 +155,7 @@ export class Scraper {
 
     const discoveredLinks: Array<{ url: string; path: string[] }> = [];
     const clickedRowTexts = new Set<string>(); // [NEW] Deduplication for row clicks
-    const modalDiscoveries: Array<{
-      triggerText: string;
-      modalTitle: string;
-      elements: any[];
-      links: string[];
-      screenshotPath?: string;
-    }> = [];
+    const modalDiscoveries: ModalDiscovery[] = [];
 
     console.log(`[Scraper] Processing: ${url}`);
 
@@ -270,7 +264,7 @@ export class Scraper {
         const titleEl = modal.querySelector('.ianai-Modal-title, .mantine-Modal-title, h1, h2, h3, [class*="title"]');
         const modalTitle = titleEl?.textContent?.trim() || 'Untitled Modal';
         const links = Array.from(modal.querySelectorAll('a[href]')).map(a => (a as HTMLAnchorElement).href).filter(h => h && !h.startsWith('blob:') && !h.startsWith('javascript:') && h.startsWith('http'));
-        const elements: any[] = [];
+        const elements: TestableElement[] = [];
         modal.querySelectorAll('button, a[href], input, textarea, select, [role="button"], [role="tab"], [data-testid]').forEach((el, idx) => {
           const rect = el.getBoundingClientRect();
           if (rect.width < 2 || rect.height < 2) return;
@@ -334,7 +328,7 @@ export class Scraper {
     };
 
     // [RESTORED] Coordinate-based clicking for SPA event filtering bypass
-    const smartClick = async (handle: any) => {
+    const smartClick = async (handle: ElementHandle<Element>) => {
       // [NEW] Record Action
       try {
         const txt = await handle.innerText().catch(() => '') || await handle.getAttribute('aria-label') || 'element';
@@ -362,13 +356,17 @@ export class Scraper {
     // --- PHASE 2: SPA Route Interception ---
     console.log('[Scraper] Setting up SPA route interception...');
     await page.evaluate(() => {
-      if (!(window as any).__discoveredRoutes) (window as any).__discoveredRoutes = new Set();
-      const methods = ['pushState', 'replaceState'];
+      if (!(window as unknown as Window & { __discoveredRoutes: Set<string> }).__discoveredRoutes) {
+        (window as unknown as Window & { __discoveredRoutes: Set<string> }).__discoveredRoutes = new Set();
+      }
+      const methods = ['pushState', 'replaceState'] as const;
       for (let i = 0; i < methods.length; i++) {
         const m = methods[i];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const orig = (history as any)[m];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (history as any)[m] = function (...args: any[]) {
-          if (args[2]) (window as any).__discoveredRoutes.add(args[2].toString());
+          if (args[2]) (window as unknown as Window & { __discoveredRoutes: Set<string> }).__discoveredRoutes.add(args[2].toString());
           return orig.apply(this, args);
         };
       }
@@ -393,7 +391,7 @@ export class Scraper {
     // DOM mutation stability wait
     await page.evaluate(() => {
       return new Promise<void>(resolve => {
-        let t: any;
+        let t: ReturnType<typeof setTimeout>;
         const o = new MutationObserver(() => {
           clearTimeout(t);
           t = setTimeout(() => { o.disconnect(); resolve(); }, 800);
@@ -763,7 +761,7 @@ export class Scraper {
 
         // Network monitoring
         let detectedApiCall = false;
-        const networkListener = (req: any) => {
+        const networkListener = (req: Request) => {
           const u = req.url().toLowerCase();
           const rType = req.resourceType();
           const isApi = (u.includes('/api/') || /uuid|history|detail|get/i.test(u)) && (rType === 'fetch' || rType === 'xhr');
@@ -817,7 +815,7 @@ export class Scraper {
 
             // [IMMEDIATE CAPTURE] Detail page screenshot and elements
             const pageData = await page.evaluate(() => {
-              const els: any[] = [];
+              const els: Array<{ id: string, tag: string, label: string, type: string }> = [];
               document.querySelectorAll('button, a[href], input, textarea, select, [role="button"]').forEach((el, idx) => {
                 const r = el.getBoundingClientRect();
                 if (r.width < 5 || r.height < 5) return;
@@ -825,7 +823,7 @@ export class Scraper {
                   id: `detail - el - ${idx} `,
                   tag: el.tagName.toLowerCase(),
                   label: (el as HTMLElement).innerText?.trim().substring(0, 50) || el.getAttribute('aria-label') || '',
-                  type: (el as any).type || ''
+                  type: (el as HTMLInputElement).type || ''
                 });
               });
               return { title: document.title, elements: els.slice(0, 50) };
@@ -925,7 +923,7 @@ export class Scraper {
     // --- PHASE 7: Global Action Discovery ---
     console.log('[Scraper] Global Action Discovery...');
     const allBtns = await page.$$('button, [role="button"], a[class*="Button"], a[class*="btn"]');
-    const matches: { b: any; t: string }[] = [];
+    const matches: { b: ElementHandle<Element>; t: string }[] = [];
 
     for (const b of allBtns) {
       try {
@@ -977,7 +975,7 @@ export class Scraper {
       // [DEBUG] Log body text to diagnose "explicit-error-ui" and 0 links
       console.log('[DEBUG] Page Content Start:', document.body.innerText.substring(0, 500).replace(/\n/g, ' '));
 
-      const elements: any[] = [];
+      const elements: TestableElement[] = [];
       const links = new Set<string>();
       const sidebarLinks = new Set<string>();
 
@@ -1062,8 +1060,8 @@ export class Scraper {
 
 
       // [RESTORE] SPA Route Merging & Logic
-      if ((window as any).__discoveredRoutes) {
-        (window as any).__discoveredRoutes.forEach((r: string) => links.add(r));
+      if ((window as unknown as Window & { __discoveredRoutes: string[] }).__discoveredRoutes) {
+        (window as unknown as Window & { __discoveredRoutes: string[] }).__discoveredRoutes.forEach((r: string) => links.add(r));
       }
 
       // [RESTORE & INLINE] Intelligent Link Processing (Inlined)

@@ -642,7 +642,7 @@ export class Scraper {
     for (const b of sButtons) {
       Scraper.visitedSidebarButtons.add(b.text);
       try {
-        const handle = await page.$(`nav button: has - text("${b.cleanText}"), aside button: has - text("${b.cleanText}"), .sidebar button: has - text("${b.cleanText}"), button: has - text("${b.cleanText}")`);
+        const handle = await page.$(`nav button:has-text("${b.cleanText}"), aside button:has-text("${b.cleanText}"), .sidebar button:has-text("${b.cleanText}"), button:has-text("${b.cleanText}")`);
         if (handle) {
           const preUrl = page.url();
           await smartClick(handle);
@@ -696,9 +696,10 @@ export class Scraper {
         await smartClick(btn);
         await page.waitForTimeout(2000);
         const currentIterationUrl = page.url();
-        if (!discoveredLinks.some(l => l.url === currentIterationUrl)) {
+        if (currentIterationUrl.startsWith('http') && !discoveredLinks.some(l => l.url === currentIterationUrl)) {
           discoveredLinks.push({ url: currentIterationUrl, path: [...previousPath, 'View All'] });
         }
+        if (currentIterationUrl !== targetUrl) break; // [FIX] Break if navigation occurred
       }
     }
 

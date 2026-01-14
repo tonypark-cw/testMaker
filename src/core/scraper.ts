@@ -1,4 +1,4 @@
-import { Page, ElementHandle, Request } from 'playwright';
+import { Page, ElementHandle, Request, Locator } from 'playwright';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as crypto from 'crypto';
@@ -328,7 +328,7 @@ export class Scraper {
     };
 
     // [RESTORED] Coordinate-based clicking for SPA event filtering bypass
-    const smartClick = async (handle: ElementHandle<Element>) => {
+    const smartClick = async (handle: ElementHandle<Element> | Locator) => {
       // [NEW] Record Action
       try {
         const txt = await handle.innerText().catch(() => '') || await handle.getAttribute('aria-label') || 'element';

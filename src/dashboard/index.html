@@ -427,16 +427,28 @@
 
     <header>
         <div style="display:flex; flex-direction: column; gap: 10px;">
-            <div style="display:flex; align-items:center; gap:10px;">
-                <h1>TestMaker Live <span style="font-size:14px; color:#4da6ff; vertical-align:middle;">●</span></h1>
+            <div style="display:flex; align-items:center; gap:10px; justify-content: space-between;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <h1>TestMaker Live <span style="font-size:14px; color:#4da6ff; vertical-align:middle;">●</span></h1>
+                </div>
+                
+                <!-- Environment Selector -->
+                <div class="filter-group" style="margin:0;">
+                    <button class="filter-btn active" id="env-stage" onclick="switchEnvironment('stage')" style="font-size: 13px;">
+                        🟦 Stage
+                    </button>
+                    <button class="filter-btn" id="env-dev" onclick="switchEnvironment('dev')" style="font-size: 13px;">
+                        🟩 Dev
+                    </button>
+                </div>
             </div>
             
             <!-- Runner Box -->
             <div class="runner-box">
              <input type="text" id="target-url" class="runner-input" placeholder="Enter target URL to analyze..." value="https://stage.ianai.co/">
-             <button id="btn-start" class="runner-btn btn-start" onclick="startAnalysis()">Start Analysis</button>
-             <button id="btn-stop" class="runner-btn btn-stop" onclick="stopAnalysis()">Stop</button>
-             <button id="btn-reanalyze-fail" class="runner-btn" onclick="reanalyzeFailures()" style="display:none; background: #d35400; font-size: 13px;">Re-analyze FAIL (<span id="fail-count-btn">0</span>)</button>
+             <button id="btn-start" class="runner-btn btn-start" onclick="startSearch()">Start Search</button>
+             <button id="btn-stop" class="runner-btn btn-stop" onclick="stopSearch()">Stop</button>
+             <button id="btn-researh-fail" class="runner-btn" onclick="researchFailures()" style="display:none; background: #d35400; font-size: 13px;">Re-search FAIL (<span id="fail-count-btn">0</span>)</button>
              <span id="runner-status" class="runner-status">Idle</span>
              <span id="queue-status" class="runner-status" style="display:none; background: #2980b9;">Queue: 0</span>
             </div>
@@ -447,7 +459,7 @@
              <div class="stats">
                 <div class="card">
                     <span class="value" id="count">0</span>
-                    <span class="label">Analyzed Pages</span>
+                   <span class="label">Searched Pages</span>
                 </div>
                 <div class="card">
                     <span class="value" id="shot-count">0</span>
@@ -463,7 +475,6 @@
             <button class="filter-btn" onclick="setFilter('PAGE')">PAGE <span id="count-page" class="filter-count">0</span></button>
             <button class="filter-btn" onclick="setFilter('MODAL')">MODAL <span id="count-modal" class="filter-count">0</span></button>
             <button class="filter-btn" onclick="setFilter('DETAIL')">DETAIL <span id="count-detail" class="filter-count">0</span></button>
-            <button class="filter-btn" onclick="setFilter('DUP')">DUP <span id="count-duplicate" class="filter-count">0</span></button>
         </div>
 
         <div class="filter-group" id="status-filters">
@@ -513,6 +524,7 @@
     </div>
 
     <script>
+        let currentEnvironment = 'stage'; // Default environment
         const API_URL = '/api/stats';
         
         // State
@@ -543,6 +555,25 @@
         const btnStop = document.getElementById('btn-stop');
         const inputUrl = document.getElementById('target-url');
         const runnerStatus = document.getElementById('runner-status');
+
+        function switchEnvironment(env) {
+            currentEnvironment = env;
+            
+            // Update UI
+            document.getElementById('env-stage').classList.toggle('active', env === 'stage');
+            document.getElementById('env-dev').classList.toggle('active', env === 'dev');
+            
+            // Update URL input
+           inputUrl.value = env === 'stage' ? 'https://stage.ianai.co/' : 'https://dev.ianai.co/';
+            
+            // Reset and reload
+            serverScreenshots = [];
+            filteredScreenshots = [];
+            visualScreenshots = [];
+            gallery.innerHTML = '';
+            
+            update();
+        }
 
         function setFilter(filter) {
             currentFilter = filter;
@@ -651,7 +682,7 @@
 
         async function update() {
             try {
-                const res = await fetch(API_URL);
+                const res = await fetch(`${API_URL}?env=${currentEnvironment}`);
                 const data = await res.json();
                 
                 // Update Runner UI
@@ -692,45 +723,12 @@
                 const oldLength = serverScreenshots.length;
                 serverScreenshots = data.screenshots;
                 
-                // Group by hash AND tag for counting (Split by Tag Strategy)
-                const groups = new Map();
-                serverScreenshots.forEach(shot => {
-                    const status = tags[shot.url] || 'UNTAGGED';
-                    // Key = hash + status. If status differs, they form separate groups.
-                    const key = `${shot.hash}|${status}`;
-                    
-                    if (!groups.has(key)) {
-                        groups.set(key, { 
-                            ...shot, 
-                            count: 0, 
-                            urls: [], // Explicitly track URLs
-                            primaryStatus: status 
-                        });
-                    }
-                    const group = groups.get(key);
-                    group.count++;
-                    group.urls.push(shot.url); // Accumulate URL
-                });
-                const uniqueShots = Array.from(groups.values());
-
-                // Update Stats (Unique Counts)
-                document.getElementById('count').innerText = data.analyzedCount;
-                document.getElementById('shot-count').innerText = uniqueShots.length;
-
-                const traceLink = document.getElementById('trace-link');
-                if (data.latestTrace) {
-                    traceLink.href = data.latestTrace;
-                    traceLink.style.display = 'inline-block';
-                }
-                
                 // Calculate Counts for Buttons (Actual Visual Content Totals)
-                const typeCounts = { ALL: uniqueShots.length, MODAL: 0, DETAIL: 0, PAGE: 0, DUP: 0 };
+                const typeCounts = { ALL: 0, MODAL: 0, DETAIL: 0, PAGE: 0, DUP: 0 };
                 const statusCounts = { PASS: 0, FAIL: 0, BLOCK: 0, UNTAGGED: 0 };
                 const filteredCounts = { ALL: 0, MODAL: 0, DETAIL: 0, PAGE: 0, DUP: 0 };
 
-                // [FIX] Update Stats to look at Groups + History
-                // We need to count how many "Items" (Cards) match each filter
-                
+                // Group by webUrl (consistent with gallery display)
                 const tempUrlGroups = new Map();
                 serverScreenshots.forEach(shot => {
                     const url = shot.webUrl || shot.url;
@@ -740,10 +738,7 @@
                     tempUrlGroups.get(url).push(shot);
                 });
 
-                // Reset visual counts
-                // statusCounts: Global count of ITEMS
-                // filteredCounts: Filtered subset
-
+                // Count items based on URL groups
                 tempUrlGroups.forEach((captures, url) => {
                     // Group Status: Latest
                     captures.sort((a, b) => b.time - a.time);
@@ -752,7 +747,8 @@
                     const latestStatus = tags[`${effectiveUrl}#${latest.hash}`] || tags[effectiveUrl] || 'UNTAGGED';
                     const type = getScreenshotType(latest.url);
 
-                    // [FIX] Update Global Type Counts
+                    // Update ALL and Type Counts
+                    typeCounts.ALL++;
                     if (typeCounts[type] !== undefined) typeCounts[type]++;
                     if (captures.length > 1) typeCounts.DUP++;
                     
@@ -781,6 +777,16 @@
                         if (captures.length > 1) filteredCounts.DUP++;
                     }
                 });
+
+                // Update shot-count with total unique URLs
+                document.getElementById('count').innerText = data.searchedCount;
+                document.getElementById('shot-count').innerText = typeCounts.ALL;
+
+                const traceLink = document.getElementById('trace-link');
+                if (data.latestTrace) {
+                    traceLink.href = data.latestTrace;
+                    traceLink.style.display = 'inline-block';
+                }
 
                 const appendFiltered = (total, filtered) => {
                     if (currentStatusFilter === 'ALL') return total;
@@ -821,7 +827,7 @@
             }
         }
         
-        async function startAnalysis() {
+        async function startSearch() {
             const url = inputUrl.value;
             if(!url) return alert('Please enter a URL');
             
@@ -830,7 +836,7 @@
             runnerStatus.innerText = "Starting...";
             
             try {
-                const res = await fetch('/api/analyze', {
+                const res = await fetch('/api/search', {
                     method: 'POST',
                     body: JSON.stringify({ url, depth: 5 })
                 });
@@ -843,14 +849,14 @@
             }
         }
         
-        async function stopAnalysis() {
+        async function stopSearch() {
             if(!confirm('Are you sure you want to stop the analysis?')) return;
             try {
                 await fetch('/api/stop', { method: 'POST' });
             } catch(e) {}
         }
 
-        async function reanalyzeFailures() {
+        async function researchFailures() {
             const failUrls = Object.entries(tags)
                 .filter(([url, status]) => status === 'FAIL')
                 .map(([url]) => url);
@@ -875,7 +881,7 @@
                 }
 
                 try {
-                    await fetch('/api/analyze', {
+                    await fetch('/api/search', {
                         method: 'POST',
                         body: JSON.stringify({ url: originalUrl, depth: 4, limit: 50 }) // Shallow depth for re-check
                     });

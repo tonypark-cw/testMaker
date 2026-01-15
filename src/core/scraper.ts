@@ -20,13 +20,7 @@ export class Scraper {
   private static rlManager: RLStateManager | null = null;
 
   // [NEW] Action Chain for Golden Path - Moved to instance-level or job-level
-  private actionChain: Array<{
-    type: 'click' | 'nav' | 'input';
-    selector: string;
-    label: string;
-    timestamp: string;
-    url: string;
-  }> = [];
+  private actionChain: ActionRecord[] = [];
 
   /**
    * Analyze page stability and testability for Golden Path generation
@@ -198,10 +192,24 @@ export class Scraper {
 
     const isModalOpen = async (): Promise<boolean> => {
       return await page.evaluate(() => {
-        const modal = document.querySelector('.ianai-Modal-content, .mantine-Modal-content, [role="dialog"], .ianai-Drawer-content, .mantine-Drawer-content');
-        if (!modal) return false;
-        const style = window.getComputedStyle(modal);
-        return style.display !== 'none' && style.visibility !== 'hidden';
+        const selectors = [
+          '.ianai-Modal-content',
+          '.mantine-Modal-content',
+          '[role="dialog"]',
+          '.ianai-Drawer-content',
+          '.mantine-Drawer-content',
+          '.mantine-Modal-inner' // [NEW] Broader container check
+        ];
+        const modals = document.querySelectorAll(selectors.join(', '));
+        for (const modal of modals) {
+          const style = window.getComputedStyle(modal);
+          if (style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0') {
+            // Ensure it has some dimension
+            const rect = modal.getBoundingClientRect();
+            if (rect.width > 0 && rect.height > 0) return true;
+          }
+        }
+        return false;
       });
     };
 
@@ -259,7 +267,26 @@ export class Scraper {
       console.log('[Scraper] Modal detected, extracting content...');
 
       const modalData = await page.evaluate(() => {
-        const modal = document.querySelector('.ianai-Modal-content, .mantine-Modal-content, [role="dialog"], .ianai-Drawer-content, .mantine-Drawer-content');
+        const selectors = [
+          '.ianai-Modal-content',
+          '.mantine-Modal-content',
+          '[role="dialog"]',
+          '.ianai-Drawer-content',
+          '.mantine-Drawer-content',
+          '.mantine-Modal-inner'
+        ];
+        const modals = document.querySelectorAll(selectors.join(', '));
+        let modal: Element | null = null;
+        for (const m of modals) {
+          const style = window.getComputedStyle(m);
+          if (style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0') {
+            const rect = m.getBoundingClientRect();
+            if (rect.width > 0 && rect.height > 0) {
+              modal = m;
+              break;
+            }
+          }
+        }
         if (!modal) return null;
         const titleEl = modal.querySelector('.ianai-Modal-title, .mantine-Modal-title, h1, h2, h3, [class*="title"]');
         const modalTitle = titleEl?.textContent?.trim() || 'Untitled Modal';
@@ -268,7 +295,17 @@ export class Scraper {
         modal.querySelectorAll('button, a[href], input, textarea, select, [role="button"], [role="tab"], [data-testid]').forEach((el, idx) => {
           const rect = el.getBoundingClientRect();
           if (rect.width < 2 || rect.height < 2) return;
-          elements.push({ id: `modal-el-${idx}`, tag: el.tagName.toLowerCase(), label: (el as HTMLElement).innerText?.trim().substring(0, 50) || el.getAttribute('aria-label') || '', inModal: true });
+          elements.push({
+            id: `modal-el-${idx}`,
+            tag: el.tagName.toLowerCase(),
+            label: (el as HTMLElement).innerText?.trim().substring(0, 50) || el.getAttribute('aria-label') || '',
+            type: 'button' as any,
+            selector: `modal-el-${idx}`,
+            rect: { top: rect.top, left: rect.left, width: rect.width, height: rect.height },
+            sectionIndex: 0,
+            state: { visible: true, enabled: true, required: false },
+            attributes: {}
+          });
         });
         return { modalTitle, links, elements };
       });
@@ -346,7 +383,7 @@ export class Scraper {
         if (box) {
           await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
         } else {
-          await handle.click({ force: true }).catch(() => handle.evaluate((el: HTMLElement) => el.click()));
+          await handle.click({ force: true }).catch(() => (handle as any).evaluate((el: HTMLElement) => el.click()));
         }
       } catch {
         await handle.click({ force: true }).catch(() => { });
@@ -853,7 +890,7 @@ export class Scraper {
             modalDiscoveries.push({
               triggerText: `Row Click: ${rowText} `,
               modalTitle: `Page: ${pageData.title} `,
-              elements: pageData.elements,
+              elements: pageData.elements.map(e => ({ ...e, selector: e.id, type: e.type as any })),
               links: [curUrl],
               screenshotPath: scPath
             });
@@ -1030,7 +1067,7 @@ export class Scraper {
                 selector,
                 testId: el.getAttribute('data-testid') || undefined,
                 tag,
-                type: elType,
+                type: elType as any,
                 label,
                 rect: { top: rect.top, left: rect.left, width: rect.width, height: rect.height },
                 sectionIndex: 0,

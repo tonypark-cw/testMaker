@@ -5,13 +5,16 @@
   "type": "module",
   "scripts": {
     "analyze": "tsx src/core/cli.ts",
+    "search": "tsx src/core/cli.ts",
     "dashboard": "tsx watch src/dashboard/server.ts",
     "supervisor": "tsx src/core/supervisor.ts",
     "start:supervisor": "tsx src/core/supervisor.ts",
     "test": "playwright test",
     "test:unit": "vitest",
     "test:unit:watch": "vitest --watch",
-    "test:coverage": "vitest --coverage"
+    "test:unit:watch": "vitest --watch",
+    "test:coverage": "vitest --coverage",
+    "lint": "eslint src/"
   },
   "keywords": [],
   "author": "",

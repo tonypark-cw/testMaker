@@ -62,7 +62,7 @@ const processQueue = () => {
         }
         isRunning = true;
 
-        const args = ['run', 'analyze', '--', '--url', nextJob.url, '--force'];
+        const args = ['run', 'search', '--', '--url', nextJob.url, '--force'];
         if (nextJob.depth) args.push('--depth', String(nextJob.depth));
         if (nextJob.limit) args.push('--limit', String(nextJob.limit));
 
@@ -147,8 +147,8 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    // API: Analyze (POST)
-    if (pathname === '/api/analyze' && req.method === 'POST') {
+    // API: Search (POST)
+    if (pathname === '/api/search' && req.method === 'POST') {
         let body = '';
         req.on('data', chunk => body += chunk);
         req.on('end', () => {
@@ -156,17 +156,17 @@ const server = http.createServer(async (req, res) => {
                 const { url, depth, limit } = JSON.parse(body);
 
                 if (isRunning) {
-                    console.log(`[Dashboard] Analysis running, adding to queue: ${url}`);
+                    console.log(`[Dashboard] Search running, adding to queue: ${url}`);
                     jobQueue.push({ url, depth, limit });
                     res.writeHead(202, { 'Content-Type': 'application/json' }); // 202 Accepted
-                    res.end(JSON.stringify({ success: true, message: 'Analysis queued', queueLength: jobQueue.length }));
+                    res.end(JSON.stringify({ success: true, message: 'Search queued', queueLength: jobQueue.length }));
                     return;
                 }
 
                 if (isExternalWorkerMode) {
                     console.log(`[Dashboard] Job queued for Worker: ${url}`);
                 } else {
-                    console.log(`[Dashboard] Starting Analysis: ${url} (Depth: ${depth || 3})...`);
+                    console.log(`[Dashboard] Starting Search: ${url} (Depth: ${depth || 3})...`);
                 }
 
                 // Add to queue and process immediately
@@ -174,7 +174,7 @@ const server = http.createServer(async (req, res) => {
                 processQueue();
 
                 res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ success: true, message: 'Analysis started' }));
+                res.end(JSON.stringify({ success: true, message: 'Search started' }));
             } catch (e) {
                 res.writeHead(500, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ error: String(e) }));
@@ -272,7 +272,8 @@ const server = http.createServer(async (req, res) => {
     // API: Stats
     if (pathname === '/api/stats' && req.method === 'GET') {
         try {
-            const stats = await getStats();
+            const env = reqUrl.searchParams.get('env') || 'stage'; // Default to stage
+            const stats = await getStats(false, env);
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify(stats));
         } catch (e) {
@@ -363,7 +364,7 @@ function getWebUrlForScreenshot(screenshotFullPath: string): any {
 let screenshotCache: any[] | null = null;
 let lastDirMtime: number = 0;
 let lastCacheTime: number = 0;
-let lastAnalyzedCount: number = 0;
+let lastSearchedCount: number = 0;
 let lastLatestTrace: string = '';
 let cachedLatestScanTime: number = 0;
 
@@ -393,15 +394,19 @@ function getEffectiveDirMtime(dir: string): number {
     return maxMtime;
 }
 
-async function getStats(forceRefresh = false) {
+async function getStats(forceRefresh = false, environment = 'stage') {
     const now = Date.now();
     let shouldRefresh = forceRefresh;
+
+    // Construct environment-specific paths
+    const ENV_OUTPUT_DIR = path.join(OUTPUT_DIR, environment);
+    const ENV_SCREENSHOTS_DIR = path.join(ENV_OUTPUT_DIR, 'screenshots');
 
     // Check if cache is still valid by TTL
     if (!screenshotCache || (now - lastCacheTime) > CACHE_TTL) {
         // TTL expired, check if directory actually changed
         try {
-            const currentDirMtime = getEffectiveDirMtime(SCREENSHOTS_DIR);
+            const currentDirMtime = getEffectiveDirMtime(ENV_SCREENSHOTS_DIR);
             if (currentDirMtime !== lastDirMtime) {
                 shouldRefresh = true;
                 lastDirMtime = currentDirMtime;
@@ -434,7 +439,7 @@ async function getStats(forceRefresh = false) {
         }
 
         return {
-            analyzedCount: lastAnalyzedCount,
+            searchedCount: lastSearchedCount,
             screenshots: screenshotCache,
             latestTrace: lastLatestTrace,
             tags,
@@ -447,7 +452,7 @@ async function getStats(forceRefresh = false) {
     }
 
     // --- FULL SCAN (only when cache is invalid or forced) ---
-    let analyzedCount = 0;
+    let searchedCount = 0;
     let screenshots: any[] = [];
     let latestTrace = '';
     let tags: Record<string, string> = {};
@@ -458,21 +463,21 @@ async function getStats(forceRefresh = false) {
     }
 
     // Count JSON reports
-    const jsonDir = path.join(SCREENSHOTS_DIR, 'json');
+    const jsonDir = path.join(ENV_SCREENSHOTS_DIR, 'json');
     if (fs.existsSync(jsonDir)) {
         const domains = fs.readdirSync(jsonDir);
         domains.forEach(d => {
             const dPath = path.join(jsonDir, d);
             if (fs.statSync(dPath).isDirectory()) {
                 const files = fs.readdirSync(dPath).filter(f => f.endsWith('.json'));
-                analyzedCount += files.length;
+                searchedCount += files.length;
             }
         });
     }
 
     // Get recent screenshots
     let latestScanTime = 0;
-    if (fs.existsSync(SCREENSHOTS_DIR)) {
+    if (fs.existsSync(ENV_SCREENSHOTS_DIR)) {
         const allFiles: { path: string, time: number, hash: string }[] = [];
         const traverse = (dir: string) => {
             try {
@@ -494,7 +499,7 @@ async function getStats(forceRefresh = false) {
                 });
             } catch (e) { }
         };
-        traverse(SCREENSHOTS_DIR);
+        traverse(ENV_SCREENSHOTS_DIR);
 
         // Map to objects instead of strings
         screenshots = allFiles
@@ -516,7 +521,7 @@ async function getStats(forceRefresh = false) {
     }
 
     // Find latest trace
-    const traces = fs.readdirSync(OUTPUT_DIR).filter(f => f.startsWith('trace-') && f.endsWith('.zip'));
+    const traces = fs.existsSync(ENV_OUTPUT_DIR) ? fs.readdirSync(ENV_OUTPUT_DIR).filter(f => f.startsWith('trace-') && f.endsWith('.zip')) : [];
     if (traces.length > 0) {
         traces.sort().reverse();
         latestTrace = '/output/' + traces[0];
@@ -540,12 +545,12 @@ async function getStats(forceRefresh = false) {
     // Update all caches
     screenshotCache = screenshots;
     lastCacheTime = now;
-    lastAnalyzedCount = analyzedCount;
+    lastSearchedCount = searchedCount;
     lastLatestTrace = latestTrace;
     cachedLatestScanTime = Math.max(latestScanTime, lastDirMtime);
 
     return {
-        analyzedCount,
+        searchedCount,
         screenshots,
         latestTrace,
         tags,

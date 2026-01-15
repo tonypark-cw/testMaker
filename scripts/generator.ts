@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import Handlebars from 'handlebars';
-import { AnalysisResult, GeneratorOptions } from '../types/index.js';
+import { SearchResult, GeneratorOptions } from '../types/index.js';
 
 export class Generator {
     constructor() {
@@ -10,7 +10,7 @@ export class Generator {
         Handlebars.registerHelper('eq', (a, b) => a === b);
     }
 
-    async generate(result: AnalysisResult, options: GeneratorOptions) {
+    async generate(result: SearchResult, options: GeneratorOptions) {
         console.log(`[Generator] Generating output in ${options.outputDir}...`);
 
         if (!fs.existsSync(options.outputDir)) {
@@ -29,7 +29,7 @@ export class Generator {
         await this.generateJson(result, options);
     }
 
-    private async generateMarkdown(result: AnalysisResult, options: GeneratorOptions) {
+    private async generateMarkdown(result: SearchResult, options: GeneratorOptions) {
         const domain = (result.metadata as any).domain || new URL(result.url).hostname.replace(/\./g, '-');
         const targetDir = path.join(options.outputDir, 'markdown', domain);
 
@@ -48,7 +48,7 @@ export class Generator {
         console.log(`[Generator] Created markdown report in ${targetDir}`);
     }
 
-    private async generatePlaywright(result: AnalysisResult, options: GeneratorOptions) {
+    private async generatePlaywright(result: SearchResult, options: GeneratorOptions) {
         const domain = (result.metadata as any).domain || new URL(result.url).hostname.replace(/\./g, '-');
         const targetDir = path.join(options.outputDir, 'playwright', domain);
 
@@ -66,7 +66,7 @@ export class Generator {
         console.log(`[Generator] Created playwright spec in ${targetDir}`);
     }
 
-    private async generateJson(result: AnalysisResult, options: GeneratorOptions) {
+    private async generateJson(result: SearchResult, options: GeneratorOptions) {
         const domain = (result.metadata as any).domain || new URL(result.url).hostname.replace(/\./g, '-');
         const targetDir = path.join(options.outputDir, 'json', domain);
 

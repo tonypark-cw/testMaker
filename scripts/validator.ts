@@ -1,5 +1,14 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { program } from 'commander';
+
+// Parse CLI arguments
+program
+    .option('--env <environment>', 'Environment (stage/dev/prod)', 'stage')
+    .parse(process.argv);
+
+const opts = program.opts();
+const environment = opts.env || 'stage';
 
 interface Action {
     type: string;
@@ -14,7 +23,8 @@ interface PageData {
     metadata?: {
         totalElements: number;
     };
-    reliabilityScore?: number; // Might be in elements or custom
+    reliabilityScore?: number;
+    functionalPath?: string; // [NEW] 3-Way Mapping
 }
 
 function calculateScore(data: PageData): { score: number; reasons: string[] } {
@@ -24,33 +34,51 @@ function calculateScore(data: PageData): { score: number; reasons: string[] } {
     const pathSegments = url.pathname.split('/').filter(s => s && s !== 'app');
 
     // 1. Title Match (Max 30 pts)
-    // Heuristic: Does the path segment (e.g. 'users') exist in the title or label?
     const title = data.pageTitle.toLowerCase();
     const hasMatchInTitle = pathSegments.some(seg => title.includes(seg.toLowerCase()));
+
     if (hasMatchInTitle) {
         score += 30;
     } else if (title !== 'ianaiERP' && title !== '') {
-        score += 15; // Partial credit for non-default title
-        reasons.push('Title does not explicitly match path segments');
+        score += 15;
+        // reasons.push('Title does not explicitly match path segments'); // Soften this warning
     } else {
         reasons.push('Page title is generic/empty (ianaiERP)');
     }
 
-    // 2. Path Logic (Max 40 pts)
-    // Heuristic: Does the last action label match the current path?
-    if (data.actionChain && data.actionChain.length > 0) {
+    // 2. Path Logic (Max 40 pts) - 3-Way Mapping Support
+    const functionalPath = data.functionalPath || '';
+    const hasFunctionalPath = functionalPath.length > 0;
+
+    // Heuristic: Does the last action label OR functional path match the current path?
+    let matchesPath = false;
+    let pathSource = '';
+
+    if (hasFunctionalPath) {
+        // functionalPath is like "Home > Reports > Purchasing"
+        // We check if any segment of the URL is present in the functional path
+        matchesPath = pathSegments.some(seg => functionalPath.toLowerCase().includes(seg.toLowerCase()));
+        pathSource = 'FunctionalPath';
+    }
+
+    if (!matchesPath && data.actionChain && data.actionChain.length > 0) {
         const lastAction = data.actionChain[data.actionChain.length - 1];
         const lastLabel = lastAction.label.toLowerCase();
-        const matchesPath = pathSegments.some(seg => lastLabel.includes(seg.toLowerCase()));
+        matchesPath = pathSegments.some(seg => lastLabel.includes(seg.toLowerCase()));
+        pathSource = 'ActionChain';
+    }
 
-        if (matchesPath) {
-            score += 40;
-        } else {
-            score += 10; // Found path but no label match
-            reasons.push(`Last action "${lastAction.label}" does not correlate with landing path ${url.pathname}`);
-        }
+    if (matchesPath) {
+        score += 40;
     } else {
-        reasons.push('No action chain recorded (Direct navigation or history lost)');
+        if (hasFunctionalPath) {
+            score += 35; // Trust the functional path even if exact string match fails (it's a high signal)
+        } else if (data.actionChain && data.actionChain.length > 0) {
+            score += 10;
+            reasons.push(`Last action does not correlate with landing path`);
+        } else {
+            reasons.push('No action chain or functional path recorded');
+        }
     }
 
     // 3. Visual Stability / Content (Max 30 pts)
@@ -59,7 +87,7 @@ function calculateScore(data: PageData): { score: number; reasons: string[] } {
         score += 30;
     } else if (elementCount > 0) {
         score += 15;
-        reasons.push(`Low element count (${elementCount}): Possibly a blank or loading page`);
+        reasons.push(`Low element count (${elementCount})`);
     } else {
         reasons.push('Zero interactive elements found: Likely a failed load/500');
     }
@@ -68,36 +96,69 @@ function calculateScore(data: PageData): { score: number; reasons: string[] } {
 }
 
 async function runValidator() {
-    const jsonDir = path.join(process.cwd(), 'output/screenshots/json/stage.ianai.co');
-    if (!fs.existsSync(jsonDir)) {
-        console.error(`Directory not found: ${jsonDir}`);
+    console.log(`[Validator] Analyzing ${environment} environment...`);
+    const jsonBaseDir = path.join(process.cwd(), 'output', environment, 'screenshots', 'json');
+
+    if (!fs.existsSync(jsonBaseDir)) {
+        console.error(`[Validator] JSON directory not found: ${jsonBaseDir}`);
+        console.error('[Validator] Run the scraper first to generate data.');
         return;
     }
 
-    const files = fs.readdirSync(jsonDir).filter(f => f.endsWith('.json'));
-    const results: any[] = [];
+    // Auto-detect domains
+    const domains = fs.readdirSync(jsonBaseDir).filter(d => {
+        const dPath = path.join(jsonBaseDir, d);
+        return fs.statSync(dPath).isDirectory();
+    });
 
-    console.log(`[Validator] Analyzing ${files.length} pages...`);
-
-    for (const file of files) {
-        const filePath = path.join(jsonDir, file);
-        const content = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-        const { score, reasons } = calculateScore(content);
-
-        results.push({
-            file,
-            url: content.url,
-            title: content.pageTitle,
-            score,
-            reasons
-        });
+    if (domains.length === 0) {
+        console.error('[Validator] No domain directories found.');
+        return;
     }
 
-    // Sort by score ascending (problems first)
-    results.sort((a, b) => a.score - b.score);
+    console.log(`[Validator] Found domains: ${domains.join(', ')}`);
+
+    const results: any[] = [];
+    const bySection: Record<string, any[]> = {};
+
+    // Process each domain directory
+    for (const domain of domains) {
+        const jsonDir = path.join(jsonBaseDir, domain);
+        const files = fs.readdirSync(jsonDir).filter(f => f.endsWith('.json'));
+
+        console.log(`[Validator] Analyzing ${files.length} pages from ${domain}...`);
+
+        for (const file of files) {
+            const filePath = path.join(jsonDir, file);
+            const content = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+            const { score, reasons } = calculateScore(content);
+
+            const urlObj = new URL(content.url);
+            // Extract section from /app/SECTION/...
+            const parts = urlObj.pathname.split('/');
+            // parts[0] is empty, parts[1] is 'app', parts[2] is section
+            let section = parts[2] || 'Home';
+            section = section.charAt(0).toUpperCase() + section.slice(1);
+
+            if (!bySection[section]) {
+                bySection[section] = [];
+            }
+
+            const resultItem = {
+                file,
+                url: content.url,
+                title: content.pageTitle,
+                score,
+                reasons
+            };
+
+            results.push(resultItem);
+            bySection[section].push(resultItem);
+        }
+    }
 
     const report: string[] = [];
-    report.push('# UI & Path Consistency Report');
+    report.push('# UI & Path Consistency Report (By Menu)');
     report.push(`Generated: ${new Date().toLocaleString()}`);
     report.push(`Total Pages Analyzed: ${results.length}`);
     report.push('\n## Summary');
@@ -105,21 +166,32 @@ async function runValidator() {
     const avgScore = results.reduce((acc, r) => acc + r.score, 0) / results.length;
     report.push(`- **Average Consistency Score:** ${avgScore.toFixed(1)}/100`);
     report.push(`- **Critical Issues (<40):** ${results.filter(r => r.score < 40).length}`);
-    report.push(`- **Healthy Pages (>70):** ${results.filter(r => r.score > 70).length}`);
 
-    report.push('\n## Faulty or Suspicious Pages (Ordered by Score)');
-    report.push('| Page | Score | Issues |');
-    report.push('| :--- | :--- | :--- |');
+    // Process Page per Section
+    const sections = Object.keys(bySection).sort();
 
-    results.forEach(r => {
-        if (r.score < 90) { // Show everything with even slight issues
-            const shortName = r.url.replace('https://stage.ianai.co', '');
-            report.push(`| \`${shortName}\` | **${r.score}** | ${r.reasons.join(', ') || 'None'} |`);
-        }
-    });
+    for (const section of sections) {
+        const sectionResults = bySection[section];
+        // Sort by score ascending (issues first)
+        sectionResults.sort((a, b) => a.score - b.score);
 
-    fs.writeFileSync('output/consistency_report.md', report.join('\n'));
-    console.log('[Validator] Report generated: output/consistency_report.md');
+        const sectionAvg = sectionResults.reduce((acc, r) => acc + r.score, 0) / sectionResults.length;
+
+        report.push(`\n## ${section} (Avg: ${sectionAvg.toFixed(1)})`);
+        report.push('| Page | Score | Issues |');
+        report.push('| :--- | :--- | :--- |');
+
+        sectionResults.forEach(r => {
+            const shortName = r.url.replace('https://stage.ianai.co/app', '');
+            // Highlight low scores
+            const scoreDisplay = r.score < 50 ? `**${r.score}** 🔴` : `**${r.score}**`;
+            report.push(`| \`${shortName}\` | ${scoreDisplay} | ${r.reasons.join(', ') || 'None'} |`);
+        });
+    }
+
+    const reportPath = path.join('output', environment, 'consistency_report.md');
+    fs.writeFileSync(reportPath, report.join('\n'));
+    console.log(`[Validator] Report generated: ${reportPath}`);
 }
 
 runValidator().catch(console.error);

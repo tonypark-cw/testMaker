@@ -2,9 +2,9 @@ import { chromium, Browser, BrowserContext, Page } from 'playwright';
 import * as path from 'path';
 import * as fs from 'fs';
 import { Scraper } from './scraper.js';
-import { Analyzer } from '../../scripts/analyzer.js';
+import { Transformer } from '../../scripts/transformer.js';
 import { Generator } from '../../scripts/generator.js';
-import { AnalysisResult } from '../../types/index.js';
+import { SearchResult } from '../../types/index.js';
 import { ScrapeJob, ScraperConfig } from './types.js';
 import { RecoveryManager } from './RecoveryManager.js';
 import { NetworkManager } from './NetworkManager.js';
@@ -19,14 +19,14 @@ export class Runner {
     private isRunning = false;
 
     // Components
-    private analyzer = new Analyzer();
+    private transformer = new Transformer();
     private generator = new Generator();
     private recoveryManager = new RecoveryManager(50); // [RECOVERY] Modular error handling
     private networkManager = new NetworkManager(); // [NETWORK] CORS-safe header injection
     private normalizedUrlMap = new Map<string, string>(); // [CACHE] URL normalization results
 
     // Stats
-    private analyzedCount = 0;
+    private searchedCount = 0;
     private startTime = 0;
 
     constructor(private config: ScraperConfig, private outputDir: string, private concurrency: number = 3) { }
@@ -48,11 +48,26 @@ export class Runner {
         // [TEMPORARY WORKAROUND] Block failing refresh token requests
         // Backend doesn't issue valid refresh tokens on stage.ianai.co
         // TODO: Remove when backend is fixed - controlled by BLOCK_REFRESH_TOKEN env var
-        if (process.env.BLOCK_REFRESH_TOKEN === 'true') {
-            console.log('[Runner] ⚠️  Refresh token blocking enabled (BLOCK_REFRESH_TOKEN=true)');
+        if (process.env.BLOCK_REFRESH_TOKEN !== 'false') {
+            let tokenRequestCount = 0;
+            const tokenRequestTimestamps: number[] = [];
+
             await this.context.route('**/v2/user/token', route => {
-                console.log('[Runner] 🚫 Blocked refresh token request');
-                route.abort('blockedbyclient');
+                tokenRequestCount++;
+                const now = Date.now();
+                tokenRequestTimestamps.push(now);
+
+                // Calculate time since last request
+                const timeSinceLastRequest = tokenRequestTimestamps.length > 1
+                    ? now - tokenRequestTimestamps[tokenRequestTimestamps.length - 2]
+                    : 0;
+
+                console.log(`[🔄 TOKEN REQUEST #${tokenRequestCount}] Blocked refresh token request`);
+                console.log(`   ⏱️  Time since last: ${(timeSinceLastRequest / 1000).toFixed(1)}s`);
+                console.log(`   📍 Current URL: ${this.context.pages()[0]?.url() || 'unknown'}`);
+
+                // Block the request to prevent 401 loop
+                route.abort();
             });
         }
 
@@ -255,7 +270,7 @@ export class Runner {
     }
 
     private async processQueue() {
-        while ((this.queue.length > 0 || this.activeWorkers > 0) && this.analyzedCount < this.config.limit && this.isRunning) {
+        while ((this.queue.length > 0 || this.activeWorkers > 0) && this.searchedCount < this.config.limit && this.isRunning) {
             if (this.queue.length > 0 && this.activeWorkers < this.concurrency) {
                 const job = this.queue.shift();
                 if (job) {
@@ -319,11 +334,11 @@ export class Runner {
             }
 
             // --- ANALYZE ---
-            const scenarios = this.analyzer.analyze(result.elements);
+            const scenarios = this.transformer.transform(result.elements);
             const stats: Record<string, number> = {};
             result.elements.forEach(el => { stats[el.type] = (stats[el.type] || 0) + 1; });
 
-            const analysisResult: AnalysisResult = {
+            const searchResult: SearchResult = {
                 success: !result.error,
                 url: job.url,
                 timestamp: new Date().toISOString(),
@@ -334,6 +349,7 @@ export class Runner {
                 sidebarLinks: result.sidebarLinks || [],
                 modalDiscoveries: result.modalDiscoveries,
                 actionChain: result.actionChain, // [NEW] Pass action chain
+                functionalPath: result.functionalPath, // [NEW] Pass functional path
                 metadata: {
                     totalElements: result.elements.length,
                     byType: stats as Record<string, number>,
@@ -345,14 +361,14 @@ export class Runner {
             // Determine output folder based on domain
             const subDir = path.join(this.outputDir, '..'); // Assuming outputDir is the screenshots folder
 
-            await this.generator.generate(analysisResult, {
+            await this.generator.generate(searchResult, {
                 outputDir: subDir, // Pass base output dir (scripts/generator handles subdir logic hopefully)
                 formats: ['markdown', 'playwright', 'json'],
                 includeScreenshots: true
             });
 
-            this.analyzedCount++;
-            console.log(`[Runner] Completed (${this.analyzedCount}): ${job.url} (${result.newlyDiscoveredCount} links)`);
+            this.searchedCount++;
+            console.log(`[Runner] Completed (${this.searchedCount}): ${job.url} (${result.newlyDiscoveredCount} links)`);
 
             // --- QUEUE DISCOVERY ---
             if (job.depth < this.config.depth) {
@@ -419,7 +435,7 @@ export class Runner {
         if (!this.isRunning) return;
         this.isRunning = false;
         const duration = ((Date.now() - this.startTime) / 1000).toFixed(1);
-        console.log(`[Runner] Finished. Analyzed ${this.analyzedCount} pages in ${duration}s.`);
+        console.log(`[Runner] Finished. Searched ${this.searchedCount} pages in ${duration}s.`);
 
         if (this.context) {
             const tracePath = path.join(this.outputDir, '..', `trace-${Date.now()}.zip`);

@@ -147,7 +147,7 @@ export interface ModalDiscovery {
 }
 
 /** 분석 결과 */
-export interface AnalysisResult {
+export interface SearchResult {
     success: boolean;
     url: string;
     timestamp: string;
@@ -159,6 +159,8 @@ export interface AnalysisResult {
     modalDiscoveries?: ModalDiscovery[];
     /** Recorded user interactions for Golden Path */
     actionChain?: ActionRecord[];
+    /** Functional path breadcrumb (3-Way Mapping) */
+    functionalPath?: string;
     metadata: {
         totalElements: number;
         byType: Record<string, number>;
@@ -167,6 +169,9 @@ export interface AnalysisResult {
     };
     error?: string;
 }
+
+// Backward compatibility alias
+export type AnalysisResult = SearchResult;
 
 /** 생성 옵션 */
 export interface GeneratorOptions {

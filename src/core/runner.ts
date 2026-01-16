@@ -19,6 +19,7 @@ export class Runner {
     private authenticatedPage: Page | null = null;
     private isRunning = false;
     private rateLimitUntil = 0; // [RATE-LIMIT] Timestamp to pause until
+    private consecutive429Count = 0; // [RATE-LIMIT] Exponential backoff counter
 
     // Components
     private transformer = new Transformer();
@@ -58,11 +59,16 @@ export class Runner {
             // [RATE-LIMIT] Global listener for 429 errors
             this.context.on('response', response => {
                 if (response.status() === 429) {
-                    const delay = 10000; // 10 seconds
+                    this.consecutive429Count++;
+
+                    // Exponential backoff: 30s, 60s, 120s, 240s (max 4 min)
+                    const baseDelay = 30000; // 30 seconds base
+                    const multiplier = Math.min(Math.pow(2, this.consecutive429Count - 1), 8);
+                    const delay = baseDelay * multiplier;
 
                     // 1. Pause Global Execution
                     if (Date.now() + delay > this.rateLimitUntil) {
-                        console.warn(`[Runner] ⚠️ 429 Too Many Requests detected! Pausing for 10s...`);
+                        console.warn(`[Runner] ⚠️ 429 Too Many Requests detected! Pausing for ${delay / 1000}s... (attempt #${this.consecutive429Count})`);
                         this.rateLimitUntil = Date.now() + delay;
                     }
 
@@ -70,6 +76,12 @@ export class Runner {
                     if (this.concurrency > 1) {
                         this.concurrency--;
                         console.warn(`[Runner] 📉 High load detected. Downgrading concurrency to ${this.concurrency}.`);
+                    }
+                } else if (response.status() >= 200 && response.status() < 400) {
+                    // Reset backoff on successful responses
+                    if (this.consecutive429Count > 0) {
+                        this.consecutive429Count = 0;
+                        console.log('[Runner] ✓ Rate limit cleared. Resuming normal operation.');
                     }
                 }
             });
@@ -402,8 +414,8 @@ export class Runner {
                     this.activeWorkers++;
 
                     // [RATE-LIMIT] Jitter to prevent Thundering Herd
-                    // Delay 500ms - 2000ms before starting worker
-                    const jitter = 500 + Math.random() * 1500;
+                    // Delay 3s - 8s before starting worker (increased from 0.5-2s)
+                    const jitter = 3000 + Math.random() * 5000;
                     await new Promise(r => setTimeout(r, jitter));
 
                     this.runWorker(job).finally(() => { this.activeWorkers--; });

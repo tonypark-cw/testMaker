@@ -73,10 +73,11 @@ Score < 2  → Handle directly
 - **implementation**: Code development, service integration
 - **testing**: Test development, verification, QA
 
-### Specialized Agents
-- **worker**: General-purpose task handling
-- **inventory-qa-specialist**: Inventory management test scenarios
-- **accounting-qa-tester**: Accounting/financial verification
+76: ### Specialized Agents
+77: - **worker**: General-purpose task handling
+78: 
+79: ## Project Context
+80: Always refer to `GEMINI.md` for project rules.
 
 ## Delegation Process
 

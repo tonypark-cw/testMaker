@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { program } from 'commander';
+import { ScoringProcessor } from '../src/core/lib/ScoringProcessor.js';
 
 // Parse CLI arguments
 program
@@ -24,75 +25,7 @@ interface PageData {
         totalElements: number;
     };
     reliabilityScore?: number;
-    functionalPath?: string; // [NEW] 3-Way Mapping
-}
-
-function calculateScore(data: PageData): { score: number; reasons: string[] } {
-    let score = 0;
-    const reasons: string[] = [];
-    const url = new URL(data.url);
-    const pathSegments = url.pathname.split('/').filter(s => s && s !== 'app');
-
-    // 1. Title Match (Max 30 pts)
-    const title = data.pageTitle.toLowerCase();
-    const hasMatchInTitle = pathSegments.some(seg => title.includes(seg.toLowerCase()));
-
-    if (hasMatchInTitle) {
-        score += 30;
-    } else if (title !== 'ianaiERP' && title !== '') {
-        score += 15;
-        // reasons.push('Title does not explicitly match path segments'); // Soften this warning
-    } else {
-        reasons.push('Page title is generic/empty (ianaiERP)');
-    }
-
-    // 2. Path Logic (Max 40 pts) - 3-Way Mapping Support
-    const functionalPath = data.functionalPath || '';
-    const hasFunctionalPath = functionalPath.length > 0;
-
-    // Heuristic: Does the last action label OR functional path match the current path?
-    let matchesPath = false;
-    let pathSource = '';
-
-    if (hasFunctionalPath) {
-        // functionalPath is like "Home > Reports > Purchasing"
-        // We check if any segment of the URL is present in the functional path
-        matchesPath = pathSegments.some(seg => functionalPath.toLowerCase().includes(seg.toLowerCase()));
-        pathSource = 'FunctionalPath';
-    }
-
-    if (!matchesPath && data.actionChain && data.actionChain.length > 0) {
-        const lastAction = data.actionChain[data.actionChain.length - 1];
-        const lastLabel = lastAction.label.toLowerCase();
-        matchesPath = pathSegments.some(seg => lastLabel.includes(seg.toLowerCase()));
-        pathSource = 'ActionChain';
-    }
-
-    if (matchesPath) {
-        score += 40;
-    } else {
-        if (hasFunctionalPath) {
-            score += 35; // Trust the functional path even if exact string match fails (it's a high signal)
-        } else if (data.actionChain && data.actionChain.length > 0) {
-            score += 10;
-            reasons.push(`Last action does not correlate with landing path`);
-        } else {
-            reasons.push('No action chain or functional path recorded');
-        }
-    }
-
-    // 3. Visual Stability / Content (Max 30 pts)
-    const elementCount = data.metadata?.totalElements || 0;
-    if (elementCount > 10) {
-        score += 30;
-    } else if (elementCount > 0) {
-        score += 15;
-        reasons.push(`Low element count (${elementCount})`);
-    } else {
-        reasons.push('Zero interactive elements found: Likely a failed load/500');
-    }
-
-    return { score, reasons };
+    functionalPath?: string;
 }
 
 async function runValidator() {
@@ -131,7 +64,13 @@ async function runValidator() {
         for (const file of files) {
             const filePath = path.join(jsonDir, file);
             const content = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-            const { score, reasons } = calculateScore(content);
+            const { score, reasons } = await ScoringProcessor.calculate(null, {
+                url: content.url,
+                pageTitle: content.pageTitle,
+                functionalPath: content.functionalPath,
+                actionChain: content.actionChain,
+                totalElements: content.metadata?.totalElements
+            });
 
             const urlObj = new URL(content.url);
             // Extract section from /app/SECTION/...

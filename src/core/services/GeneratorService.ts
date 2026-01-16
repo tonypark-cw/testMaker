@@ -1,9 +1,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import Handlebars from 'handlebars';
-import { SearchResult, GeneratorOptions } from '../types/index.js';
+import { SearchResult, GeneratorOptions } from '../../../types/index.js';
 
-export class Generator {
+export class GeneratorService {
     constructor() {
         // Register handlebars helpers
         Handlebars.registerHelper('add', (a, b) => a + b);

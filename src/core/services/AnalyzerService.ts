@@ -1,6 +1,6 @@
-import { TestableElement, TestScenario, TestAction, ScenarioCategory, SCENARIO_HINTS, ActionType } from '../types/index.js';
+import { TestableElement, TestScenario, TestAction, ScenarioCategory, SCENARIO_HINTS, ActionType } from '../../../types/index.js';
 
-export class Analyzer {
+export class AnalyzerService {
     analyze(elements: TestableElement[]): TestScenario[] {
         console.log(`[Analyzer] Analyzing ${elements.length} elements...`);
 
@@ -68,7 +68,7 @@ export class Analyzer {
         const text = group.map(el => [el.tag, el.selector, el.label, el.id].join(' ').toLowerCase()).join(' ');
 
         for (const [category, hints] of Object.entries(SCENARIO_HINTS)) {
-            if (hints.some(hint => text.includes(hint))) {
+            if ((hints as string[]).some((hint: string) => text.includes(hint))) {
                 return category as ScenarioCategory;
             }
         }

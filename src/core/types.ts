@@ -18,6 +18,16 @@ export interface ScrapeJob {
     functionalPath?: string[];
 }
 
+/**
+ * Runner Checkpoint State for persistence
+ */
+export interface RunnerCheckpoint {
+    domain: string;
+    timestamp: string;
+    queue: ScrapeJob[];
+    visitedUrls: string[];
+}
+
 export interface ScrapeResult {
     /** Scraped URL */
     url: string;
@@ -56,6 +66,7 @@ export interface ScraperConfig {
     username?: string;
     password?: string;
     quiet?: boolean;
+    resume?: boolean;
 }
 
 // ============================================

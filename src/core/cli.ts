@@ -27,6 +27,7 @@ program
     .option('--headless', 'Run in headless mode', false)
     .option('--no-headless', 'Run in visible mode')
     .option('--quiet', 'Suppress console logs (Agent mode)', false)
+    .option('--resume', 'Resume from last checkpoint', false)
     .option('--epochs <number>', 'Number of sequential epochs', '1');
 
 program.action(async (options) => {
@@ -68,7 +69,8 @@ program.action(async (options) => {
         force: options.force,
         username: username,
         password: password,
-        quiet: options.quiet
+        quiet: options.quiet,
+        resume: options.resume
     };
 
     // Handle Ctrl+C gracefully (Shared handler)

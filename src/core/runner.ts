@@ -59,9 +59,17 @@ export class Runner {
             this.context.on('response', response => {
                 if (response.status() === 429) {
                     const delay = 10000; // 10 seconds
+
+                    // 1. Pause Global Execution
                     if (Date.now() + delay > this.rateLimitUntil) {
                         console.warn(`[Runner] ⚠️ 429 Too Many Requests detected! Pausing for 10s...`);
                         this.rateLimitUntil = Date.now() + delay;
+                    }
+
+                    // 2. Adaptive Concurrency Downgrade
+                    if (this.concurrency > 1) {
+                        this.concurrency--;
+                        console.warn(`[Runner] 📉 High load detected. Downgrading concurrency to ${this.concurrency}.`);
                     }
                 }
             });
@@ -392,6 +400,12 @@ export class Runner {
                 const job = this.queue.shift();
                 if (job) {
                     this.activeWorkers++;
+
+                    // [RATE-LIMIT] Jitter to prevent Thundering Herd
+                    // Delay 500ms - 2000ms before starting worker
+                    const jitter = 500 + Math.random() * 1500;
+                    await new Promise(r => setTimeout(r, jitter));
+
                     this.runWorker(job).finally(() => { this.activeWorkers--; });
                 }
             } else {

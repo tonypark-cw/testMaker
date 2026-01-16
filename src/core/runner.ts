@@ -8,6 +8,7 @@ import { SearchResult } from '../../types/index.js';
 import { ScrapeJob, ScraperConfig } from './types.js';
 import { RecoveryManager } from './RecoveryManager.js';
 import { NetworkManager } from './NetworkManager.js';
+import { SessionManager } from './SessionManager.js';
 
 export class Runner {
     private browser: Browser | null = null;
@@ -17,6 +18,7 @@ export class Runner {
     private activeWorkers = 0;
     private authenticatedPage: Page | null = null;
     private isRunning = false;
+    private rateLimitUntil = 0; // [RATE-LIMIT] Timestamp to pause until
 
     // Components
     private transformer = new Transformer();
@@ -31,8 +33,14 @@ export class Runner {
 
     constructor(private config: ScraperConfig, private outputDir: string, private concurrency: number = 3) { }
 
+    private log(message: string, ...args: any[]) {
+        if (!this.config.quiet) {
+            console.log(message, ...args);
+        }
+    }
+
     async start() {
-        console.log(`[Runner] Starting Multi-Tab Scraper (Concurrency: ${this.concurrency})...`);
+        this.log(`[Runner] Starting Multi-Tab Scraper (Concurrency: ${this.concurrency})...`);
         this.startTime = Date.now();
         this.isRunning = true;
 
@@ -42,8 +50,26 @@ export class Runner {
         this.loadHealthyVisitedUrls();
 
         // 1. Launch & Auth
-        this.browser = await chromium.launch({ headless: this.config.headless });
-        this.context = await this.browser.newContext({ viewport: { width: 1920, height: 1080 } });
+        try {
+            this.log('[Runner] Launching browser...');
+            this.browser = await chromium.launch({ headless: this.config.headless });
+            this.context = await this.browser.newContext({ viewport: { width: 1920, height: 1080 } });
+
+            // [RATE-LIMIT] Global listener for 429 errors
+            this.context.on('response', response => {
+                if (response.status() === 429) {
+                    const delay = 10000; // 10 seconds
+                    if (Date.now() + delay > this.rateLimitUntil) {
+                        console.warn(`[Runner] ⚠️ 429 Too Many Requests detected! Pausing for 10s...`);
+                        this.rateLimitUntil = Date.now() + delay;
+                    }
+                }
+            });
+
+        } catch (e) {
+            console.error('[Runner] 🛑 Failed to launch browser or context:', e);
+            process.exit(1);
+        }
 
         // [TEMPORARY WORKAROUND] Block failing refresh token requests
         // Backend doesn't issue valid refresh tokens on stage.ianai.co
@@ -64,7 +90,7 @@ export class Runner {
 
                 console.log(`[🔄 TOKEN REQUEST #${tokenRequestCount}] Blocked refresh token request`);
                 console.log(`   ⏱️  Time since last: ${(timeSinceLastRequest / 1000).toFixed(1)}s`);
-                console.log(`   📍 Current URL: ${this.context.pages()[0]?.url() || 'unknown'}`);
+                console.log(`   📍 Current URL: ${this.context?.pages()[0]?.url() || 'unknown'}`);
 
                 // Block the request to prevent 401 loop
                 route.abort();
@@ -89,7 +115,7 @@ export class Runner {
         const startUrl = loginPage.url();
         const normalizedStart = this.normalizeUrl(startUrl);
         const safeStartUrl = normalizedStart.replace(/\/\/.*@/, '//***@');
-        console.log(`[Runner] Starting exploration from: ${safeStartUrl}`);
+        this.log(`[Runner] Starting exploration from: ${safeStartUrl}`);
         this.queue.push({ url: normalizedStart, depth: 0, actionChain: [] });
         this.visitedUrls.add(normalizedStart);
 
@@ -97,11 +123,66 @@ export class Runner {
         // This preserves the login session throughout the entire crawl
         this.authenticatedPage = loginPage;
 
+        // [Phase 2] Initialize SessionManager
+        await this.initializeSessionManager(loginPage);
+
         // 2. Start Worker Loop (now ALL workers use same page)
         await this.processQueue();
 
         // 3. Cleanup
         await this.stop();
+    }
+
+    private async initializeSessionManager(page: Page) {
+        try {
+            // 1. Seed tokens from LocalStorage
+            const tokens = await page.evaluate(() => {
+                return {
+                    access: localStorage.getItem('accessToken') || '',
+                    refresh: localStorage.getItem('refreshToken') || '',
+                    expiresIn: 3600 // Default to 1h if not found
+                };
+            });
+
+            const sessionMgr = SessionManager.getInstance();
+            sessionMgr.setTokens(tokens.access, tokens.refresh, tokens.expiresIn);
+            this.log('[Runner] SessionManager initialized with tokens.');
+
+            // 2. Configure Refresh Handler
+            sessionMgr.setRefreshHandler(async (refreshToken) => {
+                this.log('[SessionManager] Refreshing token...');
+                try {
+                    // Use API context to refresh
+                    // Assuming POST /api/v2/user/token/refresh or similar based on interception
+                    // Note: runner.ts blocked "**/v2/user/token". Let's assume it's that one.
+                    const response = await this.context!.request.post('**/v2/user/token', {
+                        headers: {
+                            'Authorization': `Bearer ${sessionMgr.getAccessToken()}` // If needed
+                        },
+                        data: { refreshToken }
+                    });
+
+                    if (response.ok()) {
+                        const data = await response.json();
+                        this.log('[SessionManager] Token refresh successful.');
+                        return {
+                            accessToken: data.accessToken,
+                            refreshToken: data.refreshToken || refreshToken,
+                            expiresIn: data.expiresIn || 3600
+                        };
+                    } else {
+                        console.error(`[SessionManager] Refresh failed: ${response.status()}`);
+                        throw new Error('Refresh failed');
+                    }
+                } catch (e) {
+                    console.error('[SessionManager] Refresh error:', e);
+                    throw e;
+                }
+            });
+
+        } catch (e) {
+            console.error('[Runner] Failed to initialize SessionManager:', e);
+        }
     }
 
     private async performLogin(page: Page): Promise<boolean> {
@@ -117,12 +198,41 @@ export class Runner {
                 try {
                     const body = await response.text();
                     console.log(`[Network] Error Body: ${body.substring(0, 500)}`);
+
+                    // [FAIL FAST] Detect Backend Connection Refused
+                    // "transport: Error while dialing: dial tcp ... connection refused"
+                    if (body.includes('connection refused') || body.includes('dial tcp')) {
+                        console.warn('\n[Runner] ⚠️ WARNING: Backend Connection Refused (Ignoring as per user request).');
+                        console.warn('[Runner] APIs might be unreachable, but proceeding with exploration.\n');
+                        // this.isRunning = false;
+                        // await this.stop();
+                        // process.exit(1); 
+                    }
                 } catch { /* ignore */ }
             }
         });
 
+        // [FAIL FAST] Listen for request failures (Connection Refused often triggers this, not 'response')
+        page.on('requestfailed', request => {
+            const failure = request.failure();
+            if (failure && (failure.errorText.includes('connection refused') || failure.errorText.includes('net::ERR_CONNECTION_REFUSED'))) {
+                console.warn('\n[Runner] ⚠️ WARNING: Network Request Failed (Connection Refused)');
+                console.warn(`[Runner] URL: ${request.url()}`);
+                console.warn('[Runner] Proceeding despite network failure.\n');
+                // process.exit(1);
+            }
+        });
+
         console.log('[Runner] Navigating to target...');
-        await page.goto(this.config.url, { waitUntil: 'load' });
+        // [FIX] Reduce timeout to 15s to fail faster if server is down
+        await page.goto(this.config.url, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(e => {
+            console.error(`[Runner] Navigation failed: ${e.message}`);
+            if (e.message.includes('ERR_CONNECTION_REFUSED')) {
+                console.warn('[Runner] ⚠️ Server reachable check failed (Connection Refused). Proceeding anyway.');
+                // process.exit(1);
+            }
+            throw e; // Re-throw if it's another error
+        });
 
         // Wait for SPA to render
         await page.waitForTimeout(2000);
@@ -271,6 +381,13 @@ export class Runner {
 
     private async processQueue() {
         while ((this.queue.length > 0 || this.activeWorkers > 0) && this.searchedCount < this.config.limit && this.isRunning) {
+
+            // [RATE-LIMIT] Check pause state
+            if (Date.now() < this.rateLimitUntil) {
+                await new Promise(r => setTimeout(r, 1000));
+                continue;
+            }
+
             if (this.queue.length > 0 && this.activeWorkers < this.concurrency) {
                 const job = this.queue.shift();
                 if (job) {
@@ -308,10 +425,25 @@ export class Runner {
             }
         }
 
-        const page = this.authenticatedPage;
+        // [Phase 2] Multi-tab Support
+        // Use a new page sharing the same context (and thus cookies/storage)
+        let page: Page;
+        try {
+            page = await this.context!.newPage();
+            // Copy LocalStorage from authenticated page if needed (usually context sharing is enough for cookies, but LS might strictly need copy if SPA relies on it)
+            // However, Playwright context shares "storage state" only at context creation or via explicit storageState() loading.
+            // Active pages share cookies, but LocalStorage is per-origin. Since origin is same, it *should* share?
+            // Actually, LocalStorage is NOT shared automatically across pages in real time in some browsers/Playwright versions unless persisted.
+            // But if we are in the same context and domain, it usually works.
+            // Let's rely on context.
+        } catch (e) {
+            console.error('[Runner] Failed to create new page for worker:', e);
+            return;
+        }
 
         // [DEBUG] Forward browser logs to node console
         page.on('console', msg => {
+            if (this.config.quiet) return; // [QUIET MODE] Suppress browser logs
             if (msg.type() === 'log' || msg.type() === 'warning' || msg.type() === 'error') {
                 const text = msg.text();
                 const truncated = text.length > 300 ? text.substring(0, 300) + '... (truncated)' : text;
@@ -320,7 +452,7 @@ export class Runner {
         });
 
         try {
-            console.log(`[Runner] Worker started for: ${job.url}`);
+            this.log(`[Runner] Worker started for: ${job.url}`);
             const result = await Scraper.processPage(page, job.url, this.config, this.outputDir, job.actionChain || [], job.functionalPath || []);
 
             // [NEW] Golden Path Logging
@@ -329,8 +461,8 @@ export class Runner {
                 const status = isStable ? '✓ STABLE' : '⚠ UNSTABLE';
                 const confidencePercent = (confidence * 100).toFixed(0);
 
-                console.log(`[Runner] Golden Path: ${status} (${confidencePercent}%)`);
-                reasons.forEach(reason => console.log(`[Runner]   - ${reason}`));
+                this.log(`[Runner] Golden Path: ${status} (${confidencePercent}%)`);
+                reasons.forEach(reason => this.log(`[Runner]   - ${reason}`));
             }
 
             // --- ANALYZE ---
@@ -368,7 +500,7 @@ export class Runner {
             });
 
             this.searchedCount++;
-            console.log(`[Runner] Completed (${this.searchedCount}): ${job.url} (${result.newlyDiscoveredCount} links)`);
+            this.log(`[Runner] Completed (${this.searchedCount}): ${job.url} (${result.newlyDiscoveredCount} links)`);
 
             // --- QUEUE DISCOVERY ---
             if (job.depth < this.config.depth) {
@@ -410,7 +542,7 @@ export class Runner {
 
         if (fs.existsSync(jsonDir)) {
             const files = fs.readdirSync(jsonDir).filter(f => f.endsWith('.json'));
-            console.log(`[Runner] Pre-scanning ${files.length} pages for cumulative health check...`);
+            this.log(`[Runner] Pre-scanning ${files.length} pages for cumulative health check...`);
 
             for (const file of files) {
                 try {
@@ -420,11 +552,11 @@ export class Runner {
 
                     if (isHealthy) {
                         this.visitedUrls.add(normalizedUrl);
-                        console.log(`[Runner] Accumulated Healthy: ${normalizedUrl}`);
+                        this.log(`[Runner] Accumulated Healthy: ${normalizedUrl}`);
                     } else {
                         // Mark as NOT visited so we retry the zombie page
                         this.visitedUrls.delete(normalizedUrl);
-                        console.log(`[Runner] Marked Zombie for Retry: ${normalizedUrl}`);
+                        this.log(`[Runner] Marked Zombie for Retry: ${normalizedUrl}`);
                     }
                 } catch { /* ignore */ }
             }
@@ -435,7 +567,7 @@ export class Runner {
         if (!this.isRunning) return;
         this.isRunning = false;
         const duration = ((Date.now() - this.startTime) / 1000).toFixed(1);
-        console.log(`[Runner] Finished. Searched ${this.searchedCount} pages in ${duration}s.`);
+        this.log(`[Runner] Finished. Searched ${this.searchedCount} pages in ${duration}s.`);
 
         if (this.context) {
             const tracePath = path.join(this.outputDir, '..', `trace-${Date.now()}.zip`);

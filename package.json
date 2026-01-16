@@ -10,8 +10,8 @@
     "supervisor": "tsx src/core/supervisor.ts",
     "start:supervisor": "tsx src/core/supervisor.ts",
     "test": "playwright test",
-    "test:unit": "vitest",
-    "test:unit:watch": "vitest --watch",
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest",
     "test:coverage": "vitest --coverage",
     "lint": "eslint src/"
   },

@@ -26,6 +26,7 @@ program
     .option('--force', 'Force re-search', false)
     .option('--headless', 'Run in headless mode', false)
     .option('--no-headless', 'Run in visible mode')
+    .option('--quiet', 'Suppress console logs (Agent mode)', false)
     .option('--epochs <number>', 'Number of sequential epochs', '1');
 
 program.action(async (options) => {
@@ -66,7 +67,8 @@ program.action(async (options) => {
         headless: options.headless,
         force: options.force,
         username: username,
-        password: password
+        password: password,
+        quiet: options.quiet
     };
 
     // Handle Ctrl+C gracefully (Shared handler)
@@ -106,7 +108,8 @@ program.action(async (options) => {
     // [Step 2] Auto-run Consistency Validator
     try {
         console.log('\n[TestMaker] Generating Consistency Report...');
-        execSync(`npx tsx scripts/validator.ts --env ${env}`, { stdio: 'inherit' });
+        const stdioMode = options.quiet ? 'ignore' : 'inherit';
+        execSync(`npx tsx scripts/validator.ts --env ${env}`, { stdio: stdioMode });
     } catch (e) {
         console.error('[TestMaker] Failed to generate consistency report:', e);
     }

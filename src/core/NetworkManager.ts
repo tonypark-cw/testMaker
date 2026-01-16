@@ -1,4 +1,5 @@
 import { BrowserContext, Route } from 'playwright';
+import { SessionManager } from './SessionManager.js';
 
 export class NetworkManager {
     /**
@@ -19,6 +20,16 @@ export class NetworkManager {
 
                 // Inject if not present (or overwrite if needed)
                 headers['company-id'] = companyId;
+
+                // [Phase 2] Inject Access Token via SessionManager
+                try {
+                    const token = await SessionManager.getInstance().getAccessToken();
+                    if (token) {
+                        headers['Authorization'] = `Bearer ${token}`;
+                    }
+                } catch (e) {
+                    // Ignore if session not ready (e.g. during login)
+                }
 
                 try {
                     await route.continue({ headers });

@@ -55,6 +55,7 @@ export interface ScraperConfig {
     force: boolean;
     username?: string;
     password?: string;
+    quiet?: boolean;
 }
 
 // ============================================

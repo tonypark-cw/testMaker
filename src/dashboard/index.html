@@ -774,13 +774,26 @@
             // Update URL input
             inputUrl.value = env === 'stage' ? 'https://stage.ianai.co/' : 'https://dev.ianai.co/';
 
-            // Reset and reload
+            // Reset and reload immediately
             serverScreenshots = [];
             filteredScreenshots = [];
             visualScreenshots = [];
             gallery.innerHTML = '';
 
-            update();
+            // [UX Fix] Show loading state and reset counts
+            loading.style.display = 'block';
+            loading.innerText = 'Switching Environment...';
+            resetStats(); // Helper to clear numbers
+
+            update(true); // Force update with loading flag
+        }
+
+        function resetStats() {
+            ['count-all', 'count-modal', 'count-detail', 'count-page', 'count-duplicate',
+                'count-pass', 'count-fail', 'count-block', 'count-untagged', 'count', 'shot-count'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.innerText = '-';
+                });
         }
 
         function setFilter(filter) {
@@ -888,10 +901,16 @@
             }
         }
 
-        async function update() {
+        async function update(isSwitching = false) {
             try {
                 const res = await fetch(`${API_URL}?env=${currentEnvironment}`);
                 const data = await res.json();
+
+                // [UX Fix] loading hide
+                if (loading.innerText === 'Switching Environment...') {
+                    loading.style.display = 'none';
+                    loading.innerText = 'Loading more...';
+                }
 
                 // Update Runner UI
                 isRunning = data.isRunning;

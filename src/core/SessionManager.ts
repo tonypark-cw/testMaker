@@ -99,9 +99,25 @@ export class SessionManager {
         // Create the promise that subsequent callers will await
         this.refreshPromise = (async () => {
             try {
-                const result = await this.refreshHandler!(this.state.refreshToken);
-                this.setTokens(result.accessToken, result.refreshToken, result.expiresIn);
-                return result.accessToken;
+                let lastError: any;
+                const maxAttempts = 3;
+
+                for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+                    try {
+                        const result = await this.refreshHandler!(this.state.refreshToken);
+                        this.setTokens(result.accessToken, result.refreshToken, result.expiresIn);
+                        return result.accessToken;
+                    } catch (e) {
+                        lastError = e;
+                        if (attempt < maxAttempts) {
+                            const delay = 1000 * Math.pow(2, attempt - 1); // 1s, 2s
+                            console.warn(`[SessionManager] Refresh attempt ${attempt} failed. Retrying in ${delay}ms...`);
+                            await new Promise(r => setTimeout(r, delay));
+                        }
+                    }
+                }
+                console.error('[SessionManager] All refresh attempts failed.');
+                throw lastError;
             } finally {
                 this.state.isRefreshing = false;
                 this.refreshPromise = null;

@@ -293,6 +293,25 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'OPTIONS') { res.writeHead(200); res.end(); return; }
 
+    // Static Assets (CSS, JS)
+    if (pathname.startsWith('/assets/')) {
+        const assetName = pathname.replace('/assets/', '');
+        const assetPath = path.join(__dirname, 'assets', assetName);
+        if (fs.existsSync(assetPath)) {
+            const ext = path.extname(assetName).toLowerCase();
+            const mimeTypes: Record<string, string> = {
+                '.css': 'text/css; charset=utf-8',
+                '.js': 'application/javascript; charset=utf-8',
+                '.json': 'application/json; charset=utf-8'
+            };
+            res.writeHead(200, { 'Content-Type': mimeTypes[ext] || 'text/plain' });
+            res.end(fs.readFileSync(assetPath));
+        } else {
+            res.writeHead(404); res.end('Asset not found');
+        }
+        return;
+    }
+
     // API: Search
     if (pathname === '/api/search' && req.method === 'POST') {
         let body = '';

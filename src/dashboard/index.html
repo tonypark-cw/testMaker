@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,6 +13,7 @@
             margin: 0;
             padding: 20px;
         }
+
         header {
             display: flex;
             justify-content: space-between;
@@ -19,34 +21,44 @@
             margin-bottom: 20px;
             padding-bottom: 20px;
             border-bottom: 1px solid #333;
-            flex-wrap: wrap; 
+            flex-wrap: wrap;
             gap: 20px;
         }
-        h1 { margin: 0; font-size: 24px; color: #fff; }
+
+        h1 {
+            margin: 0;
+            font-size: 24px;
+            color: #fff;
+        }
+
         .stats {
             display: flex;
             gap: 20px;
         }
+
         .card {
             background: #1e1e2e;
             padding: 15px 25px;
             border-radius: 8px;
             min-width: 120px;
             text-align: center;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
         }
+
         .card .value {
             font-size: 32px;
             font-weight: bold;
             color: #4da6ff;
             display: block;
         }
+
         .card .label {
             font-size: 12px;
             color: #aaa;
             margin-top: 5px;
             display: block;
         }
+
         .trace-btn {
             background: #28a745;
             color: white;
@@ -54,10 +66,14 @@
             padding: 8px 16px;
             border-radius: 4px;
             font-size: 14px;
-            display: none; /* Hidden until trace available */
+            display: none;
+            /* Hidden until trace available */
             transition: background 0.2s;
         }
-        .trace-btn:hover { background: #218838; }
+
+        .trace-btn:hover {
+            background: #218838;
+        }
 
         /* Runner UI */
         .runner-box {
@@ -68,6 +84,7 @@
             gap: 10px;
             align-items: center;
         }
+
         .runner-input {
             background: #111;
             border: 1px solid #444;
@@ -77,6 +94,7 @@
             width: 250px;
             font-size: 13px;
         }
+
         .runner-btn {
             padding: 8px 16px;
             border: none;
@@ -86,17 +104,39 @@
             transition: 0.2s;
             color: white;
         }
-        .btn-start { background: #28a745; }
-        .btn-start:hover { background: #218838; }
-        .btn-stop { background: #dc3545; display: none; }
-        .btn-stop:hover { background: #c82333; }
-        .btn-disabled { opacity: 0.5; pointer-events: none; }
+
+        .btn-start {
+            background: #28a745;
+        }
+
+        .btn-start:hover {
+            background: #218838;
+        }
+
+        .btn-stop {
+            background: #dc3545;
+            display: none;
+        }
+
+        .btn-stop:hover {
+            background: #c82333;
+        }
+
+        .btn-disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
         .runner-status {
             font-size: 12px;
             color: #aaa;
             margin-left: 5px;
         }
-        .status-running { color: #4da6ff; animation: pulse 1.5s infinite; }
+
+        .status-running {
+            color: #4da6ff;
+            animation: pulse 1.5s infinite;
+        }
 
         /* Filters */
         .filter-bar {
@@ -107,11 +147,13 @@
             gap: 15px;
             flex-wrap: wrap;
         }
+
         .filter-group {
             display: flex;
             gap: 10px;
             align-items: center;
         }
+
         .filter-btn {
             background: #2a2a35;
             border: 1px solid #444;
@@ -125,7 +167,11 @@
             align-items: center;
             gap: 6px;
         }
-        .filter-btn:hover { background: #3a3a45; }
+
+        .filter-btn:hover {
+            background: #3a3a45;
+        }
+
         .filter-btn.active {
             background: #4da6ff;
             color: #000;
@@ -142,21 +188,52 @@
             font-weight: bold;
             vertical-align: middle;
         }
+
         .filter-btn.active .filter-count {
             background: rgba(0, 0, 0, 0.3);
             color: white;
         }
 
         /* Status Specific Badges */
-        .status-pass .filter-count { background: #10b981; color: white; }
-        .status-fail .filter-count { background: #ef4444; color: white; }
-        .status-block .filter-count { background: #f59e0b; color: #000; }
-        .status-untagged .filter-count { background: #475569; color: white; }
+        .status-pass .filter-count {
+            background: #10b981;
+            color: white;
+        }
 
-        .filter-btn.status-pass.active { background: #10b981; color: #000; }
-        .filter-btn.status-fail.active { background: #ef4444; color: #000; }
-        .filter-btn.status-block.active { background: #f59e0b; color: #000; }
-        .filter-btn.status-untagged.active { background: #475569; color: #fff; }
+        .status-fail .filter-count {
+            background: #ef4444;
+            color: white;
+        }
+
+        .status-block .filter-count {
+            background: #f59e0b;
+            color: #000;
+        }
+
+        .status-untagged .filter-count {
+            background: #475569;
+            color: white;
+        }
+
+        .filter-btn.status-pass.active {
+            background: #10b981;
+            color: #000;
+        }
+
+        .filter-btn.status-fail.active {
+            background: #ef4444;
+            color: #000;
+        }
+
+        .filter-btn.status-block.active {
+            background: #f59e0b;
+            color: #000;
+        }
+
+        .filter-btn.status-untagged.active {
+            background: #475569;
+            color: #fff;
+        }
 
         /* Gallery Grid */
         .gallery {
@@ -165,6 +242,7 @@
             gap: 15px;
             padding-bottom: 50px;
         }
+
         .shot-card {
             background: #1e1e2e;
             border-radius: 8px;
@@ -172,10 +250,12 @@
             transition: transform 0.2s;
             position: relative;
         }
+
         .shot-card:hover {
             transform: translateY(-3px);
             z-index: 10;
         }
+
         .shot-img {
             width: 100%;
             height: 150px;
@@ -186,8 +266,11 @@
             opacity: 0;
             transition: opacity 0.3s;
         }
-        .shot-img.loaded { opacity: 1; }
-        
+
+        .shot-img.loaded {
+            opacity: 1;
+        }
+
         .shot-info {
             padding: 8px;
             font-size: 11px;
@@ -196,11 +279,12 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
-        
+
         /* Badges */
         .badge {
             position: absolute;
-            top: 5px; right: 5px;
+            top: 5px;
+            right: 5px;
             padding: 3px 6px;
             border-radius: 4px;
             font-size: 9px;
@@ -209,12 +293,17 @@
             pointer-events: none;
             text-transform: uppercase;
         }
+
         /* Neutral Type Badges (User Request) */
-        .badge-modal, .badge-detail, .badge-page, .badge-dup {
-            background-color: #334155; 
+        .badge-modal,
+        .badge-detail,
+        .badge-page,
+        .badge-dup {
+            background-color: #334155;
             color: #e2e8f0;
             border: 1px solid #475569;
         }
+
         /* The following individual badge styles are now overridden by the neutral style above */
         /* .badge-modal { background: #9d46ff; } */
         /* .badge-detail { background: #10b981; } */
@@ -223,46 +312,66 @@
         /* Duplicate Badge */
         .duplicate-badge {
             position: absolute;
-            bottom: 30px; right: 5px;
+            bottom: 30px;
+            right: 5px;
             background: rgba(255, 255, 255, 0.9);
             color: #000;
             padding: 2px 6px;
             border-radius: 4px;
             font-size: 11px;
             font-weight: 800;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
             z-index: 5;
-            pointer-events: none; /* [FIX] Allow clicks to pass through to the card */
+            pointer-events: none;
+            /* [FIX] Allow clicks to pass through to the card */
         }
 
         /* QA Status Tags */
         .qa-tag {
             position: absolute;
-            top: 5px; left: 5px;
+            top: 5px;
+            left: 5px;
             padding: 3px 6px;
             border-radius: 4px;
             font-size: 10px;
             font-weight: bold;
             color: white;
             text-transform: uppercase;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
         }
-        .qa-PASS { background: #28a745; }
-        .qa-FAIL { background: #dc3545; }
-        .qa-BLOCK { background: #ffc107; color: #000; }
+
+        .qa-PASS {
+            background: #28a745;
+        }
+
+        .qa-FAIL {
+            background: #dc3545;
+        }
+
+        .qa-BLOCK {
+            background: #ffc107;
+            color: #000;
+        }
 
         /* Lightbox */
         .modal {
             display: none;
             position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.95);
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
             z-index: 1000;
             justify-content: center;
             align-items: center;
             flex-direction: column;
         }
-        .modal.active { display: flex; }
+
+        .modal.active {
+            display: flex;
+        }
+
         .modal-title {
             position: absolute;
             top: 25px;
@@ -273,65 +382,87 @@
             font-weight: bold;
             max-width: 80%;
             white-space: nowrap;
-            overflow: visible; /* [FIX] Allow dropdown menu to be visible outside */
+            overflow: visible;
+            /* [FIX] Allow dropdown menu to be visible outside */
             text-overflow: ellipsis;
-            background: rgba(0,0,0,0.5);
+            background: rgba(0, 0, 0, 0.5);
             padding: 5px 15px;
             border-radius: 20px;
             z-index: 1010;
         }
+
         .modal-img {
             max-width: 90%;
             max-height: 70vh;
             border-radius: 4px;
-            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
             margin-top: 40px;
-            background: white; /* Ensure transparent images are visible */
+            background: white;
+            /* Ensure transparent images are visible */
             object-fit: contain;
             display: block;
             margin-left: auto;
             margin-right: auto;
         }
+
         .modal-caption {
             margin-top: 10px;
             color: #ccc;
             font-size: 13px;
             text-align: center;
         }
+
         .modal-hint {
             font-size: 11px;
             color: #666;
             margin-top: 5px;
         }
+
         .modal-nav {
             position: absolute;
             top: 50%;
             transform: translateY(-50%);
-            background: rgba(0,0,0,0.5); /* Stronger background for contrast */
+            background: rgba(0, 0, 0, 0.5);
+            /* Stronger background for contrast */
             color: white;
-            border: 1px solid rgba(255,255,255,0.2);
+            border: 1px solid rgba(255, 255, 255, 0.2);
             padding: 0;
             cursor: pointer;
             font-size: 24px;
             border-radius: 50%;
-            width: 50px; height: 50px;
-            display: flex; align-items: center; justify-content: center;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             transition: 0.2s;
             outline: none;
-            z-index: 2000; /* Ensure it stays above everything in the modal */
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            z-index: 2000;
+            /* Ensure it stays above everything in the modal */
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
         }
-        .modal-nav:hover { background: rgba(255,255,255,0.25); }
-        .prev-btn { left: 30px; }
-        .next-btn { right: 30px; }
-        
+
+        .modal-nav:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        .prev-btn {
+            left: 30px;
+        }
+
+        .next-btn {
+            right: 30px;
+        }
+
         .close-container {
             position: absolute;
-            top: 20px; right: 30px;
+            top: 20px;
+            right: 30px;
             display: flex;
             align-items: center;
             gap: 10px;
         }
+
         .back-btn {
             background: #333;
             color: #ddd;
@@ -341,7 +472,11 @@
             cursor: pointer;
             font-size: 13px;
         }
-        .back-btn:hover { background: #444; }
+
+        .back-btn:hover {
+            background: #444;
+        }
+
         .close-icon {
             background: transparent;
             color: #aaa;
@@ -350,7 +485,10 @@
             cursor: pointer;
             line-height: 1;
         }
-        .close-icon:hover { color: #fff; }
+
+        .close-icon:hover {
+            color: #fff;
+        }
 
         .qa-toolbar {
             margin-top: 15px;
@@ -360,6 +498,7 @@
             padding: 5px;
             border-radius: 30px;
         }
+
         .qa-btn {
             border: none;
             padding: 8px 16px;
@@ -371,12 +510,30 @@
             transition: 0.2s;
             color: white;
         }
-        .qa-btn:hover { opacity: 1; transform: scale(1.05); }
-        .qa-btn.selected { opacity: 1; box-shadow: 0 0 8px currentColor; transform: scale(1.1); }
-        
-        .btn-pass { background: #28a745; }
-        .btn-fail { background: #dc3545; }
-        .btn-block { background: #ffc107; color: black; }
+
+        .qa-btn:hover {
+            opacity: 1;
+            transform: scale(1.05);
+        }
+
+        .qa-btn.selected {
+            opacity: 1;
+            box-shadow: 0 0 8px currentColor;
+            transform: scale(1.1);
+        }
+
+        .btn-pass {
+            background: #28a745;
+        }
+
+        .btn-fail {
+            background: #dc3545;
+        }
+
+        .btn-block {
+            background: #ffc107;
+            color: black;
+        }
 
         .loading {
             text-align: center;
@@ -385,12 +542,23 @@
             font-size: 13px;
             display: none;
         }
-        .loading.visible { display: block; }
-        
+
+        .loading.visible {
+            display: block;
+        }
+
         @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
+            0% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+
+            100% {
+                opacity: 1;
+            }
         }
 
         /* History List */
@@ -401,6 +569,7 @@
             padding-bottom: 10px;
             scrollbar-width: thin;
         }
+
         .history-item {
             flex: 0 0 100px;
             cursor: pointer;
@@ -410,19 +579,42 @@
             position: relative;
             transition: 0.2s;
         }
-        .history-item:hover { border-color: #4da6ff; }
-        .history-item.active { border-color: #4da6ff; box-shadow: 0 0 10px rgba(77, 166, 255, 0.5); }
-        .history-thumb { width: 100%; height: 60px; object-fit: cover; }
-        .history-label { font-size: 9px; padding: 2px; background: rgba(0,0,0,0.7); text-align: center; color: #fff; }
+
+        .history-item:hover {
+            border-color: #4da6ff;
+        }
+
+        .history-item.active {
+            border-color: #4da6ff;
+            box-shadow: 0 0 10px rgba(77, 166, 255, 0.5);
+        }
+
+        .history-thumb {
+            width: 100%;
+            height: 60px;
+            object-fit: cover;
+        }
+
+        .history-label {
+            font-size: 9px;
+            padding: 2px;
+            background: rgba(0, 0, 0, 0.7);
+            text-align: center;
+            color: #fff;
+        }
+
         .history-status-dot {
             position: absolute;
-            top: 4px; right: 4px;
-            width: 8px; height: 8px;
+            top: 4px;
+            right: 4px;
+            width: 8px;
+            height: 8px;
             border-radius: 50%;
             border: 1px solid white;
         }
     </style>
 </head>
+
 <body>
 
     <header>
@@ -431,10 +623,11 @@
                 <div style="display:flex; align-items:center; gap:10px;">
                     <h1>TestMaker Live <span style="font-size:14px; color:#4da6ff; vertical-align:middle;">●</span></h1>
                 </div>
-                
+
                 <!-- Environment Selector -->
                 <div class="filter-group" style="margin:0;">
-                    <button class="filter-btn active" id="env-stage" onclick="switchEnvironment('stage')" style="font-size: 13px;">
+                    <button class="filter-btn active" id="env-stage" onclick="switchEnvironment('stage')"
+                        style="font-size: 13px;">
                         🟦 Stage
                     </button>
                     <button class="filter-btn" id="env-dev" onclick="switchEnvironment('dev')" style="font-size: 13px;">
@@ -442,24 +635,27 @@
                     </button>
                 </div>
             </div>
-            
+
             <!-- Runner Box -->
             <div class="runner-box">
-             <input type="text" id="target-url" class="runner-input" placeholder="Enter target URL to analyze..." value="https://stage.ianai.co/">
-             <button id="btn-start" class="runner-btn btn-start" onclick="startSearch()">Start Search</button>
-             <button id="btn-stop" class="runner-btn btn-stop" onclick="stopSearch()">Stop</button>
-             <button id="btn-researh-fail" class="runner-btn" onclick="researchFailures()" style="display:none; background: #d35400; font-size: 13px;">Re-search FAIL (<span id="fail-count-btn">0</span>)</button>
-             <span id="runner-status" class="runner-status">Idle</span>
-             <span id="queue-status" class="runner-status" style="display:none; background: #2980b9;">Queue: 0</span>
+                <input type="text" id="target-url" class="runner-input" placeholder="Enter target URL to analyze..."
+                    value="https://stage.ianai.co/">
+                <button id="btn-start" class="runner-btn btn-start" onclick="startSearch()">Start Search</button>
+                <button id="btn-stop" class="runner-btn btn-stop" onclick="stopSearch()">Stop</button>
+                <button id="btn-reanalyze-fail" class="runner-btn" onclick="researchFailures()"
+                    style="display:none; background: #d35400; font-size: 13px;">Re-search FAIL (<span
+                        id="fail-count-btn">0</span>)</button>
+                <span id="runner-status" class="runner-status">Idle</span>
+                <span id="queue-status" class="runner-status" style="display:none; background: #2980b9;">Queue: 0</span>
             </div>
         </div>
-        
+
         <div style="display:flex; align-items:center; gap:20px;">
-             <a href="#" id="trace-link" class="trace-btn" target="_blank">Download Trace</a>
-             <div class="stats">
+            <a href="#" id="trace-link" class="trace-btn" target="_blank">Download Trace</a>
+            <div class="stats">
                 <div class="card">
                     <span class="value" id="count">0</span>
-                   <span class="label">Searched Pages</span>
+                    <span class="label">Searched Pages</span>
                 </div>
                 <div class="card">
                     <span class="value" id="shot-count">0</span>
@@ -471,18 +667,27 @@
 
     <div class="filter-bar">
         <div class="filter-group" id="type-filters">
-            <button class="filter-btn active" onclick="setFilter('ALL')">ALL <span id="count-all" class="filter-count">0</span></button>
-            <button class="filter-btn" onclick="setFilter('PAGE')">PAGE <span id="count-page" class="filter-count">0</span></button>
-            <button class="filter-btn" onclick="setFilter('MODAL')">MODAL <span id="count-modal" class="filter-count">0</span></button>
-            <button class="filter-btn" onclick="setFilter('DETAIL')">DETAIL <span id="count-detail" class="filter-count">0</span></button>
-            <button class="filter-btn" onclick="setFilter('DUP')">DUP <span id="count-duplicate" class="filter-count">0</span></button>
+            <button class="filter-btn active" onclick="setFilter('ALL')">ALL <span id="count-all"
+                    class="filter-count">0</span></button>
+            <button class="filter-btn" onclick="setFilter('PAGE')">PAGE <span id="count-page"
+                    class="filter-count">0</span></button>
+            <button class="filter-btn" onclick="setFilter('MODAL')">MODAL <span id="count-modal"
+                    class="filter-count">0</span></button>
+            <button class="filter-btn" onclick="setFilter('DETAIL')">DETAIL <span id="count-detail"
+                    class="filter-count">0</span></button>
+            <button class="filter-btn" onclick="setFilter('DUP')">DUP <span id="count-duplicate"
+                    class="filter-count">0</span></button>
         </div>
 
         <div class="filter-group" id="status-filters">
-            <button class="filter-btn status-pass" onclick="setStatusFilter('PASS')">PASS <span id="count-pass" class="filter-count">0</span></button>
-            <button class="filter-btn status-fail" onclick="setStatusFilter('FAIL')">FAIL <span id="count-fail" class="filter-count">0</span></button>
-            <button class="filter-btn status-block" onclick="setStatusFilter('BLOCK')">BLOCK <span id="count-block" class="filter-count">0</span></button>
-            <button class="filter-btn status-untagged" onclick="setStatusFilter('UNTAGGED')">? <span id="count-untagged" class="filter-count">0</span></button>
+            <button class="filter-btn status-pass" onclick="setStatusFilter('PASS')">PASS <span id="count-pass"
+                    class="filter-count">0</span></button>
+            <button class="filter-btn status-fail" onclick="setStatusFilter('FAIL')">FAIL <span id="count-fail"
+                    class="filter-count">0</span></button>
+            <button class="filter-btn status-block" onclick="setStatusFilter('BLOCK')">BLOCK <span id="count-block"
+                    class="filter-count">0</span></button>
+            <button class="filter-btn status-untagged" onclick="setStatusFilter('UNTAGGED')">? <span id="count-untagged"
+                    class="filter-count">0</span></button>
         </div>
     </div>
 
@@ -497,23 +702,25 @@
             <button class="back-btn" onclick="closeModal()">Back to Gallery</button>
             <button class="close-icon" onclick="closeModal()">&times;</button>
         </div>
-        
+
         <button class="modal-nav prev-btn" onclick="prevImage()">&#10094;</button>
         <button class="modal-nav next-btn" onclick="nextImage()">&#10095;</button>
-        
+
         <img src="" alt="" class="modal-img" id="modal-img">
-        
+
         <div class="qa-toolbar">
             <button class="qa-btn btn-pass" onclick="setTag('PASS')">PASS</button>
             <button class="qa-btn btn-fail" onclick="setTag('FAIL')">FAIL</button>
             <button class="qa-btn btn-block" onclick="setTag('BLOCK')">BLOCK</button>
         </div>
-        
+
         <div id="fail-reason-container" style="display:none; width: 80%; margin-top: 10px;">
-            <textarea id="fail-reason" placeholder="Why did this fail? (e.g. Missing element, layout issue...)" style="width: 100%; height: 60px; background: #1e293b; color: white; border: 1px solid #475569; padding: 8px; border-radius: 4px; font-family: sans-serif; resize: vertical; margin-bottom: 5px;"></textarea>
+            <textarea id="fail-reason" placeholder="Why did this fail? (e.g. Missing element, layout issue...)"
+                style="width: 100%; height: 60px; background: #1e293b; color: white; border: 1px solid #475569; padding: 8px; border-radius: 4px; font-family: sans-serif; resize: vertical; margin-bottom: 5px;"></textarea>
             <div style="display: flex; justify-content: flex-end; align-items: center; gap: 10px;">
                 <span id="reason-status" style="color: #94a3b8; font-size: 11px;"></span>
-                <button onclick="saveReason()" style="background: #3b82f6; border: none; color: white; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">Save</button>
+                <button onclick="saveReason()"
+                    style="background: #3b82f6; border: none; color: white; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">Save</button>
             </div>
         </div>
 
@@ -527,7 +734,7 @@
     <script>
         let currentEnvironment = 'stage'; // Default environment
         const API_URL = '/api/stats';
-        
+
         // State
         let serverScreenshots = [];
         let filteredScreenshots = [];
@@ -559,20 +766,20 @@
 
         function switchEnvironment(env) {
             currentEnvironment = env;
-            
+
             // Update UI
             document.getElementById('env-stage').classList.toggle('active', env === 'stage');
             document.getElementById('env-dev').classList.toggle('active', env === 'dev');
-            
+
             // Update URL input
-           inputUrl.value = env === 'stage' ? 'https://stage.ianai.co/' : 'https://dev.ianai.co/';
-            
+            inputUrl.value = env === 'stage' ? 'https://stage.ianai.co/' : 'https://dev.ianai.co/';
+
             // Reset and reload
             serverScreenshots = [];
             filteredScreenshots = [];
             visualScreenshots = [];
             gallery.innerHTML = '';
-            
+
             update();
         }
 
@@ -592,14 +799,14 @@
             document.querySelectorAll('#status-filters .filter-btn').forEach(btn => {
                 const btnText = btn.childNodes[0].textContent.trim();
                 if (status === 'UNTAGGED') {
-                     btn.classList.toggle('active', currentStatusFilter === 'UNTAGGED' && btnText === '?');
+                    btn.classList.toggle('active', currentStatusFilter === 'UNTAGGED' && btnText === '?');
                 } else {
-                     btn.classList.toggle('active', currentStatusFilter === status && btnText === status);
+                    btn.classList.toggle('active', currentStatusFilter === status && btnText === status);
                 }
             });
             applyFilterAndReset();
         }
-        
+
         function getScreenshotType(url) {
             const lower = url.toLowerCase();
             if (lower.includes('modal-')) return 'MODAL';
@@ -613,10 +820,10 @@
             serverScreenshots.forEach(shot => {
                 const url = shot.webUrl || shot.url;
                 if (!urlGroups.has(url)) {
-                    urlGroups.set(url, { 
+                    urlGroups.set(url, {
                         webUrl: url,
-                        captures: [], 
-                        latest: null 
+                        captures: [],
+                        latest: null
                     });
                 }
                 const group = urlGroups.get(url);
@@ -628,17 +835,17 @@
             urlGroups.forEach(group => {
                 group.captures.sort((a, b) => b.time - a.time);
                 group.latest = group.captures[0];
-                
+
                 // Determine statuses
                 const effectiveUrl = group.latest.webUrl || group.latest.url;
                 const latestStatus = tags[`${effectiveUrl}#${group.latest.hash}`] || tags[effectiveUrl] || 'UNTAGGED';
-                
+
                 // [FIX] Check if ANY history item matches the filter (Deep Search)
                 // If filter is FAIL, we want to see this group if it EVER failed (or has a failed version)
                 // Actually, arguably we only want to see if the *current* is FAIL, OR if we are auditing history?
                 // The user requirement implies they want to see "Captured History" so likely auditing.
                 // Let's allow match if ANY item matches.
-                
+
                 let matchesStatus = false;
                 if (currentStatusFilter === 'ALL') {
                     matchesStatus = true;
@@ -673,7 +880,7 @@
             visualScreenshots = [];
             gallery.innerHTML = '';
             loadMore();
-            
+
             // Re-connect observer
             if (scrollObserver && sentinel) {
                 scrollObserver.disconnect();
@@ -685,11 +892,11 @@
             try {
                 const res = await fetch(`${API_URL}?env=${currentEnvironment}`);
                 const data = await res.json();
-                
+
                 // Update Runner UI
                 isRunning = data.isRunning;
                 queueLength = data.queueLength || 0;
-                
+
                 const queueStatus = document.getElementById('queue-status');
                 if (queueLength > 0) {
                     queueStatus.style.display = 'inline-block';
@@ -701,8 +908,8 @@
                 // Update Status
                 const effectiveRunningState = data.isRunning || (data.queueLength && data.queueLength > 0);
                 if (effectiveRunningState) {
-                    runnerStatus.innerText = data.queueLength > 0 
-                        ? `Queueing (${data.queueLength})...` 
+                    runnerStatus.innerText = data.queueLength > 0
+                        ? `Queueing (${data.queueLength})...`
                         : "Running...";
                     runnerStatus.className = 'status-badge status-running';
                     btnStart.style.display = 'none';
@@ -716,14 +923,14 @@
                     btnStop.style.display = 'none';
                     inputUrl.disabled = false;
                 }
-                
+
                 tags = data.tags || {};
                 reasons = data.reasons || {}; // Load reasons
                 updateVisibleTags();
 
                 const oldLength = serverScreenshots.length;
                 serverScreenshots = data.screenshots;
-                
+
                 // Calculate Counts for Buttons (Actual Visual Content Totals)
                 const typeCounts = { ALL: 0, MODAL: 0, DETAIL: 0, PAGE: 0, DUP: 0 };
                 const statusCounts = { PASS: 0, FAIL: 0, BLOCK: 0, UNTAGGED: 0 };
@@ -752,20 +959,20 @@
                     typeCounts.ALL++;
                     if (typeCounts[type] !== undefined) typeCounts[type]++;
                     if (captures.length > 1) typeCounts.DUP++;
-                    
+
                     // 1. Global Status Counts (Unique Pages/Items)
                     if (statusCounts[latestStatus] !== undefined) {
                         statusCounts[latestStatus]++;
                     } else {
                         statusCounts.UNTAGGED++;
                     }
-                    
+
                     // 2. Check "Matching Status" for the current filter
                     let matchesCurrentStatus = false;
                     if (currentStatusFilter === 'ALL') {
                         matchesCurrentStatus = true;
                     } else {
-                         matchesCurrentStatus = captures.some(cap => {
+                        matchesCurrentStatus = captures.some(cap => {
                             const cUrl = cap.webUrl || cap.url;
                             const s = tags[`${cUrl}#${cap.hash}`] || tags[cUrl] || 'UNTAGGED';
                             return s === currentStatusFilter;
@@ -813,29 +1020,29 @@
                 } else {
                     failBtn.style.display = 'none';
                 }
-                
+
                 if (filteredScreenshots.length === 0 && visualScreenshots.length === 0 && serverScreenshots.length > 0) {
-                     applyFilterAndReset();
+                    applyFilterAndReset();
                 } else if (serverScreenshots.length !== oldLength || (data.latestScanTime && data.latestScanTime > lastScanTime)) {
                     lastScanTime = data.latestScanTime || 0;
                     applyFilterAndReset();
                 }
-                
+
                 if (isModalOpen) updateModalNav();
 
             } catch (e) {
                 console.error("Dashboard update failed:", e);
             }
         }
-        
+
         async function startSearch() {
             const url = inputUrl.value;
-            if(!url) return alert('Please enter a URL');
-            
+            if (!url) return alert('Please enter a URL');
+
             console.log(`[UI] Requesting analysis for: ${url}`);
             btnStart.classList.add('btn-disabled');
             runnerStatus.innerText = "Starting...";
-            
+
             try {
                 const res = await fetch('/api/search', {
                     method: 'POST',
@@ -843,18 +1050,18 @@
                 });
                 const json = await res.json();
                 console.log(`[UI] Server Response:`, json);
-                if(json.error) alert(json.error);
-            } catch(e) {
+                if (json.error) alert(json.error);
+            } catch (e) {
                 console.error(`[UI] Fetch Error:`, e);
                 alert('Failed to start: ' + e);
             }
         }
-        
+
         async function stopSearch() {
-            if(!confirm('Are you sure you want to stop the analysis?')) return;
+            if (!confirm('Are you sure you want to stop the analysis?')) return;
             try {
                 await fetch('/api/stop', { method: 'POST' });
-            } catch(e) {}
+            } catch (e) { }
         }
 
         async function researchFailures() {
@@ -887,34 +1094,34 @@
                         body: JSON.stringify({ url: originalUrl, depth: 4, limit: 50 }) // Shallow depth for re-check
                     });
                     queuedCount++;
-                } catch(e) { console.error(e); }
+                } catch (e) { console.error(e); }
             }
             alert(`Queued ${queuedCount} pages for re-analysis.`);
             update(); // Trigger immediate update
         }
-        
+
         async function setTag(status) {
             if (!currentModalUrl || !currentWebUrl) return;
-            
+
             const key = currentModalHash ? `${currentWebUrl}#${currentModalHash}` : currentWebUrl;
             tags[key] = status;
-            
+
             updateQAButtons(status);
             updateVisibleTags();
             updateHistoryList(); // Refresh history badges
-            
+
             try {
                 await fetch('/api/tag', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ url: currentWebUrl, status, hash: currentModalHash })
                 });
-            } catch (e) {}
+            } catch (e) { }
 
             // [FIX] Auto-advance in all filters for better throughput
             setTimeout(() => nextImage(), 300);
         }
-        
+
         function updateQAButtons(currentStatus) {
             document.querySelectorAll('.qa-btn').forEach(btn => btn.classList.remove('selected'));
             if (currentStatus === 'PASS') document.querySelector('.btn-pass').classList.add('selected');
@@ -930,43 +1137,43 @@
         }
 
         async function saveReason() {
-             const reason = document.getElementById('fail-reason').value;
-             const statusEl = document.getElementById('reason-status');
-             
-             const key = currentModalHash ? `${currentWebUrl}#${currentModalHash}` : currentWebUrl;
-             reasons[key] = reason;
-             statusEl.innerText = 'Saving...';
-             try {
-                 await fetch('/api/reason', {
-                     method: 'POST',
-                     headers: { 'Content-Type': 'application/json' },
-                     body: JSON.stringify({ url: currentWebUrl, reason, hash: currentModalHash })
-                 });
-                 statusEl.innerText = 'Saved!';
-                 setTimeout(() => statusEl.innerText = '', 2000);
-             } catch(e) {
-                 statusEl.innerText = 'Error saving';
-             }
+            const reason = document.getElementById('fail-reason').value;
+            const statusEl = document.getElementById('reason-status');
+
+            const key = currentModalHash ? `${currentWebUrl}#${currentModalHash}` : currentWebUrl;
+            reasons[key] = reason;
+            statusEl.innerText = 'Saving...';
+            try {
+                await fetch('/api/reason', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: currentWebUrl, reason, hash: currentModalHash })
+                });
+                statusEl.innerText = 'Saved!';
+                setTimeout(() => statusEl.innerText = '', 2000);
+            } catch (e) {
+                statusEl.innerText = 'Error saving';
+            }
         }
-        
+
         function updateVisibleTags() {
-             document.querySelectorAll('.shot-card').forEach(card => {
-                 const url = card.dataset.url;
-                 const shot = serverScreenshots.find(s => s.url === url);
-                 if (!shot) return;
-                 const webUrl = shot.webUrl || url;
-                 const status = tags[`${webUrl}#${shot.hash}`] || tags[webUrl];
-                 
-                 const existingTag = card.querySelector('.qa-tag');
-                 if (existingTag) existingTag.remove();
-                 
-                 if (status) {
-                     const tag = document.createElement('span');
-                     tag.className = `qa-tag qa-${status}`;
-                     tag.innerText = status;
-                     card.appendChild(tag);
-                 }
-             });
+            document.querySelectorAll('.shot-card').forEach(card => {
+                const url = card.dataset.url;
+                const shot = serverScreenshots.find(s => s.url === url);
+                if (!shot) return;
+                const webUrl = shot.webUrl || url;
+                const status = tags[`${webUrl}#${shot.hash}`] || tags[webUrl];
+
+                const existingTag = card.querySelector('.qa-tag');
+                if (existingTag) existingTag.remove();
+
+                if (status) {
+                    const tag = document.createElement('span');
+                    tag.className = `qa-tag qa-${status}`;
+                    tag.innerText = status;
+                    card.appendChild(tag);
+                }
+            });
         }
 
         async function loadMore() {
@@ -1011,15 +1218,15 @@
             const type = getScreenshotType(url);
             const badgeClass = `badge-${type.toLowerCase()}`;
             const status = tags[`${webUrl}#${shot.hash}`] || tags[webUrl];
-            
+
             const div = document.createElement('div');
             div.className = 'shot-card';
             div.dataset.url = url;
             div.onclick = () => openModal(url, shot.hash, webUrl);
-            
+
             let statusHtml = '';
             if (status) statusHtml = `<span class="qa-tag qa-${status}">${status}</span>`;
-            
+
             let dupHtml = '';
             if (shot.count > 1) {
                 dupHtml = `<span class="duplicate-badge">v${shot.count}</span>`;
@@ -1076,23 +1283,23 @@
 
         function updateModalImage() {
             if (!currentModalUrl) return;
-            
+
             // [FIX] Robust Lookup: Try webUrl first, then specific url
             let group = filteredScreenshots.find(s => (s.webUrl || s.url) === currentWebUrl);
-            
+
             const img = document.getElementById('modal-img');
             img.src = currentModalUrl;
             img.classList.remove('loaded');
             img.onload = () => img.classList.add('loaded');
-            
+
             const titleEl = document.getElementById('modal-title');
             titleEl.innerText = currentWebUrl || currentModalUrl;
             titleEl.title = currentWebUrl;
-            
+
             const key = currentModalHash ? `${currentWebUrl}#${currentModalHash}` : currentWebUrl;
             const status = tags[key] || 'UNTAGGED';
             updateQAButtons(status);
-            
+
             // Navigate info
             if (group) {
                 const idx = filteredScreenshots.indexOf(group);
@@ -1137,15 +1344,15 @@
                 historyContainer.appendChild(item);
             });
         }
-        
+
         function updateModalNav() {
             // Find the current group in the filtered list
             const group = filteredScreenshots.find(s => (s.webUrl || s.url) === currentWebUrl);
             const idx = group ? filteredScreenshots.indexOf(group) : -1;
-            
+
             const prevBtn = document.querySelector('.prev-btn');
             const nextBtn = document.querySelector('.next-btn');
-            
+
             if (!prevBtn || !nextBtn) return;
 
             // Show current index status in console for easy debugging
@@ -1183,7 +1390,7 @@
                 openModal(prevGroup.url, prevGroup.hash, prevGroup.webUrl || prevGroup.url);
             }
         }
-        
+
         function preloadNeighbors(idx) {
             if (idx < filteredScreenshots.length - 1) {
                 new Image().src = filteredScreenshots[idx + 1].url;
@@ -1196,11 +1403,11 @@
         document.addEventListener('keydown', (e) => {
             if (!isModalOpen) return;
             console.log(`[UI] KeyDown: ${e.key} (Target: ${e.target.tagName})`);
-            
+
             // If user is typing in the reason box, don't trigger navigation
             if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') {
                 if (e.key === 'Escape') {
-                   e.target.blur(); // Escape to exit typing
+                    e.target.blur(); // Escape to exit typing
                 }
                 return;
             }
@@ -1213,7 +1420,7 @@
             if (e.key === "3") setTag('BLOCK');
         });
         // Expose to global scope for inline onclick
-        window.switchDuplicate = function(url) {
+        window.switchDuplicate = function (url) {
             console.log("Switching to duplicate:", url);
             currentModalUrl = url;
             updateModalImage();
@@ -1221,7 +1428,7 @@
 
         // Initial Load
         update();
-        
+
         // [FIX] Infinite Scroll Observer
         if ('IntersectionObserver' in window) {
             scrollObserver = new IntersectionObserver((entries) => {
@@ -1233,7 +1440,7 @@
         }
 
         setInterval(update, 2000);
-        
+
         const styleSheet = document.createElement("style");
         styleSheet.innerText = `
             @keyframes fadeIn {
@@ -1271,4 +1478,5 @@
         document.head.appendChild(styleSheet);
     </script>
 </body>
+
 </html>

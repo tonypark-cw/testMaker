@@ -81,6 +81,81 @@ ScrapeJob.actionChain → Scraper 실행 → ScrapeResult.actionChain → Valida
 
 ---
 
+## Token Management
+
+### Overview
+
+백엔드 인증 토큰 관리 현황 및 임시 해결책 문서화.
+
+| 항목 | 설명 |
+|------|------|
+| **목적** | 세션 안정성 유지 |
+| **현재 상태** | Workaround로 운영 중 |
+| **향후 계획** | [multi-tab-token-strategy.md](../plans/multi-tab-token-strategy.md) 참조 |
+
+### Current Issues
+
+**백엔드 토큰 갱신 API 오류**:
+- Refresh token 요청 실패 시 세션 무효화
+- 멀티탭 환경에서 토큰 충돌 발생 가능성
+
+**성능 영향**:
+- 빈번한 토큰 갱신 요청이 로딩 시간 증가
+- 403 에러 발생으로 탐색 중단 위험
+
+### Concurrency Configuration
+
+**원래 설계**:
+- `runner.ts` Line 32: Default concurrency = **3 tabs**
+- 병렬 탐색으로 처리 속도 향상 목표
+
+**현재 설정**:
+- `cli.ts` Line 20: CLI default = **1 tab**
+- 변경 이유: 토큰 충돌 및 성능 이슈로 안정성 우선 선택
+
+**사용법**:
+```bash
+# 기본 (1 tab - 안정성 우선)
+npm run search -- --url https://stage.ianai.co
+
+# 성능 우선 (3 tabs - 주의 필요)
+npm run search -- --url https://stage.ianai.co --concurrency 3
+```
+
+### Temporary Workarounds
+
+#### BLOCK_REFRESH_TOKEN
+
+**Environment Variable**: `BLOCK_REFRESH_TOKEN=true/false`
+
+**목적**: 실패하는 토큰 갱신 요청을 차단하여 세션 무효화 방지
+
+**구현**: `NetworkManager.ts` - `/api/auth/refresh` 요청 필터링
+
+**제거 조건**: 백엔드 토큰 갱신 API 수정 완료 후
+
+#### INJECT_CUSTOM_HEADERS
+
+**Environment Variable**: `INJECT_CUSTOM_HEADERS=true`
+
+**목적**: Company-Id 헤더 강제 주입으로 403 에러 방지
+
+**구현**: `NetworkManager.ts` - 도메인별 선택적 헤더 주입 (ianai.co, localhost만)
+
+**배경**: API Reverse Engineering을 통해 필수 헤더 식별
+
+### Related Files
+
+| 파일 | 역할 |
+|------|------|
+| `src/core/NetworkManager.ts` | 헤더 주입 및 요청 필터링 |
+| `src/core/runner.ts` | Concurrency 제어 |
+| `.env` | BLOCK_REFRESH_TOKEN, INJECT_CUSTOM_HEADERS 설정 |
+| `docs/history/known-issues.md` | 상세 문제 이력 |
+| `docs/plans/multi-tab-token-strategy.md` | 향후 개선 계획 |
+
+---
+
 ## Development Tools
 
 ### Inspector (src/core/inspector.ts)
@@ -105,4 +180,4 @@ UI 구조 디버깅 및 분석 도구.
 
 ---
 
-Last Updated: 2026-01-14
+Last Updated: 2026-01-16

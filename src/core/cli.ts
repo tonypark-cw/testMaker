@@ -13,7 +13,7 @@ program
     .version('2.0.0');
 
 program
-    .option('--url <url>', 'URL to analyze', process.env.TESTMAKER_URL)
+    .option('--url <url>', 'URL to search', process.env.TESTMAKER_URL)
     .option('--output-dir <path>', 'Output directory', './output')
     .option('--depth <number>', 'Maximum exploration depth', '1')
     .option('--limit <number>', 'Maximum number of pages', '50')

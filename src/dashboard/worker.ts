@@ -85,7 +85,7 @@ async function start() {
                 console.log(`\n[Worker] 📥 Picked up job: ${job.url}`);
                 await updateStatus(true);
 
-                const args = ['run', 'analyze', '--', '--url', job.url, '--force'];
+                const args = ['run', 'search', '--', '--url', job.url, '--force'];
                 if (job.depth) args.push('--depth', String(job.depth));
                 if (job.limit) args.push('--limit', String(job.limit));
 

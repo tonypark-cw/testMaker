@@ -638,11 +638,11 @@
 
             <!-- Runner Box -->
             <div class="runner-box">
-                <input type="text" id="target-url" class="runner-input" placeholder="Enter target URL to analyze..."
+                <input type="text" id="target-url" class="runner-input" placeholder="Enter target URL to search..."
                     value="https://stage.ianai.co/">
                 <button id="btn-start" class="runner-btn btn-start" onclick="startSearch()">Start Search</button>
                 <button id="btn-stop" class="runner-btn btn-stop" onclick="stopSearch()">Stop</button>
-                <button id="btn-reanalyze-fail" class="runner-btn" onclick="researchFailures()"
+                <button id="btn-research-fail" class="runner-btn" onclick="researchFailures()"
                     style="display:none; background: #d35400; font-size: 13px;">Re-search FAIL (<span
                         id="fail-count-btn">0</span>)</button>
                 <span id="runner-status" class="runner-status">Idle</span>
@@ -1031,7 +1031,7 @@
                 document.getElementById('count-block').innerText = statusCounts.BLOCK;
                 document.getElementById('count-untagged').innerText = statusCounts.UNTAGGED;
 
-                const failBtn = document.getElementById('btn-reanalyze-fail');
+                const failBtn = document.getElementById('btn-research-fail');
                 const failCount = statusCounts.FAIL;
                 document.getElementById('fail-count-btn').innerText = failCount;
                 if (failCount > 0) {
@@ -1088,7 +1088,7 @@
                 .filter(([url, status]) => status === 'FAIL')
                 .map(([url]) => url);
 
-            if (failUrls.length === 0) return alert('No FAIL items to re-analyze.');
+            if (failUrls.length === 0) return alert('No FAIL items to re-search.');
             if (!confirm(`Queue re-analysis for ${failUrls.length} failed pages?`)) return;
 
             // [FIX] Instant Feedback

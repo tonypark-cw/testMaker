@@ -7,6 +7,7 @@ export default [
     js.configs.recommended,
     {
         files: ['**/*.ts', '**/*.tsx'],
+        ignores: ['src/dashboard/assets/js/*.js'],
         languageOptions: {
             parser: tsParser,
             globals: {
@@ -26,4 +27,15 @@ export default [
             'quotes': ['error', 'single'],
         },
     },
+    {
+        files: ['src/dashboard/assets/js/*.js'],
+        languageOptions: {
+            globals: {
+                ...globals.browser,
+            },
+        },
+        rules: {
+            'no-undef': 'off',
+        }
+    }
 ];

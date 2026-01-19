@@ -9,6 +9,7 @@
     "dashboard": "tsx watch src/dashboard/server.ts",
     "supervisor": "tsx src/core/supervisor.ts",
     "start:supervisor": "tsx src/core/supervisor.ts",
+    "worker": "tsx src/dashboard/worker.ts",
     "test": "playwright test",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",

@@ -50,11 +50,24 @@ export class SessionManager {
      * @param expiresInSeconds Expiration time in seconds from now
      */
     public setTokens(accessToken: string, refreshToken: string, expiresInSeconds: number): void {
+        const expiresAt = Date.now() + (expiresInSeconds * 1000);
         this.state = {
             accessToken,
             refreshToken,
-            expiresAt: Date.now() + (expiresInSeconds * 1000),
+            expiresAt,
             isRefreshing: false
+        };
+        const expiresInMinutes = Math.floor(expiresInSeconds / 60);
+        console.log(`[SessionManager] Tokens set (expires in ${expiresInMinutes}m, at ${new Date(expiresAt).toLocaleTimeString()})`);
+    }
+
+    /**
+     * Get current raw tokens.
+     */
+    public getTokens(): { accessToken: string; refreshToken: string } {
+        return {
+            accessToken: this.state.accessToken,
+            refreshToken: this.state.refreshToken
         };
     }
 
@@ -129,7 +142,13 @@ export class SessionManager {
 
     public isExpiringSoon(): boolean {
         if (!this.state.accessToken) return true;
-        return Date.now() + this.REFRESH_THRESHOLD_MS >= this.state.expiresAt;
+        const now = Date.now();
+        const timeRemaining = this.state.expiresAt - now;
+        const isExpiring = now + this.REFRESH_THRESHOLD_MS >= this.state.expiresAt;
+        if (isExpiring) {
+            console.log(`[SessionManager] Token expiring soon (${Math.floor(timeRemaining / 1000)}s remaining)`);
+        }
+        return isExpiring;
     }
 
     /**

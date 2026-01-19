@@ -93,6 +93,7 @@ export class Scraper {
       console.log('[Scraper] Detected transition page, forcing navigation to /app/home...');
       await page.waitForTimeout(1000);
       await page.goto(new URL('/app/home', url).toString(), { waitUntil: 'networkidle' }).catch(() => { });
+      await page.waitForTimeout(3000); // Wait for app initialization
     }
 
     const targetUrl = page.url();
@@ -126,6 +127,20 @@ export class Scraper {
 
     // --- PHASE 3: Stability Wait ---
     console.log('[Scraper] Waiting for page stability...');
+    await page.waitForFunction(() => {
+      const root = document.querySelector('#root');
+      return root && root.innerHTML.length > 1000; // Even higher threshold
+    }, { timeout: 30000 }).catch(() => { });
+
+    await page.waitForSelector('aside, nav, [class*="sidebar"], [class*="nav"]', { timeout: 15000 }).catch(() => {
+      console.log('[Scraper] ⚠️ Warning: Navigation markers (aside/nav) not found after 15s.');
+    });
+
+    const bodyText = await page.evaluate(() => (document.querySelector('#root') as HTMLElement)?.innerText || 'EMPTY');
+    if (bodyText.length < 100) {
+      console.log(`[Scraper] ⚠️ Low content detected in #root: "${bodyText.substring(0, 100).replace(/\n/g, ' ')}..."`);
+    }
+
     await page.waitForFunction(() => {
       const loaders = ['.mantine-Loader-root', '.loader', '.spinner', '.loading', '[aria-busy="true"]', '.ant-spin', '.nprogress-bar'];
       for (let i = 0; i < loaders.length; i++) {
@@ -166,6 +181,15 @@ export class Scraper {
 
       screenshotPath = path.join(this.outputDir, `${pageName}_${timestamp}.webp`);
 
+      // [Uniqueness Check] Append counter if file exists to prevent overwrites
+      let counter = 1;
+      while (fs.existsSync(screenshotPath)) {
+        screenshotPath = path.join(this.outputDir, `${pageName}_${timestamp}_${counter}.webp`);
+        counter++;
+      }
+
+      console.log(`[Scraper] 📸 Capturing screenshot for: ${url} (Page: ${pageName}, File: ${path.basename(screenshotPath)})`);
+
       const png = await page.screenshot({ fullPage: true, type: 'png' });
 
       // Check if screenshot is mostly blank (white/empty page)
@@ -184,7 +208,9 @@ export class Scraper {
       const jsonDir = path.join(path.dirname(screenshotPath), 'json', domain);
       if (!fs.existsSync(jsonDir)) fs.mkdirSync(jsonDir, { recursive: true });
 
-      const jsonFilename = `${pageName}_${timestamp}.json`;
+      // Use the exact same basename for JSON to keep them paired
+      const baseName = path.basename(screenshotPath, '.webp');
+      const jsonFilename = `${baseName}.json`;
       const jsonPath = path.join(jsonDir, jsonFilename);
       fs.writeFileSync(jsonPath, JSON.stringify({
         url,
@@ -294,9 +320,6 @@ export class Scraper {
     // --- FULL EXTRACTION (For Analyzer) ---
     // Use stack-based iteration to avoid esbuild's __name helper issue in browser context
     const result = await page.evaluate(() => {
-      // [DEBUG] Log body text to diagnose "explicit-error-ui" and 0 links
-      console.log('[DEBUG] Page Content Start:', document.body.innerText.substring(0, 500).replace(/\n/g, ' '));
-
       const elements: TestableElement[] = [];
       const links = new Set<string>();
       const sidebarLinks = new Set<string>();
@@ -396,7 +419,7 @@ export class Scraper {
       ];
 
       const patternCounts: Record<string, number> = {};
-      const UUID_SAMPLE_LIMIT = 2;
+      const UUID_SAMPLE_LIMIT = 500; // Increased for deep crawling
       const actionPatterns = ['/new', '/edit', '/create', '/history', '/copy', '/duplicate', '/clone', '/view'];
       const forbiddenKeywords = ['support', 'miscellaneous', 'feedback', 'help', '공지사항', '지원', 'logout'];
 

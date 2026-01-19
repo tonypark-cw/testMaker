@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as crypto from 'crypto';
 import sharp from 'sharp';
-import { ActionRecord, ModalDiscovery, TestableElement } from '../../types/index.js';
+import { ActionRecord, ModalDiscovery, TestableElement } from '../../../types/index.js';
 
 /**
  * UISettler
@@ -29,19 +29,17 @@ export class UISettler {
     public static async isModalOpen(page: Page): Promise<boolean> {
         return await page.evaluate(() => {
             const selectors = [
-                '.ianai-Modal-content',
-                '.mantine-Modal-content',
-                '[role="dialog"]',
-                '.ianai-Drawer-content',
-                '.mantine-Drawer-content',
-                '.mantine-Modal-inner'
+                '.ianai-Modal-content', '.mantine-Modal-content', '.mantine-Modal-inner',
+                '.ianai-Drawer-content', '.mantine-Drawer-content',
+                '[role="dialog"]', '[role="alertdialog"]', '.modal-content', '.modal-body',
+                '.ant-modal', '.ant-drawer', '.MuiDialog-root', '.MuiDrawer-paper'
             ];
             const modals = document.querySelectorAll(selectors.join(', '));
             for (const modal of modals) {
                 const style = window.getComputedStyle(modal);
                 if (style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0') {
                     const rect = modal.getBoundingClientRect();
-                    if (rect.width > 0 && rect.height > 0) return true;
+                    if (rect.width > 20 && rect.height > 20) return true;
                 }
             }
             return false;
@@ -69,24 +67,24 @@ export class UISettler {
 
         await page.evaluate(() => {
             const selectors = [
-                '.mantine-Select-dropdown',
-                '.mantine-MultiSelect-dropdown',
-                '.mantine-Popover-dropdown',
-                '.mantine-Menu-dropdown',
-                '.ianai-Select-dropdown',
-                '.ianai-Popover-dropdown',
-                '[role="listbox"]',
-                '[role="menu"]',
-                '.mantine-Tooltip-root',
-                'div[class*="dropdown"]',
-                'div[class*="Dropdown"]',
-                'div[class*="popover"]',
-                'div[class*="overlay"]:not([class*="Modal"])'
+                '.mantine-Select-dropdown', '.mantine-MultiSelect-dropdown',
+                '.mantine-Popover-dropdown', '.mantine-Menu-dropdown',
+                '.ianai-Select-dropdown', '.ianai-Popover-dropdown',
+                '[role="listbox"]', '[role="menu"]', '.mantine-Tooltip-root',
+                'div[class*="dropdown"]', 'div[class*="Dropdown"]',
+                'div[class*="popover"]', 'div[class*="Tooltip"]',
+                '.mantine-Overlay-root', '.ianai-Overlay-root'
             ];
             selectors.forEach(s => {
                 document.querySelectorAll(s).forEach(el => {
-                    if (!el.closest('.ianai-Modal-content') && !el.closest('.mantine-Modal-content')) {
-                        (el as HTMLElement).style.display = 'none';
+                    const htmlEl = el as HTMLElement;
+                    if (!el.closest('.ianai-Modal-content') && !el.closest('.mantine-Modal-content') && !el.closest('[role="dialog"]')) {
+                        const style = window.getComputedStyle(htmlEl);
+                        if (style.display !== 'none' && style.visibility !== 'hidden' && parseFloat(style.opacity) > 0) {
+                            console.log(`[DEBUG] UISettler: Hiding element: ${s} (${htmlEl.className})`);
+                            htmlEl.style.opacity = '0';
+                            htmlEl.style.pointerEvents = 'none';
+                        }
                     }
                 });
             });
@@ -108,14 +106,11 @@ export class UISettler {
         if (!(await this.isModalOpen(page))) return null;
         console.log('[UISettler] Modal detected, extracting content...');
 
-        const modalData = await page.evaluate(() => {
+        const modalData = await page.evaluate((currentUrl) => {
             const selectors = [
-                '.ianai-Modal-content',
-                '.mantine-Modal-content',
-                '[role="dialog"]',
-                '.ianai-Drawer-content',
-                '.mantine-Drawer-content',
-                '.mantine-Modal-inner'
+                '.ianai-Modal-content', '.mantine-Modal-content', '.mantine-Modal-inner',
+                '.ianai-Drawer-content', '.mantine-Drawer-content',
+                '[role="dialog"]', '.modal-content', '.ant-modal-content', '.MuiDialog-container'
             ];
             const modals = document.querySelectorAll(selectors.join(', '));
             let modal: Element | null = null;
@@ -123,7 +118,7 @@ export class UISettler {
                 const style = window.getComputedStyle(m);
                 if (style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0') {
                     const rect = m.getBoundingClientRect();
-                    if (rect.width > 0 && rect.height > 0) {
+                    if (rect.width > 20 && rect.height > 20) {
                         modal = m;
                         break;
                     }
@@ -131,11 +126,19 @@ export class UISettler {
             }
             if (!modal) return null;
 
-            const titleEl = modal.querySelector('.ianai-Modal-title, .mantine-Modal-title, h1, h2, h3, [class*="title"]');
+            const titleEl = modal.querySelector('.ianai-Modal-title, .mantine-Modal-title, h1, h2, h3, [class*="title"], [role="heading"]');
             const modalTitle = titleEl?.textContent?.trim() || 'Untitled Modal';
+
             const links = Array.from(modal.querySelectorAll('a[href]'))
-                .map(a => (a as HTMLAnchorElement).href)
-                .filter(h => h && !h.startsWith('blob:') && !h.startsWith('javascript:') && h.startsWith('http'));
+                .map(a => {
+                    const href = (a as HTMLAnchorElement).getAttribute('href') || '';
+                    try {
+                        return new URL(href, currentUrl).toString();
+                    } catch {
+                        return href.startsWith('http') ? href : '';
+                    }
+                })
+                .filter(h => h && !h.startsWith('blob:') && !h.startsWith('javascript:'));
 
             const elements: TestableElement[] = [];
             modal.querySelectorAll('button, a[href], input, textarea, select, [role="button"], [role="tab"], [data-testid]').forEach((el, idx) => {
@@ -144,7 +147,7 @@ export class UISettler {
                 elements.push({
                     id: `modal-el-${idx}`,
                     tag: el.tagName.toLowerCase(),
-                    label: (el as HTMLElement).innerText?.trim().substring(0, 50) || el.getAttribute('aria-label') || '',
+                    label: (el as HTMLElement).innerText?.trim().substring(0, 50) || el.getAttribute('aria-label') || el.getAttribute('placeholder') || '',
                     type: 'button' as any,
                     selector: `modal-el-${idx}`,
                     rect: { top: rect.top, left: rect.left, width: rect.width, height: rect.height },
@@ -154,7 +157,7 @@ export class UISettler {
                 });
             });
             return { modalTitle, links, elements };
-        });
+        }, page.url());
 
         if (!modalData) return null;
 

@@ -2,6 +2,7 @@ import { spawn } from 'child_process';
 import * as http from 'http';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
+import * as fs from 'fs';
 
 dotenv.config();
 
@@ -69,11 +70,40 @@ async function updateStatus(running: boolean) {
 
 async function start() {
     console.log('--- Worker Mode Started ---');
+
+    // Mutual Monitoring: Write PID and Monitor Supervisor
+    const outputDir = path.join(process.cwd(), 'output');
+    const workerPidPath = path.join(outputDir, 'worker.pid');
+    const supervisorPidPath = path.join(outputDir, 'supervisor.pid');
+
+    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+    const tsxPath = path.join(process.cwd(), 'node_modules', 'tsx', 'dist', 'cli.mjs');
+    fs.writeFileSync(workerPidPath, process.pid.toString());
+
+    // Monitor Supervisor every 30s
+    setInterval(() => {
+        if (fs.existsSync(supervisorPidPath)) {
+            try {
+                const pid = parseInt(fs.readFileSync(supervisorPidPath, 'utf-8').trim());
+                if (pid) process.kill(pid, 0);
+            } catch (e) {
+                console.warn('[Worker] ⚠️ Supervisor died. Resuscitating...');
+                const child = spawn('node', [tsxPath, 'src/core/supervisor.ts'], {
+                    detached: true,
+                    stdio: 'ignore',
+                    windowsHide: true,
+                    shell: false
+                });
+                child.unref();
+            }
+        }
+    }, 30000);
+
     console.log(`Polling Dashboard at ${SERVER_URL}...`);
     if (AUTH_USER) {
         console.log(`[Worker] Authentication: ENABLED (User: ${AUTH_USER})`);
     } else {
-        console.warn(`[Worker] Warning: No AUTH_USER or DASHBOARD_USER found in .env`);
+        console.warn('[Worker] Warning: No AUTH_USER or DASHBOARD_USER found in .env');
     }
 
     let pollCount = 0;
@@ -91,9 +121,9 @@ async function start() {
 
                 console.log(`[Worker] 🚀 Executing: npm ${args.join(' ')}`);
 
-                const child = spawn('npm', args, {
-                    stdio: 'inherit',
-                    shell: true,
+                const child = spawn('node', [tsxPath, 'src/core/cli.ts', ...args.slice(2)], {
+                    stdio: 'ignore', // Change to ignore for maximum stealth
+                    windowsHide: true,
                     env: { ...process.env, FORCE_COLOR: '3' }
                 });
 
@@ -103,12 +133,12 @@ async function start() {
                         resolve(code);
                     });
                     child.on('error', (err) => {
-                        console.error(`[Worker] ❌ Failed to start child process:`, err);
+                        console.error('[Worker] ❌ Failed to start child process:', err);
                         resolve(1);
                     });
                 });
 
-                console.log(`[Worker] 🏁 Job finished.\n`);
+                console.log('[Worker] 🏁 Job finished.\n');
                 await updateStatus(false);
             } else {
                 pollCount++;

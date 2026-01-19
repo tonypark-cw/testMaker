@@ -3,7 +3,7 @@ import { Runner } from './runner.js';
 import { ScraperConfig } from './types.js';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
-import { execSync } from 'child_process';
+import { execSync, spawnSync } from 'child_process';
 
 dotenv.config();
 
@@ -111,7 +111,12 @@ program.action(async (options) => {
     try {
         console.log('\n[TestMaker] Generating Consistency Report...');
         const stdioMode = options.quiet ? 'ignore' : 'inherit';
-        execSync(`npx tsx scripts/validator.ts --env ${env}`, { stdio: stdioMode });
+        const tsxPath = path.join(process.cwd(), 'node_modules', 'tsx', 'dist', 'cli.mjs');
+        spawnSync('node', [tsxPath, 'scripts/validator.ts', '--env', env], {
+            stdio: stdioMode as any,
+            windowsHide: true,
+            shell: false
+        });
     } catch (e) {
         console.error('[TestMaker] Failed to generate consistency report:', e);
     }

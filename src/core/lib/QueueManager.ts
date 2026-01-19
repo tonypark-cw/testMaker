@@ -46,10 +46,13 @@ export class QueueManager {
         let addedCount = 0;
         for (const job of jobs) {
             const normalized = this.normalizeUrl(job.url);
-            if (!this.visitedUrls.has(normalized)) {
-                this.visitedUrls.add(normalized);
+            // Check if already in queue or visited
+            const inQueue = this.queue.some(q => q.url === normalized);
+            if (!this.visitedUrls.has(normalized) && !inQueue) {
                 this.queue.push({ ...job, url: normalized });
                 addedCount++;
+            } else {
+                // this.log(`[QueueManager] ⏭️ Skipping duplicate/visited: ${normalized}`);
             }
         }
         return addedCount;
@@ -111,7 +114,7 @@ export class QueueManager {
 
         if (fs.existsSync(jsonDir)) {
             const files = fs.readdirSync(jsonDir).filter(f => f.endsWith('.json'));
-            this.log(`[QueueManager] Pre-scanning ${files.length} results for health check...`);
+            this.log(`[QueueManager] Pre-scanning ${files.length} past results to identify healthy pages to skip...`);
 
             for (const file of files) {
                 try {

@@ -43,7 +43,7 @@ export class ContentExplorer {
                     };
                     page.on('request', networkListener);
 
-                    await row.click({ timeout: 2000 });
+                    await UISettler.smartClick(page, row, actionChain);
                     await page.waitForTimeout(2000);
 
                     const newUrl = page.url();
@@ -75,7 +75,7 @@ export class ContentExplorer {
         for (const btn of nextButtons) {
             try {
                 if (await btn.isVisible() && await btn.isEnabled()) {
-                    await btn.click({ timeout: 2000 });
+                    await UISettler.smartClick(page, btn, actionChain);
                     await page.waitForTimeout(1000);
                     const newUrl = page.url();
                     discoveredLinks.push({ url: newUrl, path: [...previousPath, 'Next Page'] });

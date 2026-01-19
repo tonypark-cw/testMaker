@@ -6,6 +6,11 @@ export class NetworkManager {
     private consecutive429Count: number = 0;
     private consecutiveSuccessCount: number = 0;
 
+    // Token caching to reduce SessionManager queries
+    private cachedToken: string = '';
+    private lastTokenCheckTime: number = 0;
+    private readonly TOKEN_CACHE_DURATION_MS = 5000; // 5 seconds
+
     public getRateLimitUntil(): number { return this.rateLimitUntil; }
     public resetRateLimit(): void {
         this.rateLimitUntil = 0;
@@ -35,19 +40,33 @@ export class NetworkManager {
                 headers['company-id'] = companyId;
 
                 try {
-                    const token = await SessionManager.getInstance().getAccessToken();
-                    if (token) {
-                        headers['Authorization'] = `Bearer ${token}`;
+                    // Use cached token to reduce SessionManager queries
+                    const now = Date.now();
+
+                    // Only check token if we don't have one or cache expired
+                    if (!this.cachedToken || (now - this.lastTokenCheckTime > this.TOKEN_CACHE_DURATION_MS)) {
+                        const sessionMgr = SessionManager.getInstance();
+                        const tokens = sessionMgr.getTokens();
+
+                        // Only call getAccessToken if tokens are initialized
+                        if (tokens.accessToken && tokens.refreshToken) {
+                            this.cachedToken = await sessionMgr.getAccessToken();
+                            this.lastTokenCheckTime = now;
+                        }
                     }
-                } catch (e) { }
+
+                    if (this.cachedToken) {
+                        headers['Authorization'] = `Bearer ${this.cachedToken}`;
+                    }
+                } catch (e) { /* Token may not be available yet */ }
 
                 try {
                     await route.continue({ headers });
-                } catch (e) { }
+                } catch (e) { /* Continue fails if already handled */ }
             } else {
                 try {
                     await route.continue();
-                } catch (e) { }
+                } catch (e) { /* Route might be closed */ }
             }
         });
     }

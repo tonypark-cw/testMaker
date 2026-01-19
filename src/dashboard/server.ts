@@ -63,11 +63,16 @@ const processQueue = () => {
         }
         isRunning = true;
 
-        const args = ['run', 'search', '--', '--url', nextJob.url, '--force'];
-        if (nextJob.depth) args.push('--depth', String(nextJob.depth));
-        if (nextJob.limit) args.push('--limit', String(nextJob.limit));
+        const tsxPath = path.join(process.cwd(), 'node_modules', 'tsx', 'dist', 'cli.mjs');
+        const searchArgs = ['src/core/cli.ts', '--url', nextJob.url, '--force'];
+        if (nextJob.depth) searchArgs.push('--depth', String(nextJob.depth));
+        if (nextJob.limit) searchArgs.push('--limit', String(nextJob.limit));
 
-        currentProcess = spawn('npm', args, { stdio: 'inherit', shell: true });
+        currentProcess = spawn('node', [tsxPath, ...searchArgs], {
+            stdio: 'pipe', // Use pipe instead of inherit to avoid terminal requests
+            shell: false,
+            windowsHide: true
+        });
 
         currentProcess.on('close', (code: number) => {
             console.log(`[Dashboard] Job finished with code ${code}`);
@@ -112,10 +117,19 @@ async function getStats(environment = 'stage') {
             const { exec } = await import('child_process');
             const util = await import('util');
             const execAsync = util.promisify(exec);
-            const { stdout } = await execAsync('ps aux | grep "src/core/cli.ts" | grep -v grep', { encoding: 'utf-8', timeout: 500 });
+            // Process check is platform specific, returning empty for now to avoid crashes on Windows
+            const stdout: string = '';
             if (stdout && stdout.trim()) isActuallyRunning = true;
         } catch (e) { }
     }
+
+    let supervisorStatus = { overall: 'unknown' };
+    try {
+        const supPath = path.join(OUTPUT_DIR, 'supervisor_status.json');
+        if (fs.existsSync(supPath)) {
+            supervisorStatus = JSON.parse(fs.readFileSync(supPath, 'utf-8'));
+        }
+    } catch (e) { }
 
     return {
         searchedCount: screenshots.length,
@@ -125,7 +139,8 @@ async function getStats(environment = 'stage') {
         reasons: loadReasons(),
         isRunning: isActuallyRunning,
         queueLength: jobQueue.length,
-        latestScanTime: watcher.getLatestScanTime()
+        latestScanTime: watcher.getLatestScanTime(),
+        supervisor: supervisorStatus
     };
 }
 

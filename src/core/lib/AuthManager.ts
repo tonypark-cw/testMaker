@@ -163,7 +163,9 @@ export class AuthManager {
             await page.waitForTimeout(3000);
         }
 
-        const stillOnLogin = await passwordLocator.isVisible().catch(() => false);
+        // [FIX] Re-query locators after potential navigation to avoid detached element errors
+        const finalPasswordLocator = page.locator('input[type="password"], input[name="password"], input[placeholder*="password" i]').first();
+        const stillOnLogin = await finalPasswordLocator.isVisible().catch(() => false);
         const hasDashboard = await page.locator('nav, aside, .sidebar, [role="navigation"], .navBar').first().isVisible().catch(() => false);
 
         const hasDashboardWelcome = await page.evaluate(() => {

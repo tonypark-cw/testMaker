@@ -54,6 +54,28 @@ async function update(isSwitching = false) {
             state.inputUrl.disabled = false;
         }
 
+        // Update Supervisor UI
+        const supBadge = document.getElementById('supervisor-badge');
+        const supStatus = document.getElementById('supervisor-status');
+        if (data.supervisor) {
+            supBadge.style.display = 'inline-block';
+            supStatus.innerText = data.supervisor.overall || 'Unknown';
+
+            if (data.supervisor.overall === 'healthy') {
+                supBadge.style.background = '#064e3b';
+                supBadge.style.color = '#34d399';
+            } else if (data.supervisor.overall === 'degraded') {
+                supBadge.style.background = '#451a03';
+                supBadge.style.color = '#fbbf24';
+            } else if (data.supervisor.overall === 'running') {
+                supBadge.style.background = '#172554';
+                supBadge.style.color = '#60a5fa';
+            } else {
+                supBadge.style.background = '#334155';
+                supBadge.style.color = '#94a3b8';
+            }
+        }
+
         state.setTags(data.tags || {});
         state.setReasons(data.reasons || {});
         gallery.updateVisibleTags();

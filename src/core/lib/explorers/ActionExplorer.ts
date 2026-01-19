@@ -37,7 +37,7 @@ export class ActionExplorer {
                     if (!text || text.length > 20) continue;
 
                     if (await button.isVisible() && await button.isEnabled()) {
-                        await button.click({ timeout: 2000 });
+                        await UISettler.smartClick(page, button, actionChain);
                         await page.waitForTimeout(2000);
 
                         const newUrl = page.url();
@@ -80,7 +80,7 @@ export class ActionExplorer {
                         if (href) {
                             discoveredLinks.push({ url: new URL(href, targetUrl).toString(), path: [...previousPath, 'View All'] });
                         } else {
-                            await el.click({ timeout: 2000 });
+                            await UISettler.smartClick(page, el, actionChain);
                             await page.waitForTimeout(1000);
                             const newUrl = page.url();
                             if (newUrl !== targetUrl) {

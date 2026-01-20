@@ -17,6 +17,7 @@
 - [Dashboard](#dashboard)
 - [Supervisor](#supervisor)
 - [Self-Healing](#self-healing)
+- [Regression Testing](#regression-testing)
 - [환경 변수](#환경-변수)
 - [프로젝트 구조](#프로젝트-구조)
 
@@ -533,6 +534,68 @@ interface TestScenario {
 
 - [ ] BDD (Gherkin) 지원
 - [ ] AI 기반 예상 결과 추론
+
+---
+
+## Regression Testing
+
+UI 변경 사항을 자동으로 감지하고 검증하는 회귀 테스트 시스템입니다.
+
+### 주요 기능
+
+| 단계 | 기능 | 설명 |
+|------|------|------|
+| **Phase 1** | Visual Regression | `pixelmatch` 기반 픽셀 단위 비교 |
+| **Phase 2** | Content Verification | 테이블, 버튼, 입력 필드 구조 검증 |
+| **Phase 3** | Anomaly Detection | 중요 요소 변경 자동 감지 |
+
+### 사용법
+
+```bash
+# 베이스라인 생성 (최초 1회)
+npm run regression:baseline -- --url https://example.com
+
+# 회귀 테스트 실행 (전체)
+npm run regression:test -- --url https://example.com
+
+# Visual만 테스트
+npm run regression:test -- --url https://example.com --visual-only
+
+# Content만 테스트
+npm run regression:test -- --url https://example.com --content-only
+```
+
+### Anomaly Detection
+
+중요 요소의 변경을 자동 감지하여 심각도를 판단합니다:
+
+| 유형 | 심각도 | 점수 |
+|------|--------|------|
+| 중요 버튼 삭제 (Submit, Save 등) | CRITICAL | +30 |
+| 필수 입력 필드 삭제 | CRITICAL | +25 |
+| 테이블 삭제 | WARNING | +15 |
+| 컬럼 삭제 | WARNING | +10 |
+
+```
+점수 70+ → CRITICAL: 배포 금지
+점수 40-69 → WARNING: 검토 필요
+점수 0-39 → INFO: 정상
+```
+
+### 출력 구조
+
+```
+output/
+├── regressions/
+│   ├── baselines/           # 베이스라인 스크린샷
+│   │   └── {domain}/
+│   │       ├── index.json   # 베이스라인 인덱스
+│   │       └── *.webp       # 스크린샷
+│   ├── diffs/               # 차이 이미지
+│   │   └── *.png
+│   └── content/             # 콘텐츠 추출 데이터
+│       └── *.json
+```
 
 ---
 

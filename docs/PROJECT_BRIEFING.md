@@ -164,30 +164,121 @@ npm run search -- --url https://dev.ianai.co --limit 100 --depth 5 --headless --
 
 ---
 
-### Regression Testing System (New)
+### Regression Testing System (Complete)
 
-**Implemented Modules**:
-- **Visual Regression**: Pixel-perfect comparison using `pixelmatch` (Phase 1)
-- **Content Verification**: Structure & text verification for tables, buttons, inputs (Phase 2)
-- **Anomaly Detection**: Automatic detection of critical changes (Phase 3)
-  - Critical button removal (+30 severity)
-  - Required field removal (+25 severity)
-  - Table deletion (+15 severity)
+**목표**: 사이트 하위 페이지 전체를 자동 탐색하여 베이스라인 생성 후, 이후 변경 사항 자동 감지
 
-**Performance Optimizations**:
-- **Tab Reuse**: Reuses authenticated pages for single-tab (concurrency=1) mode
-- **Fast Auth**: Reduced login wait time from 10s to ~2.3s
-- **Resource Management**: Auto-cancel downloads, WebSocket error filtering
+```
+[Phase 1: 베이스라인 생성]
+npm run analyze -- --url https://dev.ianai.co     # 크롤러로 사이트 탐색
+npm run regression:init                            # 크롤러 결과를 베이스라인으로 등록
 
-**Verification Status**:
-✅ Visual Diff: Working (4.58% diff on dynamic content)
-✅ Content Similarity: Working (100% match on static structure)
-✅ Anomaly Detection: Working (Critical element protection)
+[Phase 2: 회귀 테스트]
+npm run regression -- --url https://dev.ianai.co/app/auditlog   # 해당 경로 하위 전체 테스트
+npm run regression -- --url https://dev.ianai.co/app/auditlog --batch  # 명시적 배치 모드
+```
+
+**아키텍처**:
+```
+크롤러 (core/)
+├── output/stage/screenshots/{domain}/     # 스크린샷 (.webp)
+└── output/stage/screenshots/json/{domain}/ # 메타데이터 (.json)
+         │
+         ▼  [regression:init]
+베이스라인 등록
+├── output/baselines/{domain}/index.json   # 페이지 인덱스
+├── output/baselines/{domain}/pages/       # Golden 스크린샷 + 콘텐츠
+         │
+         ▼  [regression --url]
+회귀 테스트
+├── Visual Comparison (pixelmatch)         # 픽셀 단위 비교
+├── Content Comparison                     # 버튼/테이블/입력필드 비교
+├── Anomaly Detection                      # 치명적 변경 감지
+└── output/regressions/diffs/              # Diff 이미지 저장
+```
+
+**핵심 모듈** (`src/regression/`):
+
+| 모듈 | 역할 |
+|------|------|
+| `BaselineManager` | 베이스라인 저장/조회/관리 |
+| `BaselineIntegrator` | 크롤러 출력 → 베이스라인 변환 |
+| `VisualComparator` | 스크린샷 픽셀 비교 (pixelmatch) |
+| `ContentExtractor` | 페이지 구조 추출 (버튼, 테이블, 입력필드) |
+| `ContentComparator` | 콘텐츠 변경 비교 |
+| `AnomalyDetector` | 치명적 변경 감지 (Submit 버튼 삭제 등) |
+| `BatchRunner` | 다중 페이지 순회 테스트 |
+| `cli.ts` | CLI 명령어 (`init`, `run`, `list`, `baseline`, `test`) |
+
+**Anomaly Detection 점수 체계**:
+
+| 이슈 유형 | 심각도 점수 |
+|----------|------------|
+| Critical Button 삭제 (Submit, Save 등) | +30 |
+| Required Field 삭제 | +25 |
+| Table 삭제 | +15 |
+| Column 삭제 | +10 |
+| 일반 요소 변경 | +5 |
+
+| 총점 | 심각도 | 결과 |
+|------|--------|------|
+| 0-39 | INFO | ✅ PASS |
+| 40-79 | WARNING | ⚠️ WARNING |
+| 80+ | CRITICAL | ❌ FAIL |
+
+**CLI 명령어**:
+
+```bash
+# 베이스라인 관리
+npm run regression:init                    # 크롤러 출력을 베이스라인으로 등록
+npm run regression:init -- --url "https://dev.ianai.co/app/inventory"  # 특정 경로만
+npm run regression:list -- --domain dev.ianai.co  # 등록된 베이스라인 목록
+
+# 회귀 테스트
+npm run regression -- --url "https://dev.ianai.co/app"           # 자동 모드 (단일/배치 감지)
+npm run regression -- --url "https://dev.ianai.co/app" --batch   # 강제 배치 모드
+npm run regression -- --url "https://dev.ianai.co/app/home"      # 단일 페이지 테스트
+
+# 개별 명령어
+npm run regression:baseline -- --url <url>  # 수동 베이스라인 생성
+npm run regression:test -- --url <url>      # 단일 페이지 테스트
+```
+
+**현재 상태** (2026-01-20):
+
+| 항목 | 상태 |
+|------|------|
+| 크롤러 → 베이스라인 연동 | ✅ 완료 (189 페이지 등록) |
+| 단일 페이지 테스트 | ✅ 완료 |
+| 배치 테스트 | ✅ 완료 |
+| Dashboard 연동 | ❌ 미구현 |
+| JSON 결과 저장 | ❌ 미구현 |
+
+**테스트 결과 예시**:
+```
+📦 Batch Mode: 21 pages to test
+   [1/21] .../app/auditlog
+   [2/21] .../history/account/...
+   ...
+═══════════════════════════════════════
+📊 BATCH REGRESSION TEST REPORT
+───────────────────────────────────────
+Total Pages: 21
+✅ Passed:   18
+❌ Failed:   3
+⚠️  Errors:   0
+───────────────────────────────────────
+FAILED PAGES
+❌ https://dev.ianai.co/app/auditlog/history/item/...
+   Visual: 12.5% diff
+   Anomaly: WARNING (score: 45)
+═══════════════════════════════════════
+```
 
 **Next Steps**:
-1. **Documentation**: Update README with usage guide
-2. **Testing**: Add Vitest unit tests for new modules
-3. **Scaling**: Implement batch testing for multiple URLs
+1. Dashboard 연동 (리그레션 결과 시각화)
+2. JSON 결과 저장 및 이력 관리
+3. CI/CD 파이프라인 통합
 
 ---
 

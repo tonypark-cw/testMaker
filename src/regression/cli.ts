@@ -6,6 +6,8 @@ import { VisualComparator } from './VisualComparator.js';
 import { ContentExtractor } from './ContentExtractor.js';
 import { ContentComparator } from './ContentComparator.js';
 import { AnomalyDetector } from './AnomalyDetector.js';
+import { BaselineIntegrator } from './BaselineIntegrator.js';
+import { BatchRunner } from './BatchRunner.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -270,21 +272,111 @@ program
     });
 
 program
+    .command('init')
+    .description('Register crawler output as regression baselines')
+    .option('--url <url>', 'URL prefix to filter (e.g., https://dev.ianai.co/app/inventory)')
+    .option('--output <dir>', 'Output directory', './output')
+    .action(async (options) => {
+        try {
+            console.log('🔧 Baseline Integrator');
+            console.log('');
+
+            const integrator = new BaselineIntegrator(options.output);
+
+            // Find crawler outputs
+            const domains = integrator.findCrawlerOutputDirs();
+            if (domains.length === 0) {
+                console.log('❌ No crawler output found in output/stage/screenshots/');
+                console.log('   Run the crawler first: npm run analyze -- --url <url>');
+                process.exit(1);
+            }
+
+            console.log(`📁 Found crawler output for: ${domains.join(', ')}`);
+            console.log('');
+
+            // Register baselines
+            console.log('📝 Registering baselines...');
+            const result = await integrator.registerBaselines(options.url);
+
+            console.log('');
+            console.log('═══════════════════════════════════════');
+            console.log('📊 REGISTRATION RESULT');
+            console.log('═══════════════════════════════════════');
+            console.log(`Total Pages:  ${result.totalPages}`);
+            console.log(`✅ Registered: ${result.registered}`);
+            console.log(`⏭️  Skipped:    ${result.skipped}`);
+            console.log(`❌ Errors:     ${result.errors.length}`);
+
+            if (result.errors.length > 0) {
+                console.log('');
+                console.log('Errors:');
+                result.errors.forEach(e => console.log(`  - ${e}`));
+            }
+
+            console.log('');
+            console.log('✅ Baselines registered! Run regression tests with:');
+            if (options.url) {
+                console.log(`   npm run regression -- --url "${options.url}"`);
+            } else {
+                console.log('   npm run regression -- --url "https://your-domain.com"');
+            }
+        } catch (error) {
+            console.error('❌ Error:', error);
+            process.exit(1);
+        }
+    });
+
+program
     .command('run')
-    .description('Run full regression test (auto-creates baseline if missing)')
-    .requiredOption('--url <url>', 'URL to test')
+    .description('Run regression tests (single page or batch for URL prefix)')
+    .requiredOption('--url <url>', 'URL to test (or URL prefix for batch mode)')
     .option('--threshold <number>', 'Pixelmatch threshold (0-1)', '0.1')
     .option('--output <dir>', 'Output directory', './output')
     .option('--headless', 'Run in headless mode', true)
+    .option('--batch', 'Run batch mode for all pages under URL prefix', false)
     .option('--force-baseline', 'Force recreate baseline even if exists', false)
     .action(async (options) => {
         try {
             const manager = new BaselineManager(options.output);
-            const comparator = new VisualComparator(parseFloat(options.threshold), options.output);
 
             console.log('🔍 Regression Test Runner');
             console.log(`   URL: ${options.url}`);
             console.log('');
+
+            // Check if batch mode or auto-detect
+            const urlObj = new URL(options.url);
+            const domain = urlObj.hostname;
+            const baselines = manager.listBaselines(domain);
+            const matchingBaselines = baselines.filter(b => b.url.startsWith(options.url));
+
+            // Auto-detect batch mode: if URL matches multiple baselines
+            const isBatchMode = options.batch || (matchingBaselines.length > 1 && !baselines.find(b => b.url === options.url));
+
+            if (isBatchMode && matchingBaselines.length > 0) {
+                // BATCH MODE
+                console.log(`📦 Batch Mode: ${matchingBaselines.length} pages to test`);
+                console.log('');
+
+                const runner = new BatchRunner({
+                    headless: options.headless,
+                    threshold: parseFloat(options.threshold),
+                    outputDir: options.output
+                });
+
+                const result = await runner.run(options.url, (current, total, url) => {
+                    const shortUrl = url.replace(options.url, '...');
+                    console.log(`   [${current}/${total}] ${shortUrl}`);
+                });
+
+                // Print report
+                console.log('');
+                console.log(runner.generateReport(result));
+
+                process.exit(result.failed === 0 && result.errors === 0 ? 0 : 1);
+            }
+
+            // SINGLE PAGE MODE
+            const comparator = new VisualComparator(parseFloat(options.threshold), options.output);
 
             // Step 1: Check for existing baseline
             let baseline = manager.findBaseline(options.url);

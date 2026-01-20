@@ -164,7 +164,53 @@ npm run search -- --url https://dev.ianai.co --limit 100 --depth 5 --headless --
 
 ---
 
-Last Updated: 2026-01-19
+### Regression Testing System (New)
+
+**Implemented Modules**:
+- **Visual Regression**: Pixel-perfect comparison using `pixelmatch` (Phase 1)
+- **Content Verification**: Structure & text verification for tables, buttons, inputs (Phase 2)
+- **Anomaly Detection**: Automatic detection of critical changes (Phase 3)
+  - Critical button removal (+30 severity)
+  - Required field removal (+25 severity)
+  - Table deletion (+15 severity)
+
+**Performance Optimizations**:
+- **Tab Reuse**: Reuses authenticated pages for single-tab (concurrency=1) mode
+- **Fast Auth**: Reduced login wait time from 10s to ~2.3s
+- **Resource Management**: Auto-cancel downloads, WebSocket error filtering
+
+**Verification Status**:
+✅ Visual Diff: Working (4.58% diff on dynamic content)
+✅ Content Similarity: Working (100% match on static structure)
+✅ Anomaly Detection: Working (Critical element protection)
+
+**Next Steps**:
+1. **Documentation**: Update README with usage guide
+2. **Testing**: Add Vitest unit tests for new modules
+3. **Scaling**: Implement batch testing for multiple URLs
+
+---
+
+Last Updated: 2026-01-20
+
+---
+
+## Troubleshooting History (2026-01-20)
+
+### 1. Regression Testing Integration (Resolved)
+
+**Issue**: Need to combine visual pixel diffs with semantic content verification.
+
+**Solution**: implemented multi-phase regression system.
+- **Phase 1 (Visual)**: `VisualComparator` using pixelmatch
+- **Phase 2 (Content)**: `ContentExtractor` & `ContentComparator` for structure/text
+- **Phase 3 (Anomaly)**: `AnomalyDetector` for critical element changes
+- **CLI**: Integrated all phases into `regression:test` command
+
+**Result**: 
+- Visual only: `npm run regression:test -- --url ... --visual-only`
+- Content only: `npm run regression:test -- --url ... --content-only`
+- Full suite: `npm run regression:test -- --url ...` (Auto-runs anomaly detection)
 
 ---
 

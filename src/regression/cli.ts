@@ -5,6 +5,7 @@ import { BaselineManager } from './BaselineManager.js';
 import { VisualComparator } from './VisualComparator.js';
 import { ContentExtractor } from './ContentExtractor.js';
 import { ContentComparator } from './ContentComparator.js';
+import { AnomalyDetector } from './AnomalyDetector.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -196,15 +197,42 @@ program
                 }
 
                 console.log(`   Similarity Score: ${contentDiff.score}%`);
+
+                // Anomaly detection
+                const anomalyDetector = new AnomalyDetector();
+                const anomalyReport = anomalyDetector.detect(contentDiff);
+
+                if (anomalyReport.issues.length > 0 || anomalyReport.severity !== 'INFO') {
+                    console.log('\n🔍 Anomaly Detection:');
+                    console.log(`   Severity: ${getSeverityIcon(anomalyReport.severity)} ${anomalyReport.severity}`);
+                    console.log(`   Score: ${anomalyReport.score}/100`);
+
+                    if (anomalyReport.issues.length > 0) {
+                        console.log(`\n   Issues Found (${anomalyReport.issues.length}):`);
+                        anomalyReport.issues.forEach((issue, idx) => {
+                            const icon = issue.severity === 'CRITICAL' ? '🚨' : issue.severity === 'WARNING' ? '⚠️' : 'ℹ️';
+                            console.log(`   ${icon} ${idx + 1}. ${issue.description}`);
+                            console.log(`      Impact: ${issue.impact}`);
+                        });
+                    }
+
+                    console.log(`\n   💡 ${anomalyReport.recommendation}`);
+                }
+
+                // Combined pass/fail (include anomaly)
+                const visualPass = !visualDiff || visualDiff.status === 'PASS';
+                const contentPass = !contentDiff || contentDiff.score >= 80;
+                const anomalyPass = !anomalyReport || anomalyReport.severity !== 'CRITICAL';
+
+                console.log(`\n${visualPass && contentPass && anomalyPass ? '✅' : '❌'} Overall: ${visualPass && contentPass && anomalyPass ? 'PASS' : 'FAIL'}`);
+
+                process.exit(visualPass && contentPass && anomalyPass ? 0 : 1);
+            } else {
+                // No content diff - only visual
+                const visualPass = !visualDiff || visualDiff.status === 'PASS';
+                console.log(`\n${visualPass ? '✅' : '❌'} Overall: ${visualPass ? 'PASS' : 'FAIL'}`);
+                process.exit(visualPass ? 0 : 1);
             }
-
-            // Combined pass/fail
-            const visualPass = !visualDiff || visualDiff.status === 'PASS';
-            const contentPass = !contentDiff || contentDiff.score >= 80;
-
-            console.log(`\n${visualPass && contentPass ? '✅' : '❌'} Overall: ${visualPass && contentPass ? 'PASS' : 'FAIL'}`);
-
-            process.exit(visualPass && contentPass ? 0 : 1);
         } catch (error) {
             console.error('❌ Error running regression test:', error);
             process.exit(1);
@@ -242,6 +270,17 @@ program
     });
 
 program.parse();
+
+/**
+ * Get severity icon for display
+ */
+function getSeverityIcon(severity: string): string {
+    switch (severity) {
+        case 'CRITICAL': return '🚨';
+        case 'WARNING': return '⚠️';
+        default: return 'ℹ️';
+    }
+}
 
 /**
  * Find existing screenshot for a URL in output directory

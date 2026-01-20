@@ -269,6 +269,170 @@ program
         }
     });
 
+program
+    .command('run')
+    .description('Run full regression test (auto-creates baseline if missing)')
+    .requiredOption('--url <url>', 'URL to test')
+    .option('--threshold <number>', 'Pixelmatch threshold (0-1)', '0.1')
+    .option('--output <dir>', 'Output directory', './output')
+    .option('--headless', 'Run in headless mode', true)
+    .option('--force-baseline', 'Force recreate baseline even if exists', false)
+    .action(async (options) => {
+        try {
+            const manager = new BaselineManager(options.output);
+            const comparator = new VisualComparator(parseFloat(options.threshold), options.output);
+
+            console.log('🔍 Regression Test Runner');
+            console.log(`   URL: ${options.url}`);
+            console.log('');
+
+            // Step 1: Check for existing baseline
+            let baseline = manager.findBaseline(options.url);
+
+            if (!baseline || options.forceBaseline) {
+                console.log('📸 Step 1: Creating baseline...');
+
+                // Find existing screenshot or capture new one
+                let screenshotPath = findExistingScreenshot(options.url, options.output);
+
+                if (!screenshotPath) {
+                    console.log('   Capturing new screenshot...');
+                    const browser = await chromium.launch({ headless: options.headless });
+                    const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+                    await page.goto(options.url, { waitUntil: 'networkidle', timeout: 60000 });
+
+                    screenshotPath = `/tmp/baseline_${Date.now()}.png`;
+                    await page.screenshot({ path: screenshotPath, fullPage: true, type: 'png' });
+                    await browser.close();
+                }
+
+                // Extract content
+                console.log('   Extracting page content...');
+                const browser = await chromium.launch({ headless: true });
+                const page = await browser.newPage();
+                await page.goto(options.url, { waitUntil: 'networkidle', timeout: 60000 });
+
+                const extractor = new ContentExtractor();
+                const content = await extractor.extract(page);
+
+                const metadata = {
+                    timestamp: new Date().toISOString(),
+                    pageTitle: content.pageTitle || 'Unknown',
+                    elementCount: content.buttons.length + content.inputs.length + content.tables.length
+                };
+
+                await browser.close();
+
+                // Save baseline
+                baseline = manager.saveBaseline(options.url, screenshotPath, metadata, content);
+                console.log('   ✅ Baseline created!');
+                console.log('');
+            } else {
+                console.log('📋 Step 1: Baseline exists');
+                console.log(`   Created: ${baseline.metadata.timestamp}`);
+                console.log('');
+            }
+
+            // Step 2: Capture current state and compare
+            console.log('📸 Step 2: Capturing current state...');
+            const browser = await chromium.launch({ headless: options.headless });
+            const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+            await page.goto(options.url, { waitUntil: 'networkidle', timeout: 60000 });
+
+            // Visual comparison
+            const currentScreenshot = `/tmp/current_${Date.now()}.png`;
+            await page.screenshot({ path: currentScreenshot, fullPage: true, type: 'png' });
+
+            console.log('⚖️  Step 3: Comparing...');
+            const visualDiff = await comparator.compare(baseline.screenshotPath, currentScreenshot, options.url);
+
+            // Content comparison
+            const baselineContent = manager.loadBaselineContent(options.url);
+            let contentDiff = null;
+            let anomalyReport = null;
+
+            if (baselineContent) {
+                const extractor = new ContentExtractor();
+                const currentContent = await extractor.extract(page);
+
+                const contentComparator = new ContentComparator();
+                contentDiff = contentComparator.compare(baselineContent, currentContent);
+
+                const anomalyDetector = new AnomalyDetector();
+                anomalyReport = anomalyDetector.detect(contentDiff);
+            }
+
+            await browser.close();
+
+            // Cleanup temp file
+            if (fs.existsSync(currentScreenshot)) {
+                fs.unlinkSync(currentScreenshot);
+            }
+
+            // Step 4: Display results
+            console.log('');
+            console.log('═══════════════════════════════════════');
+            console.log('📊 RESULTS');
+            console.log('═══════════════════════════════════════');
+
+            // Visual results
+            console.log('\n🖼️  Visual Comparison:');
+            console.log(`   Diff: ${visualDiff.diffPercentage.toFixed(2)}%`);
+            console.log(`   Status: ${visualDiff.status === 'PASS' ? '✅ PASS' : '❌ FAIL'}`);
+            if (visualDiff.diffImagePath) {
+                console.log(`   Diff Image: ${visualDiff.diffImagePath}`);
+            }
+
+            // Content results
+            if (contentDiff) {
+                console.log('\n📝 Content Comparison:');
+                console.log(`   Similarity: ${contentDiff.score}%`);
+
+                if (contentDiff.tables.removed.length > 0) {
+                    console.log(`   ⚠️  Tables removed: ${contentDiff.tables.removed.length}`);
+                }
+                if (contentDiff.buttons.removed.length > 0) {
+                    console.log(`   ⚠️  Buttons removed: ${contentDiff.buttons.removed.join(', ')}`);
+                }
+                if (contentDiff.inputs.removed.length > 0) {
+                    console.log(`   ⚠️  Inputs removed: ${contentDiff.inputs.removed.length}`);
+                }
+            }
+
+            // Anomaly results
+            if (anomalyReport && anomalyReport.issues.length > 0) {
+                console.log('\n🔍 Anomaly Detection:');
+                console.log(`   Severity: ${getSeverityIcon(anomalyReport.severity)} ${anomalyReport.severity}`);
+                console.log(`   Risk Score: ${anomalyReport.score}/100`);
+
+                if (anomalyReport.issues.length > 0) {
+                    console.log('\n   Issues:');
+                    anomalyReport.issues.forEach((issue, idx) => {
+                        const icon = issue.severity === 'CRITICAL' ? '🚨' : '⚠️';
+                        console.log(`   ${icon} ${idx + 1}. ${issue.description}`);
+                    });
+                }
+
+                console.log(`\n   💡 ${anomalyReport.recommendation}`);
+            }
+
+            // Final verdict
+            const visualPass = visualDiff.status === 'PASS';
+            const contentPass = !contentDiff || contentDiff.score >= 80;
+            const anomalyPass = !anomalyReport || anomalyReport.severity !== 'CRITICAL';
+            const overallPass = visualPass && contentPass && anomalyPass;
+
+            console.log('\n═══════════════════════════════════════');
+            console.log(`${overallPass ? '✅' : '❌'} OVERALL: ${overallPass ? 'PASS' : 'FAIL'}`);
+            console.log('═══════════════════════════════════════');
+
+            process.exit(overallPass ? 0 : 1);
+        } catch (error) {
+            console.error('❌ Error:', error);
+            process.exit(1);
+        }
+    });
+
 program.parse();
 
 /**

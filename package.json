@@ -17,7 +17,8 @@
     "lint": "eslint src/",
     "regression:baseline": "tsx src/regression/cli.ts baseline",
     "regression:test": "tsx src/regression/cli.ts test",
-    "regression:list": "tsx src/regression/cli.ts list"
+    "regression:list": "tsx src/regression/cli.ts list",
+    "regression": "tsx src/regression/cli.ts run"
   },
   "keywords": [],
   "author": "",

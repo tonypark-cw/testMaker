@@ -16,8 +16,6 @@
     "test:coverage": "vitest --coverage",
     "lint": "eslint src/",
     "regression:init": "tsx src/regression/cli.ts init",
-    "regression:baseline": "tsx src/regression/cli.ts baseline",
-    "regression:test": "tsx src/regression/cli.ts test",
     "regression:list": "tsx src/regression/cli.ts list",
     "regression": "tsx src/regression/cli.ts run"
   },

@@ -63,10 +63,30 @@ export class Runner {
             this.browser = await chromium.launch({ headless: this.config.headless });
             this.context = await this.browser.newContext({ viewport: { width: 1920, height: 1080 } });
 
+            // [DEBUG] Track download events to identify source
             this.context.on('page', page => {
+                page.on('download', async download => {
+                    // Silently cancel downloads (PDF exports, etc.)
+                    await download.cancel().catch(() => { });
+                });
+
+                // [CONFIGURABLE] Filter console errors from dev server artifacts
+                // Set FILTER_DEV_ERRORS=false in .env to disable filtering
                 page.on('console', msg => {
-                    if (msg.type() === 'error' || msg.text().includes('[DEBUG]')) {
-                        this.log(`[Browser ${msg.type()}] ${msg.text()}`);
+                    const text = msg.text();
+
+                    // Known dev server patterns to ignore
+                    const ignoredPatterns = [
+                        /WebSocket connection.*localhost.*failed/i,
+                        /Warning: forwardRef render functions/i,
+                        /net::ERR_CONNECTION_REFUSED/i
+                    ];
+
+                    const shouldFilter = process.env.FILTER_DEV_ERRORS !== 'false' &&
+                        ignoredPatterns.some(pattern => pattern.test(text));
+
+                    if (!shouldFilter && (msg.type() === 'error' || text.includes('[DEBUG]'))) {
+                        this.log(`[Browser ${msg.type()}] ${text}`);
                     }
                 });
             });
@@ -106,8 +126,8 @@ export class Runner {
 
             // Initial Auth
             const loginPage = await this.context.newPage();
-            this.log(`[Runner] Navigating to ${this.config.url} for authentication...`);
-            await loginPage.goto(this.config.url, { waitUntil: 'networkidle', timeout: 60000 });
+            this.log(`[Runner] Performing authentication...`);
+            // [OPTIMIZATION] Removed duplicate goto - AuthManager.performLogin already handles navigation
 
             // [FIX] Correct method is performLogin
             const loginSuccess = await this.authManager.performLogin(loginPage, this.context);
@@ -159,9 +179,9 @@ export class Runner {
         try {
             const expiry = await page.evaluate(() => {
                 return localStorage.getItem('tokenExpiry') ||
-                       sessionStorage.getItem('tokenExpiry') ||
-                       localStorage.getItem('expiresIn') ||
-                       sessionStorage.getItem('expiresIn');
+                    sessionStorage.getItem('tokenExpiry') ||
+                    localStorage.getItem('expiresIn') ||
+                    sessionStorage.getItem('expiresIn');
             });
             if (expiry) {
                 const parsed = parseInt(expiry);
@@ -348,10 +368,12 @@ export class Runner {
         this.searchedCount++;
         this.log(`[Runner] [${this.searchedCount}/${this.config.limit}] Worker started for: ${job.url}`);
 
-        // Reuse context but create a new page
+        // [OPTIMIZATION] Reuse authenticated page for single-tab mode (concurrency=1)
         let page: Page | null = null;
+        const shouldReuseTab = this.concurrency === 1;
+
         try {
-            // [AUTH-FIX] Ensure tokens are fresh BEFORE creating page
+            // [AUTH-FIX] Ensure tokens are fresh BEFORE creating/using page
             const sessionMgr = SessionManager.getInstance();
             let accessToken: string;
             try {
@@ -369,18 +391,24 @@ export class Runner {
 
             const { refreshToken } = sessionMgr.getTokens();
 
-            // Create page AFTER we have valid tokens
-            page = await this.context!.newPage();
+            if (shouldReuseTab) {
+                // Reuse the authenticated page (single tab mode)
+                page = this.authenticatedPage;
+                this.log('[Runner] Reusing authenticated tab for next URL...');
+            } else {
+                // Create new page for parallel processing
+                page = await this.context!.newPage();
 
-            // Inject tokens IMMEDIATELY after page creation, before any navigation
-            await page.addInitScript((tokens) => {
-                localStorage.setItem('accessToken', tokens.access);
-                localStorage.setItem('refreshToken', tokens.refresh);
-                try {
-                    sessionStorage.setItem('accessToken', tokens.access);
-                    sessionStorage.setItem('refreshToken', tokens.refresh);
-                } catch (e) { }
-            }, { access: accessToken, refresh: refreshToken });
+                // Inject tokens IMMEDIATELY after page creation, before any navigation
+                await page.addInitScript((tokens) => {
+                    localStorage.setItem('accessToken', tokens.access);
+                    localStorage.setItem('refreshToken', tokens.refresh);
+                    try {
+                        sessionStorage.setItem('accessToken', tokens.access);
+                        sessionStorage.setItem('refreshToken', tokens.refresh);
+                    } catch (e) { }
+                }, { access: accessToken, refresh: refreshToken });
+            }
 
             const result = await scraper.scrape(page, job);
 
@@ -438,7 +466,10 @@ export class Runner {
         } catch (e) {
             this.log(`[Runner] ❌ Error processing ${job.url}:`, e);
         } finally {
-            if (page) await page.close().catch(() => { });
+            // Only close page if it's a temporary page (not the authenticated page)
+            if (page && !shouldReuseTab) {
+                await page.close().catch(() => { });
+            }
         }
     }
 

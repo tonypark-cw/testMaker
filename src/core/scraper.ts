@@ -73,11 +73,17 @@ export class Scraper {
 
     // --- NAVIGATION ---
     try {
-      // [Stability] Block localhost connections (Dev config leak protection)
+      // [CONFIGURABLE] Block localhost connections (Dev server artifacts)
+      // Set BLOCK_LOCALHOST_REQUESTS=false in .env to disable when server is fixed
       await page.route(/localhost|127\.0\.0\.1/, async (route: any) => {
         const u = route.request().url();
-        console.log(`[Scraper] 🛡️ Blocked request to localhost: ${u}`);
-        await route.abort();
+
+        if (process.env.BLOCK_LOCALHOST_REQUESTS !== 'false') {
+          console.log(`[Scraper] 🛡️ Blocked request to localhost: ${u}`);
+          await route.abort();
+        } else {
+          await route.continue();
+        }
       });
 
       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
@@ -87,18 +93,11 @@ export class Scraper {
       return { url, pageTitle: 'Error', elements: [], links: [], error: 'Navigation failed', newlyDiscoveredCount: 0 };
     }
 
-    // [FIX] Smart Dashboard Navigation
-    const currentUrl = page.url();
-    if (currentUrl.includes('/app/logged-in') || currentUrl.endsWith('/app') || currentUrl.endsWith('/app/')) {
-      console.log('[Scraper] Detected transition page, forcing navigation to /app/home...');
-      await page.waitForTimeout(1000);
-      await page.goto(new URL('/app/home', url).toString(), { waitUntil: 'networkidle' }).catch(() => { });
-      await page.waitForTimeout(3000); // Wait for app initialization
-    }
-
+    // [REMOVED] Duplicate /app/home navigation logic - already handled by AuthManager
     const targetUrl = page.url();
 
     // --- HELPERS ---
+
 
 
 

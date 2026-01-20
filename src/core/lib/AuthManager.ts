@@ -33,7 +33,8 @@ export class AuthManager {
             throw e;
         });
 
-        await page.waitForTimeout(2000); // SPA Render Wait
+        // [OPTIMIZATION] Replaced fixed 2s wait with dynamic element wait
+        // await page.waitForTimeout(2000); // REMOVED
 
         try {
             const emailLocator = page.locator('input[type="email"], input[name="email"], input[placeholder*="email" i], input[type="text"]').first();
@@ -51,12 +52,12 @@ export class AuthManager {
                     console.log(`[AuthManager] Attempting auto-login for: ${this.config.username}`);
 
                     await emailLocator.fill(this.config.username);
-                    await emailLocator.blur();
-                    await page.waitForTimeout(500);
+                    // [OPTIMIZATION] Removed unnecessary 500ms wait after blur
+                    // await page.waitForTimeout(500); // REMOVED
 
                     await passwordLocator.fill(this.config.password);
-                    await passwordLocator.blur();
-                    await page.waitForTimeout(500);
+                    // [OPTIMIZATION] Removed unnecessary 500ms wait after blur
+                    // await page.waitForTimeout(500); // REMOVED
 
                     const submitBtn = page.locator('button[type="submit"], input[type="submit"], button:has-text("Log in"), button:has-text("Sign in"), button:has-text("로그인")').first();
 
@@ -66,7 +67,8 @@ export class AuthManager {
                             await this.injectCompanyId(context);
                         }
 
-                        await page.waitForTimeout(1000);
+                        // [OPTIMIZATION] Reduced wait before submit from 1s to 300ms
+                        await page.waitForTimeout(300);
                         await submitBtn.click();
                         await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => { });
 
@@ -76,7 +78,8 @@ export class AuthManager {
                             console.log('[AuthManager] ✓ Cleared login form fields');
                         }
 
-                        await page.waitForTimeout(3000);
+                        // [OPTIMIZATION] Reduced post-login wait from 3s to 1s
+                        await page.waitForTimeout(1000);
                         return await this.verifyLogin(page, context, passwordLocator);
                     } else {
                         console.log('[AuthManager] Submit button not found.');
@@ -160,7 +163,8 @@ export class AuthManager {
         if (currentUrl.includes('/app/logged-in') || currentUrl.endsWith('/app') || currentUrl.endsWith('/app/')) {
             console.log('[AuthManager] Forcing navigation to /app/home...');
             await page.goto(new URL('/app/home', this.config.url).toString(), { waitUntil: 'networkidle', timeout: 30000 }).catch(() => { });
-            await page.waitForTimeout(3000);
+            // [OPTIMIZATION] Reduced wait from 3s to 1s - networkidle already ensures page is ready
+            await page.waitForTimeout(1000);
         }
 
         // [FIX] Re-query locators after potential navigation to avoid detached element errors

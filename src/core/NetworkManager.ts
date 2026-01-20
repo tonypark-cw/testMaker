@@ -137,4 +137,66 @@ export class NetworkManager {
             });
         }
     }
+<<<<<<< Updated upstream
+=======
+
+    private currentAction: string | null = null;
+
+    public setCurrentAction(action: string | null) {
+        this.currentAction = action;
+    }
+
+    /**
+     * [Phase 2] Capture transaction-like API requests and responses for schema extraction.
+     */
+    setupTransactionCapturer(context: BrowserContext, onCapture: (type: 'req' | 'res', module: string, uuid: string, data: any, triggerAction?: string | null) => void) {
+        // 1. Capture Requests (POST/PUT/PATCH)
+        context.on('request', async request => {
+            const url = request.url();
+            const method = request.method();
+
+            if (['POST', 'PUT', 'PATCH'].includes(method) && (url.includes('ianai-dev.com') || url.includes('ianai.co'))) {
+                // Ignore noise like audit logs
+                if (url.includes('auditlog')) return;
+
+                const match = url.match(/\/v2\/(.+)\/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})(\?.*)?$/i);
+                if (match) {
+                    const module = match[1];
+                    const uuid = match[2];
+                    try {
+                        const postData = request.postDataJSON();
+                        if (postData) {
+                            onCapture('req', module, uuid, postData, this.currentAction);
+                        }
+                    } catch (e) { /* Not JSON or no data */ }
+                }
+            }
+        });
+
+        // 2. Capture Responses (GET/POST/PUT 200 OK)
+        context.on('response', async response => {
+            const url = response.url();
+            const status = response.status();
+
+            if (status === 200 && (url.includes('ianai-dev.com') || url.includes('ianai.co'))) {
+                if (url.includes('auditlog')) return;
+
+                const match = url.match(/\/v2\/(.+)\/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})(\?.*)?$/i);
+
+                if (match) {
+                    const module = match[1];
+                    const uuid = match[2];
+
+                    try {
+                        const contentType = response.headers()['content-type'] || '';
+                        if (contentType.includes('application/json')) {
+                            const data = await response.json();
+                            onCapture('res', module, uuid, data, this.currentAction);
+                        }
+                    } catch (e) { /* ignore */ }
+                }
+            }
+        });
+    }
+>>>>>>> Stashed changes
 }

@@ -3,7 +3,17 @@
     "allow": [
       "Bash(npm run build:*)",
       "Bash(npx tsc:*)",
-      "Bash(npm run search:*)"
+      "Bash(npm run search:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push)",
+      "Bash(npm test:*)",
+      "Bash(npm run test:unit:*)",
+      "Bash(git push:*)",
+      "Bash(kill:*)",
+      "Bash(npm run regression:*)",
+      "Bash(npm run regression:init:*)",
+      "Bash(ls:*)"
     ]
   }
 }

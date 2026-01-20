@@ -61,3 +61,20 @@ Playwright E2E 테스트 자동화 도구를 개발하는 개발자.
 ---
 
 Last Updated: 2026-01-14
+
+## 개발 원칙 (Dev Principles)
+
+프로젝트 코딩 원칙 문서: [`docs/CODING_PRINCIPLES.md`](../docs/CODING_PRINCIPLES.md)
+
+**핵심 원칙**:
+1. TypeScript strict mode 준수
+2. Explorer 패턴으로 책임 분리
+3. Defensive logging (이모지 + 컨텍스트)
+4. Try-catch로 에러 처리
+5. 중요 로직은 유닛 테스트 필수
+6. Immutability 유지 (Set/Map 활용)
+
+**변경 시 문서 업데이트 필수**:
+- `docs/PROJECT_BRIEFING.md`
+- 관련 architecture 문서
+

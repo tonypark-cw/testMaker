@@ -22,7 +22,7 @@ program
     .option('--limit <number>', 'Maximum number of pages', '50')
     .option('--concurrency <number>', 'Number of parallel tabs', '1')
     .option('--format <format>', 'Output format: markdown | playwright | both', 'both')
-    .option('--screenshots', 'Include screenshots', true)
+    .option('--no-screenshots', 'Disable screenshots')
     .option('--auth-file <path>', 'Initial auth file', process.env.TESTMAKER_AUTH_FILE)
     .option('--username <user>', 'Username (auto-detects dev/stage)', process.env.EMAIL)
     .option('--password <pass>', 'Password (auto-detects dev/stage)', process.env.PASSWORD)
@@ -72,7 +72,12 @@ program
             username: username,
             password: password,
             quiet: options.quiet,
+<<<<<<< Updated upstream
             resume: options.resume
+=======
+            resume: options.resume,
+            skipScreenshots: !options.screenshots
+>>>>>>> Stashed changes
         };
 
         // Handle Ctrl+C gracefully (Shared handler)
@@ -134,7 +139,12 @@ program
             process.exit(1);
         }
 
-        const recorder = new Recorder(options.outputDir);
+        // Auto-detect environment for output consistency
+        const isDev = url.includes('dev.ianai.co');
+        const env = isDev ? 'dev' : 'stage';
+        const baseOutputDir = path.join(options.outputDir || './output', env);
+
+        const recorder = new Recorder(baseOutputDir);
         try {
             await recorder.start(url);
             console.log('[CLI] Recording session finished.');

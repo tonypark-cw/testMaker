@@ -1,0 +1,72 @@
+{
+  "id": "019ba033-f3e3-7e50-aa7b-188a15bd4669",
+  "doc_number": "RCV-0067",
+  "txn_datetime": "2026-01-09T00:41:44Z",
+  "due_date": null,
+  "currency": "USD",
+  "exchange_rate": 1,
+  "total_amount": 1000,
+  "internal_notes": null,
+  "status": "OPEN",
+  "ref_number": null,
+  "tax_amount": null,
+  "tax_code": null,
+  "linked_transaction": [
+    {
+      "entity_name": "receiving",
+      "entity_key": "019ba033-f3c8-732b-8247-7ff837317470"
+    }
+  ],
+  "custom_fields": null,
+  "vendor": {
+    "id": "019ba020-ba50-73f6-837c-a248c9abe806",
+    "name": "2026.01.09_테스트_벤더_L2"
+  },
+  "payable_account": null,
+  "payment_term": null,
+  "department": null,
+  "line_items": [
+    {
+      "id": "019ba033-f452-79e1-9b61-61f5a1a90a98",
+      "line_number": 1,
+      "description": null,
+      "quantity": 100,
+      "unit_price": 10,
+      "amount": 1000,
+      "tax_amount": null,
+      "status": "OPEN",
+      "billable": null,
+      "taxable": null,
+      "linked_transaction": [
+        {
+          "entity_name": "receivinglineitem",
+          "entity_key": "019ba033-f3d0-7562-9a7e-24b036c45d04"
+        }
+      ],
+      "item": {
+        "id": "019b305f-63e0-7240-8fb6-a36d82616b41",
+        "name": "테스트 재고 아이템"
+      },
+      "uom": null,
+      "account": {
+        "id": "019b2445-5594-7ca3-91e8-8056b6ae261e",
+        "name": "Uncategorized Expense"
+      },
+      "customer": null,
+      "class_ref": null,
+      "tax_code": null,
+      "sku": null,
+      "lot_tracking": false,
+      "serial_tracking": false,
+      "uom_conversion": 1,
+      "location_tracking": true,
+      "bin_tracking": false
+    }
+  ],
+  "inter_txn": null,
+  "project_code": null,
+  "barcode": "bi_26009XKd0",
+  "open_balance": 1000,
+  "payments": null,
+  "triggerAction": "manual_navigation"
+}

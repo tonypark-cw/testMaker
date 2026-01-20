@@ -1,0 +1,42 @@
+{
+  "id": "019bba22-2dae-73fd-88ac-9956541f26a1",
+  "txn_datetime": "2026-01-14T00:00:00Z",
+  "total_amount": 50,
+  "currency": "USD",
+  "exchange_rate": 1,
+  "internal_notes": "Online Transfer",
+  "linked_transaction": null,
+  "bank_account": {
+    "id": "019b2445-5594-7c45-a306-f9669ba3f1af",
+    "name": "Checking"
+  },
+  "line_items": [
+    {
+      "id": "019bba22-2db2-754c-aece-d88edf2fda65",
+      "line_number": 1,
+      "amount": 50,
+      "internal_notes": "Online Transfer",
+      "txn_datetime": null,
+      "linked_transaction": null,
+      "account": {
+        "id": "019b2445-5594-7cb5-a5ff-967652cc91a6",
+        "name": "Shipping Income"
+      },
+      "cashback_account": null,
+      "payment_method": null,
+      "customer": null,
+      "vendor": null,
+      "employee": null,
+      "class_ref": null,
+      "journal_id": null,
+      "entity_value": null
+    }
+  ],
+  "department": null,
+  "project_code": null,
+  "undeposited_funds_account": null,
+  "bank_account_currency": "USD",
+  "undeposited_funds_account_currency": "USD",
+  "journal_id": null,
+  "triggerAction": "manual_navigation"
+}

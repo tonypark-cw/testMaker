@@ -1,0 +1,100 @@
+{
+  "id": "019bd393-444b-79ee-9f94-fedf0dba74fd",
+  "active": true,
+  "doc_number": "RCV-0068",
+  "txn_datetime": "2026-01-19T00:06:19Z",
+  "vendor_description": null,
+  "tax_percent": null,
+  "tax_amount": null,
+  "currency": "USD",
+  "exchange_rate": 1,
+  "internal_notes": null,
+  "sub_total": 15000,
+  "total_amount": 15000,
+  "custom_fields": null,
+  "linked_transaction": [
+    {
+      "entity_name": "bill",
+      "entity_key": "019bd393-447e-7b68-acfa-3a1b49ae51a4"
+    }
+  ],
+  "department": null,
+  "project_code": null,
+  "purchase_order": null,
+  "tax_code": null,
+  "vendor": {
+    "id": "019ba020-ba50-73f6-837c-a248c9abe806",
+    "name": "2026.01.09_테스트_벤더_L2"
+  },
+  "location": {
+    "id": "019b8baa-8e89-7765-9f10-d0cb6a9bfff9",
+    "name": "테스트 로케이션"
+  },
+  "vendor_addr": null,
+  "shipping_addr": {
+    "id": "019b8b97-f58b-7e0e-8e41-a325cdadfc32",
+    "person": null,
+    "company": "테스트 로케이션",
+    "line1": "강남구",
+    "line2": null,
+    "line3": null,
+    "city": "Seoul",
+    "state": null,
+    "postal_code": "12345",
+    "country": "KR",
+    "email": null,
+    "phone": null
+  },
+  "line_items": [
+    {
+      "id": "019bd393-445c-7db9-b95a-7f80f7b014e4",
+      "line_number": 1,
+      "vendor_part_number": null,
+      "description": null,
+      "quantity": 5000,
+      "unit_price": 3,
+      "amount": 15000,
+      "taxable": true,
+      "serials": null,
+      "expiry_date": null,
+      "measurements": {
+        "weight": 0,
+        "weight_unit": "lb",
+        "length": 0,
+        "height": 0,
+        "width": 0,
+        "dimension_unit": "cm"
+      },
+      "linked_transaction": [
+        {
+          "entity_name": "billlineitem",
+          "entity_key": "019bd393-4544-7606-bdf9-260dc625bb9f"
+        }
+      ],
+      "item_options": null,
+      "item": {
+        "id": "019b8b99-a437-76d0-8c28-888ef2872ae2",
+        "name": "테스트 아이템"
+      },
+      "lot": null,
+      "binlocation": {
+        "id": "019b8baa-8e99-7429-a684-9aa879a9fca9",
+        "name": "테스트 로케이션 (Default)"
+      },
+      "uom": null,
+      "tax_code": null,
+      "class_ref": null,
+      "sku": null,
+      "lot_tracking": false,
+      "serial_tracking": false,
+      "uom_conversion": 1,
+      "option_template": null,
+      "location_tracking": true,
+      "bin_tracking": false,
+      "item_attributes": null
+    }
+  ],
+  "overhead_items": null,
+  "barcode": "rc_26019jM89",
+  "triggerAction": "manual_navigation"
+}

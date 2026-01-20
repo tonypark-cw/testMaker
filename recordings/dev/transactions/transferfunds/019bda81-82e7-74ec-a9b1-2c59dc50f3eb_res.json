@@ -1,0 +1,35 @@
+{
+  "id": "019bda81-82e7-74ec-a9b1-2c59dc50f3eb",
+  "created_at": null,
+  "updated_at": null,
+  "amount": 12,
+  "txn_datetime": "2026-01-20T08:24:19Z",
+  "currency": "USD",
+  "exchange_rate": 1,
+  "internal_notes": "",
+  "ref_number": null,
+  "linked_transaction": null,
+  "from_account": {
+    "id": "019b2445-5594-7c45-a306-f9669ba3f1af",
+    "name": "Checking"
+  },
+  "to_account": {
+    "id": "019b2445-5594-7ce7-b635-bbf6ec9e573e",
+    "name": "Undeposited Funds"
+  },
+  "from_balancing_account": null,
+  "to_balancing_account": null,
+  "to_company": null,
+  "department": null,
+  "class_ref": null,
+  "project_code": null,
+  "from_account_balance": 156554,
+  "to_account_balance": 12,
+  "from_account_txn_balance": 156566,
+  "to_account_txn_balance": 0,
+  "from_account_after_txn_balance": 156554,
+  "to_account_after_txn_balance": 12,
+  "from_account_currency": "USD",
+  "to_account_currency": "USD",
+  "triggerAction": "manual_navigation"
+}

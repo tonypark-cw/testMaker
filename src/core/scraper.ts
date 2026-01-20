@@ -13,6 +13,7 @@ import { ActionExplorer } from './lib/explorers/ActionExplorer.js';
 import { TabExplorer } from './lib/explorers/TabExplorer.js';
 import { FilterExplorer } from './lib/explorers/FilterExplorer.js';
 import { ScoringProcessor } from './lib/ScoringProcessor.js';
+import { NetworkManager } from './NetworkManager.js';
 import { StabilityAnalyzer } from './lib/StabilityAnalyzer.js';
 
 export class Scraper {
@@ -28,8 +29,11 @@ export class Scraper {
 
   // [NEW] Action Chain for Golden Path - Moved to instance-level or job-level
   private actionChain: ActionRecord[] = [];
+  private networkManager: NetworkManager | null = null; // [NEW]
 
-  constructor(private config: ScraperConfig, private outputDir: string) { }
+  constructor(private config: ScraperConfig, private outputDir: string, networkManager?: NetworkManager) {
+    this.networkManager = networkManager || null;
+  }
 
   /**
    * Main entry point for analyzing a single page.
@@ -268,7 +272,6 @@ export class Scraper {
       page, targetUrl, this.visitedExpansionButtons, this.actionChain, discoveredLinks, previousPath
     );
     console.log(`[Scraper] Expanded ${expandedCount} NEW menu items.`);
-
     // Phase 4.5: Tab Exploration
     const tabCount = await TabExplorer.exploreTabs(
       page, targetUrl, this.outputDir, timestamp, pageName
@@ -282,6 +285,12 @@ export class Scraper {
     const radioCount = await FilterExplorer.exploreRadios(page, targetUrl, this.outputDir, timestamp, pageName);
     console.log(`[Scraper] Explored ${selectCount} selects, ${checkboxCount} checkboxes, ${toggleCount} toggles, ${radioCount} radios.`);
 
+<<<<<<< Updated upstream
+=======
+    // [Phase 8] Transaction Detail Discovery (Automated Row Clicking)
+    await ActionExplorer.discoverTransactionDetails(page, targetUrl, this.actionChain, this.networkManager);
+
+>>>>>>> Stashed changes
     // --- AUTO-SCROLL ---
     console.log('[Scraper] Scrolling to discover more content...');
     try {
@@ -313,7 +322,7 @@ export class Scraper {
     );
 
     // Phase 5.5: List Entry (View All)
-    await ActionExplorer.handleViewAll(page, targetUrl, discoveredLinks, this.actionChain, previousPath);
+    await ActionExplorer.handleViewAll(page, targetUrl, discoveredLinks, this.actionChain, previousPath, this.networkManager);
 
     // Phase 6: Table-based Row-Click Discovery
     await ContentExplorer.discoverDetailPages(
@@ -327,7 +336,7 @@ export class Scraper {
     // Phase 7: Global Action Discovery
     await ActionExplorer.discoverGlobalActions(
       page, targetUrl, this.actionChain, discoveredLinks, modalDiscoveries, previousPath,
-      this.outputDir, timestamp, this.capturedModalHashes
+      this.outputDir, timestamp, this.capturedModalHashes, this.networkManager
     );
 
     // [REMOVED] Screenshot moved to Phase 3.5 (Early Capture)

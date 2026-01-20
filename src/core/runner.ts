@@ -94,6 +94,31 @@ export class Runner {
             // [Phase 8] Block specifically failing requests (Delegated to NetworkManager)
             await this.networkManager.setupRequestBlocking(this.context);
 
+<<<<<<< Updated upstream
+=======
+            // [Phase 2] Setup Transaction Capturer for Schema Extraction
+            this.networkManager.setupTransactionCapturer(this.context, (type, module, uuid, data, triggerAction) => {
+                const transDir = path.join(this.outputDir, 'transactions', module);
+                if (!fs.existsSync(transDir)) fs.mkdirSync(transDir, { recursive: true });
+
+                const suffix = type === 'req' ? '_req' : '_res';
+                const filePath = path.join(transDir, `${uuid}${suffix}.json`);
+
+                if (!fs.existsSync(filePath)) {
+                    // Include triggerAction in the data
+                    const enrichedData = {
+                        ...data,
+                        triggerAction: triggerAction || 'unknown'
+                    };
+                    fs.writeFileSync(filePath, JSON.stringify(enrichedData, null, 2));
+                    this.log(`[Runner] 🛰️ Captured transaction ${type === 'req' ? 'request' : 'response'}: ${module}/${uuid} (Trigger: ${triggerAction || 'None'})`);
+
+                    // [NEW] Update print_label dictionary (Both req and res keys are valuable)
+                    this.updatePrintLabelDictionary(module, enrichedData);
+                }
+            });
+
+>>>>>>> Stashed changes
             // [RATE-LIMIT] Global listener for 429 errors (Delegated to NetworkManager)
             this.networkManager.setupRateLimitHandler(this.context, {
                 on429: (url, method, delay, count, isDeepSleep) => {
@@ -364,7 +389,7 @@ export class Runner {
         // Mark as visited NOW, before starting work
         this.queueManager.markVisited(job.url);
 
-        const scraper = new Scraper(this.config, this.outputDir);
+        const scraper = new Scraper(this.config, this.outputDir, this.networkManager);
         this.searchedCount++;
         this.log(`[Runner] [${this.searchedCount}/${this.config.limit}] Worker started for: ${job.url}`);
 

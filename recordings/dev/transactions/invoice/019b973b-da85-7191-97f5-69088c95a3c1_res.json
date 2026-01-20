@@ -1,0 +1,188 @@
+{
+  "id": "019b973b-da85-7191-97f5-69088c95a3c1",
+  "active": true,
+  "status": "PARTIAL",
+  "invoice_type": "INVOICE",
+  "doc_number": "INV-0137",
+  "txn_datetime": "2026-01-07T06:53:49Z",
+  "due_date": null,
+  "ship_date": null,
+  "customer_po_number": null,
+  "discount_percent": null,
+  "discount_amount": 0,
+  "tax_percent": null,
+  "tax_amount": 0,
+  "shipping_amount": 0,
+  "currency": "USD",
+  "exchange_rate": 1,
+  "payment_ref_number": null,
+  "msg_from_customer": null,
+  "msg_to_customer": "",
+  "internal_notes": null,
+  "discount_taxable": false,
+  "shipping_taxable": false,
+  "is_dropship": false,
+  "ship_method": null,
+  "sub_total": 15800,
+  "total_amount": 15800,
+  "custom_fields": null,
+  "linked_transaction": [
+    {
+      "entity_name": "shipment",
+      "entity_key": "019b973b-db09-71da-9fe4-65df952a3c94"
+    }
+  ],
+  "customer": {
+    "id": "019b8b98-96e0-7322-95cc-8bb9299abdb2",
+    "name": "테스트 커스터머"
+  },
+  "department": null,
+  "deposit_account": null,
+  "location": {
+    "id": "019b8baa-8e89-7765-9f10-d0cb6a9bfff9",
+    "name": "테스트 로케이션"
+  },
+  "payment_method": null,
+  "project_code": null,
+  "ext_channel": null,
+  "salesrep": null,
+  "tax_code": null,
+  "payment_term": null,
+  "shipment": null,
+  "from_addr": {
+    "id": "019b8bad-029e-7965-a7c3-c4e39e296e15",
+    "person": "",
+    "company": "테스트 로케이션",
+    "line1": "강남구",
+    "line2": "",
+    "line3": null,
+    "city": "Seoul",
+    "state": "",
+    "postal_code": "12345",
+    "country": "KR",
+    "email": "",
+    "phone": ""
+  },
+  "billing_addr": null,
+  "shipping_addr": null,
+  "line_items": [
+    {
+      "id": "019b973b-da8d-715f-a588-e67111e22992",
+      "line_number": 1,
+      "description": null,
+      "quantity": 1,
+      "unit_price": 15000,
+      "amount": 15000,
+      "taxable": false,
+      "shipped": 0,
+      "parent_line": null,
+      "status": "PARTIAL",
+      "measurements": {
+        "weight": 0,
+        "weight_unit": "lb",
+        "length": 0,
+        "height": 0,
+        "width": 0,
+        "dimension_unit": "cm"
+      },
+      "linked_transaction": [
+        {
+          "entity_name": "shipmentlineitem",
+          "entity_key": "019b973b-db30-761b-a213-10bcfdbfb104"
+        }
+      ],
+      "item_options": null,
+      "inter_linked_transaction": null,
+      "item": {
+        "id": "019b8b9a-072c-730b-88a0-5722ef8e9c90",
+        "name": "합체로봇"
+      },
+      "uom": null,
+      "tax_code": null,
+      "class_ref": null,
+      "shipment": {
+        "id": "019b973b-db09-71da-9fe4-65df952a3c94",
+        "name": "INV-0137"
+      },
+      "sku": null,
+      "lot_tracking": false,
+      "serial_tracking": false,
+      "uom_conversion": 1,
+      "qty_on_hand": null,
+      "remaining_qty": null,
+      "option_template": null,
+      "location_tracking": true,
+      "bin_tracking": false,
+      "item_attributes": null
+    },
+    {
+      "id": "019b973b-da8d-71d8-a322-1336e1582d2b",
+      "line_number": 2,
+      "description": null,
+      "quantity": 1,
+      "unit_price": 800,
+      "amount": 800,
+      "taxable": false,
+      "shipped": 0,
+      "parent_line": null,
+      "status": "PARTIAL",
+      "measurements": {
+        "weight": 0,
+        "weight_unit": "lb",
+        "length": 0,
+        "height": 0,
+        "width": 0,
+        "dimension_unit": "in"
+      },
+      "linked_transaction": [
+        {
+          "entity_name": "shipmentlineitem",
+          "entity_key": "019b973b-db30-7702-939d-276c9807f2ef"
+        }
+      ],
+      "item_options": null,
+      "inter_linked_transaction": null,
+      "item": {
+        "id": "019b8b99-db3b-76d4-b495-613c5e7b24f6",
+        "name": "테스트B"
+      },
+      "uom": null,
+      "tax_code": null,
+      "class_ref": null,
+      "shipment": {
+        "id": "019b973b-db09-71da-9fe4-65df952a3c94",
+        "name": "INV-0137"
+      },
+      "sku": null,
+      "lot_tracking": false,
+      "serial_tracking": false,
+      "uom_conversion": 1,
+      "qty_on_hand": null,
+      "remaining_qty": null,
+      "option_template": null,
+      "location_tracking": true,
+      "bin_tracking": false,
+      "item_attributes": null
+    }
+  ],
+  "inter_company": null,
+  "inter_txn": null,
+  "inter_txn_location": null,
+  "overdue": null,
+  "payments": [
+    {
+      "payment": {
+        "id": "019b973c-11d3-73f1-bcf0-80d6b34cf794",
+        "name": ""
+      },
+      "paid_amount": 1,
+      "txn_datetime": "2026-01-07T06:54:05Z"
+    }
+  ],
+  "barcode": "iv_26007oSoY",
+  "open_balance": 15799,
+  "paid_amount": 1,
+  "estimate": null,
+  "sales_order": null,
+  "triggerAction": "manual_navigation"
+}

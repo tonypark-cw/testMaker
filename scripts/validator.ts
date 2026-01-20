@@ -77,6 +77,10 @@ async function runValidator() {
             const parts = urlObj.pathname.split('/');
             // parts[0] is empty, parts[1] is 'app', parts[2] is section
             let section = parts[2] || 'Home';
+
+            // Exclude noise (Auditlog)
+            if (section.toLowerCase().includes('auditlog')) continue;
+
             section = section.charAt(0).toUpperCase() + section.slice(1);
 
             if (!bySection[section]) {
@@ -121,11 +125,29 @@ async function runValidator() {
         report.push('| :--- | :--- | :--- |');
 
         sectionResults.forEach(r => {
-            const shortName = r.url.replace('https://stage.ianai.co/app', '');
+            const shortName = r.url.replace('https://stage.ianai.co/app', '').replace('https://dev.ianai.co/app', '');
             // Highlight low scores
             const scoreDisplay = r.score < 50 ? `**${r.score}** 🔴` : `**${r.score}**`;
             report.push(`| \`${shortName}\` | ${scoreDisplay} | ${r.reasons.join(', ') || 'None'} |`);
         });
+
+        // [NEW] Schema Discovery Info
+        const labelDir = path.join(process.cwd(), 'output', environment, 'print_label');
+        if (fs.existsSync(labelDir)) {
+            // Find labels matching this section
+            const sectionLower = section.toLowerCase();
+            const labelFiles = fs.readdirSync(labelDir).filter(f => f.toLowerCase().includes(sectionLower) && f.endsWith('.json'));
+
+            if (labelFiles.length > 0) {
+                report.push('\n**Discovered Schema Keys:**');
+                labelFiles.forEach(lf => {
+                    try {
+                        const keys = JSON.parse(fs.readFileSync(path.join(labelDir, lf), 'utf-8'));
+                        report.push(`- \`${lf.replace('.json', '')}\`: ${keys.length} keys captured`);
+                    } catch { /* ignore */ }
+                });
+            }
+        }
     }
 
     const reportPath = path.join('output', environment, 'consistency_report.md');

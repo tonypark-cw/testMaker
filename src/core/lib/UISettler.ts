@@ -198,11 +198,20 @@ export class UISettler {
                             }, null, 2));
                         } catch { /* ignore */ }
 
+<<<<<<< Updated upstream
                         console.log(`[UISettler] Saved unique modal: ${safeName}`);
                     }
                 }
             }
         } catch { /* ignore */ }
+=======
+                            console.log(`[UISettler] Saved unique modal: ${safeName}`);
+                        }
+                    }
+                }
+            } catch { /* ignore */ }
+        }
+>>>>>>> Stashed changes
 
         return {
             triggerText,
@@ -216,9 +225,10 @@ export class UISettler {
     /**
      * Coordinate-based clicking to bypass SPA event filtering
      */
-    public static async smartClick(page: Page, handle: ElementHandle<Element> | Locator, actionChain: ActionRecord[]) {
+    public static async smartClick(page: Page, handle: ElementHandle<Element> | Locator, actionChain: ActionRecord[], networkManager?: any) {
+        let txt = 'element';
         try {
-            const txt = await handle.innerText().catch(() => '') || await handle.getAttribute('aria-label') || 'element';
+            txt = (await handle.innerText().catch(() => '')).trim() || (await handle.getAttribute('aria-label')) || 'element';
             actionChain.push({
                 type: 'click',
                 selector: (await handle.getAttribute('class')) || 'unknown',
@@ -227,6 +237,11 @@ export class UISettler {
                 url: page.url()
             });
         } catch { /* ignore */ }
+
+        // [NEW] Action-Network Correlation
+        if (networkManager && typeof networkManager.setCurrentAction === 'function') {
+            networkManager.setCurrentAction(`Clicked: ${txt.substring(0, 50)}`);
+        }
 
         try {
             const box = await handle.boundingBox();

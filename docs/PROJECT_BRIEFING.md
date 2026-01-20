@@ -60,6 +60,10 @@ Distributed Logging
 | Row Click Deduplication | ✅ | |
 | Unified Timestamp (Hour Group) | ✅ | |
 | Tab & Filter Exploration | ✅ | Automated controls discovery (2026-01-20) |
+| Generalized Transaction Capture | ✅ | Auto-capture Req/Res for all ERP modules |
+| Data-Only Mode (--no-screenshots) | ✅ | High-speed discovery skipping visual artifacts |
+| Automated Row Discovery | ✅ | Clicks table rows to trigger detail API schemas |
+| Field Key Aggregation (print_label) | ✅ | Consolidated field map for each menu |
 
 ---
 
@@ -143,6 +147,20 @@ npm run search -- --url "https://stage.ianai.co" --concurrency 3 --headless
 - [src/core/NetworkManager.ts](src/core/NetworkManager.ts): Token caching, reduced SessionManager queries
 - [src/core/SessionManager.ts](src/core/SessionManager.ts): Enhanced logging, expiry tracking
 - [src/core/lib/QueueManager.ts](src/core/lib/QueueManager.ts): Fixed addJobs() visited marking
+
+**Transaction Capture & Exploration Optimization (2026-01-20)**:
+- **Generalized Capture**: Refined regex to support all ERP modules (`/v2/inventory/adjustment/...`, etc.)
+- **Automated Row Discovery**: Scraper now clicks table rows to trigger and capture detail API schemas.
+- **Data-Only Mode**: Added `--no-screenshots` flag to bypass visual extraction, increasing speed by 5x.
+- **Field Mapping**: Aggregates unique Request/Response keys into `output/print_label/` dictionaries.
+
+**Files Modified**:
+- [src/core/NetworkManager.ts](src/core/NetworkManager.ts): Generalized transaction detection regex.
+- [src/core/runner.ts](src/core/runner.ts): Transaction saving and print_label aggregation.
+- [src/core/scraper.ts](src/core/scraper.ts): Integrated row discovery and screenshot skipping.
+- [src/core/lib/explorers/ActionExplorer.ts](src/core/lib/explorers/ActionExplorer.ts): Added table row automated clicking.
+- [src/core/lib/UISettler.ts](src/core/lib/UISettler.ts): Added support for skipping modal screenshots.
+- [src/core/cli.ts](src/core/cli.ts): Added `--no-screenshots` option mapping.
 
 **Performance Improvements**:
 - API call reduction: ~95% fewer token refresh requests

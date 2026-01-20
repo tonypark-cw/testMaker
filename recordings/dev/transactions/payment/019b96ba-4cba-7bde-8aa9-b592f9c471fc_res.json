@@ -1,0 +1,53 @@
+{
+  "id": "019b96ba-4cba-7bde-8aa9-b592f9c471fc",
+  "active": true,
+  "txn_datetime": "2026-01-07T04:32:26Z",
+  "paid_amount": 22,
+  "currency": "USD",
+  "exchange_rate": 1,
+  "internal_notes": "",
+  "ref_number": null,
+  "custom_fields": null,
+  "linked_transaction": null,
+  "customer": null,
+  "project_code": null,
+  "payment_method": null,
+  "deposit_account": null,
+  "line_items": [
+    {
+      "id": "019b96ba-4cc1-7827-89cc-1ae79dfe5535",
+      "line_number": 1,
+      "amount": 22,
+      "description": null,
+      "is_adjustment": null,
+      "linked_transaction": null,
+      "invoice": null,
+      "credit_memo": null,
+      "bill": {
+        "id": "019b96ba-2a87-70fc-ae73-540ff61533ec",
+        "name": "BILL-0057"
+      },
+      "pre_payment": null,
+      "adjustment_account": null,
+      "class_ref": null,
+      "open_balance": 22,
+      "txn_datetime": "2026-01-07T04:32:20Z",
+      "due_date": null,
+      "total_amount": 22,
+      "tax_amount": null,
+      "net_amount": null
+    }
+  ],
+  "vendor": {
+    "id": "019b584f-2c9a-77c4-8ed9-df585ee3300a",
+    "name": "테스트 벤더"
+  },
+  "payment_account": {
+    "id": "019b2445-5594-7c45-a306-f9669ba3f1af",
+    "name": "Checking"
+  },
+  "department": null,
+  "applied_amount": null,
+  "unapplied_amount": 0,
+  "triggerAction": "manual_navigation"
+}

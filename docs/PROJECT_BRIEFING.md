@@ -51,10 +51,15 @@ Distributed Logging
 | NetworkManager | ✅ | Safe Header Injection, CORS Headers |
 | Fault Tolerance | ✅ | 500 Warn, 429 Global Pause |
 | Queue Management | ✅ | Fixed visited URL lifecycle |
+| URL Scope Filtering | ✅ | Only explore child paths (2026-01-20) |
 | Multi-Page Navigation | ✅ | Proper worker execution flow |
-| Multi-Epoch Recovery (Stage) | [/] | Epoch 1 in progress |
+| QueueManager Unit Tests | ✅ | 23 test cases (2026-01-20) |
+| Dashboard Date Filter | ✅ | Date-based screenshot filtering (2026-01-20) |
+| Dashboard DELETE Tag | ✅ | Soft-delete tagging + multi-select (2026-01-20) |
+| Multi-Epoch Recovery (Stage) | ⏸️ | Temporarily disabled |
 | Row Click Deduplication | ✅ | |
 | Unified Timestamp (Hour Group) | ✅ | |
+| Tab & Filter Exploration | ✅ | Automated controls discovery (2026-01-20) |
 
 ---
 
@@ -101,7 +106,7 @@ npm run search -- --url "https://stage.ianai.co" --concurrency 3 --headless
 
 ## Code Health
 
-**Last Verified**: 2026-01-19
+**Last Verified**: 2026-01-20
 
 | Component | Status |
 |-----------|--------|
@@ -111,6 +116,8 @@ npm run search -- --url "https://stage.ianai.co" --concurrency 3 --headless
 | Rate Limiting | ✅ 429/500 Handled |
 | Token Refresh Logic | ✅ Optimized (95% reduction) |
 | Queue Management | ✅ Fixed visited URL tracking |
+| QueueManager Tests | ✅ 23 test cases passing |
+| URL Scope Filtering | ✅ Child-path-only exploration |
 
 ---
 
@@ -234,14 +241,12 @@ npm run regression:init                    # 크롤러 출력을 베이스라인
 npm run regression:init -- --url "https://dev.ianai.co/app/inventory"  # 특정 경로만
 npm run regression:list -- --domain dev.ianai.co  # 등록된 베이스라인 목록
 
-# 회귀 테스트
+# 회귀 테스트 (인증 없이)
 npm run regression -- --url "https://dev.ianai.co/app"           # 자동 모드 (단일/배치 감지)
 npm run regression -- --url "https://dev.ianai.co/app" --batch   # 강제 배치 모드
-npm run regression -- --url "https://dev.ianai.co/app/home"      # 단일 페이지 테스트
 
-# 개별 명령어
-npm run regression:baseline -- --url <url>  # 수동 베이스라인 생성
-npm run regression:test -- --url <url>      # 단일 페이지 테스트
+# 회귀 테스트 (인증 포함)
+npm run regression -- --url "https://dev.ianai.co/app/auditlog" -u "email" -p "pass"
 ```
 
 **현재 상태** (2026-01-20):
@@ -251,11 +256,34 @@ npm run regression:test -- --url <url>      # 단일 페이지 테스트
 | 크롤러 → 베이스라인 연동 | ✅ 완료 (189 페이지 등록) |
 | 단일 페이지 테스트 | ✅ 완료 |
 | 배치 테스트 | ✅ 완료 |
+| 인증 연동 | ✅ 완료 (세션 재사용 + 로그인) |
 | Dashboard 연동 | ❌ 미구현 |
 | JSON 결과 저장 | ❌ 미구현 |
 
+**인증 방식**:
+
+```bash
+# 방법 1: 기존 세션 재사용 (temp-auth.json)
+# 크롤러 실행 후 저장된 세션을 자동으로 로드
+npm run regression -- --url "https://dev.ianai.co/app/auditlog"
+
+# 방법 2: 명시적 로그인
+npm run regression -- --url "https://dev.ianai.co/app/auditlog" \
+  -u "user@example.com" -p "password"
+```
+
+**인증 모듈** (`src/regression/AuthHandler.ts`):
+- `temp-auth.json` 세션 자동 로드
+- 세션 만료 시 재로그인
+- 토큰 주입 (localStorage/sessionStorage)
+
 **테스트 결과 예시**:
 ```
+🔍 Regression Test Runner
+   URL: https://dev.ianai.co/app/auditlog
+   Auth: user@example.com
+
+[BatchRunner] ✅ Authenticated
 📦 Batch Mode: 21 pages to test
    [1/21] .../app/auditlog
    [2/21] .../history/account/...
@@ -267,18 +295,29 @@ Total Pages: 21
 ✅ Passed:   18
 ❌ Failed:   3
 ⚠️  Errors:   0
-───────────────────────────────────────
-FAILED PAGES
-❌ https://dev.ianai.co/app/auditlog/history/item/...
-   Visual: 12.5% diff
-   Anomaly: WARNING (score: 45)
 ═══════════════════════════════════════
 ```
 
 **Next Steps**:
 1. Dashboard 연동 (리그레션 결과 시각화)
 2. JSON 결과 저장 및 이력 관리
-3. CI/CD 파이프라인 통합
+
+### Phase 3: Reinforcement Learning (2026-Q3)
+
+**지능형 자가 최적화 (Self-Optimization)**
+
+**목표**: Phase 2에서 학습된 데이터를 기반으로, 보상(Reliability Score)을 극대화하는 방향으로 탐색 전략을 스스로 개선.
+
+**진화 과정**:
+1.  **Cold Start (Phase 2)**: 사용자 녹화 데이터를 통해 "무엇이 중요한가"를 먼저 배움 (Imitation Learning).
+2.  **Exploration & Exploitation (Phase 3)**: 
+    - **Exploitation**: 배운 패턴을 활용해 빠르게 Golden Path 탐색.
+    - **Exploration**: 새로운 컨트롤 조합을 시도하며 더 나은 경로 발견.
+3.  **Reward Function**: `ScoringProcessor`의 점수를 Reward로 활용하여 행동 정책(Policy) 업데이트.
+
+**기대 효과**:
+- 시간이 흐를수록 더 정밀하고 빠른 탐색 가능
+- UI 변경에 대한 자동 적응력 확보
 
 ---
 
@@ -503,3 +542,156 @@ if (this.concurrency === 1) {
 - **Hybrid Storage**: Extract tokens from `localStorage`, `sessionStorage`, AND `Cookies`.
 - **Auto Re-login**: Trigger full re-login flow if token refresh fails (Self-Healing).
 - **Stable Locators**: Updated `AuthManager` to handle detached elements during verification.
+
+---
+
+## Future Work
+
+### Phase 1: Control & Tab Exploration (Completed 2026-01-20)
+
+#### 아키텍처 분석
+
+**Explorer 독립성 검증** ✅
+- 모든 Explorer는 **서로 독립적** (다른 Explorer 호출 안 함)
+- **공통 의존성**: `UISettler` (smartClick, extractModalContent)
+- Scraper에서 순차 호출 (병렬 가능)
+
+**기존 Explorer 구조**:
+```
+src/core/lib/explorers/
+├── NavExplorer.ts         ✅ 메뉴 확장, 사이드바 탐색
+├── ContentExplorer.ts     ✅ 테이블 Row, 페이지네이션
+├── ActionExplorer.ts      ✅ 글로벌 액션 (Create, Add 등)
+```
+
+#### 신규 모듈 (분리된 구조)
+
+**TabExplorer.ts** (탭 전용)
+```typescript
+export class TabExplorer {
+  static async exploreTabs(page, targetUrl, outputDir, timestamp) {
+    // 1. [role="tab"], .tab, .mantine-Tabs-tab 찾기
+    // 2. 각 탭 클릭 + 800ms 대기
+    // 3. 탭별 컨텐츠 변화 캡처
+    // 4. 스크린샷 저장 (tab별로 명명)
+  }
+}
+```
+
+**FilterExplorer.ts** (필터 전용)
+```typescript
+export class FilterExplorer {
+  static async exploreSelects(page, ...params) {
+    // Select/Combobox: 최대 3개 옵션 샘플링
+  }
+  
+  static async exploreCheckboxes(page, ...params) {
+    // Checkbox: 최대 3개 토글
+  }
+  
+  static async exploreToggles(page, ...params) {
+    // Toggle switch: 최대 2개
+  }
+  
+  static async exploreRadios(page, ...params) {
+    // Radio button: 최대 2개
+  }
+}
+```
+
+**Scraper 통합**:
+```typescript
+// Phase 4.5: Tab Exploration (메뉴 확장 직후)
+await TabExplorer.exploreTabs(...);
+
+// Phase 4.6: Filter Exploration
+await FilterExplorer.exploreSelects(...);
+await FilterExplorer.exploreCheckboxes(...);
+await FilterExplorer.exploreToggles(...);
+await FilterExplorer.exploreRadios(...);
+```
+
+**제약사항** (조합 폭발 방지):
+- 단일 컨트롤만 변경 (조합 금지)
+- 각 샘플링 후 `page.reload()` 상태 초기화
+- 페이지당 추가 10-20개 스크린샷 예상
+
+**장점**:
+- ✅ 각 기능 독립적으로 켜고 끄기 가능
+- ✅ 유지보수 및 테스트 분리 용이
+- ✅ 기존 Explorer 패턴과 일관성 유지
+
+---
+
+### Phase 2: Learning-Based Exploration (Imitation Learning)
+
+**사용자 행동 녹화 및 지능형 우선순위 탐색**
+
+**목표**: 실제 사용자의 테스트 시나리오를 녹화하여 비즈니스 로직(순서)을 이해하고, 이를 바탕으로 탐색 효율을 50% 이상 향상.
+
+#### 1. Custom Recorder (Antigravity Browser)
+- **목적**: 사용자의 수동 테스트 세션을 "Action + Network" 데이터셋으로 변환.
+- **기능**:
+  - **DOM Event Tracking**: `click`, `input`, `change`, `toggle` 이벤트 캡처.
+  - **Context-Aware Selectors**: 깨지기 쉬운 CSS Path 대신 의미론적 Selector(Mantine/AntD 속성, ARIA label 등) 자동 추출.
+  - **Network Correlation**: UI 액션 직후 발생하는 API 호출 및 응답 변화를 매핑하여 "인과관계" 학습.
+
+#### 2. Pattern Analyzer (Imitation Learning)
+- **목적**: 녹화된 세션에서 반복되는 비즈니스 워크플로우를 추출.
+- **핵심 기술**:
+  - **Sequential Pattern Mining**: 자주 발생하는 행동 시퀀스(예: 리스트 검색 -> 항목 선택 -> 수정 -> 저장) 추출.
+  - **Action Weighting**: API 호출을 유발하거나 데이터 변화가 큰 액션에 높은 가중치 부여.
+  - **Golden Path Generation**: 각 메뉴별 최적의 탐색 경로(Golden Path) 모델 생성.
+
+#### 3. Guided Scraper (가이드 탐색)
+- **목적**: 학습된 모델을 탐색 엔진에 주입하여 "생각하는 탐색" 수행.
+- **동작 방식**:
+  - **Priority Queue**: 무작위 탐색 대신 학습된 가중치에 따라 탐색 우선순위 결정.
+  - **Heuristic + Learned Hybrid**: 기본 Explorer 패턴을 유지하되, 중요 버튼/탭에 우선권 부여.
+  - **Context Prediction**: 특정 탭에 들어갔을 때 필터 조작이 필요한지 여부를 모델이 판단.
+
+---
+
+### Phase 3: Reinforcement Learning (2026-Q3)Fixes
+
+**URL 스코프 필터링**:
+- **문제**: `/app/auditlog` 시작 → `/app/adjustment` 등 형제 경로 탐색
+- **해결**: QueueManager에 경로 prefix 검증 추가
+- **영향**: 정확한 하위 경로만 탐색 (`/app/auditlog/history/*`)
+
+**파일**: [QueueManager.ts:L48-L58](../src/core/lib/QueueManager.ts#L48-L58)
+
+**QueueManager 디버깅 강화**:
+- addJobs, markVisited, isVisited에 로그 추가
+- 스코프 벗어난 URL 추적 (`�� Out of scope`)
+- 큐 상태 요약 로그 (`📊 Queue summary`)
+
+### Testing
+
+**QueueManager 유닛 테스트**:
+- 23개 테스트 케이스 추가
+- Visited URL lifecycle 검증
+- URL normalization 검증
+- 중복 방지 로직 검증
+
+**파일**: [tests/QueueManager.test.ts](../tests/QueueManager.test.ts)
+
+### Files Modified (2026-01-20)
+
+| File | Changes |
+|------|---------|
+| `src/core/lib/QueueManager.ts` | URL scope filtering, debug logging |
+| `src/dashboard/assets/js/state.js` | Date filter, selection mode state |
+| `src/dashboard/assets/js/filter.js` | Date filter logic, DELETE hiding |
+| `src/dashboard/assets/js/gallery.js` | Checkbox UI, click handling |
+| `src/dashboard/assets/js/selection.js` | **NEW** - Selection mode logic |
+| `src/dashboard/assets/js/api.js` | setTagDirect for batch tagging |
+| `src/dashboard/assets/js/main.js` | DELETE stats exclusion |
+| `src/dashboard/index.html` | Date dropdown, DELETE button/filter, multi-select toolbar |
+| `tests/QueueManager.test.ts` | **NEW** - 23 unit tests |
+
+---
+
+
+---
+

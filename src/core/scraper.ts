@@ -10,6 +10,8 @@ import { UISettler } from './lib/UISettler.js';
 import { NavExplorer } from './lib/explorers/NavExplorer.js';
 import { ContentExplorer } from './lib/explorers/ContentExplorer.js';
 import { ActionExplorer } from './lib/explorers/ActionExplorer.js';
+import { TabExplorer } from './lib/explorers/TabExplorer.js';
+import { FilterExplorer } from './lib/explorers/FilterExplorer.js';
 import { ScoringProcessor } from './lib/ScoringProcessor.js';
 import { StabilityAnalyzer } from './lib/StabilityAnalyzer.js';
 
@@ -171,12 +173,13 @@ export class Scraper {
     // [CHANGE] Moved before Discovery phases to capture pristine page state
     if (!fs.existsSync(this.outputDir)) fs.mkdirSync(this.outputDir, { recursive: true });
     let screenshotPath = '';
+    let pageName = 'index'; // [FIX] access scope outside try block
     try {
       await UISettler.settleAndCleanup(page);
 
       // Generate meaningful filename from URL path
       const urlObj = new URL(url);
-      const pageName = urlObj.pathname.replace(/\//g, '-').replace(/^-|-$/g, '') || 'index';
+      pageName = urlObj.pathname.replace(/\//g, '-').replace(/^-|-$/g, '') || 'index';
 
       screenshotPath = path.join(this.outputDir, `${pageName}_${timestamp}.webp`);
 
@@ -265,6 +268,19 @@ export class Scraper {
       page, targetUrl, this.visitedExpansionButtons, this.actionChain, discoveredLinks, previousPath
     );
     console.log(`[Scraper] Expanded ${expandedCount} NEW menu items.`);
+
+    // Phase 4.5: Tab Exploration
+    const tabCount = await TabExplorer.exploreTabs(
+      page, targetUrl, this.outputDir, timestamp, pageName
+    );
+    console.log(`[Scraper] Explored ${tabCount} tabs.`);
+
+    // Phase 4.6: Filter Exploration (limited sampling)
+    const selectCount = await FilterExplorer.exploreSelects(page, targetUrl, this.outputDir, timestamp, pageName);
+    const checkboxCount = await FilterExplorer.exploreCheckboxes(page, targetUrl, this.outputDir, timestamp, pageName);
+    const toggleCount = await FilterExplorer.exploreToggles(page, targetUrl, this.outputDir, timestamp, pageName);
+    const radioCount = await FilterExplorer.exploreRadios(page, targetUrl, this.outputDir, timestamp, pageName);
+    console.log(`[Scraper] Explored ${selectCount} selects, ${checkboxCount} checkboxes, ${toggleCount} toggles, ${radioCount} radios.`);
 
     // --- AUTO-SCROLL ---
     console.log('[Scraper] Scrolling to discover more content...');

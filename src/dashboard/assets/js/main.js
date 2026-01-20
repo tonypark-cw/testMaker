@@ -9,6 +9,7 @@ import * as filter from './filter.js';
 import * as gallery from './gallery.js';
 import * as modal from './modal.js';
 import * as browserHistory from './history.js';
+import * as selection from './selection.js';
 
 // Initialize DOM elements
 state.initDOMElements();
@@ -83,50 +84,76 @@ async function update(isSwitching = false) {
         const oldLength = state.serverScreenshots.length;
         state.setServerScreenshots(data.screenshots);
 
-        // Calculate Counts
+        // Apply date filter to screenshots for statistics
+        let workingScreenshots = state.serverScreenshots;
+        if (state.currentDateFilter !== 'ALL') {
+            workingScreenshots = workingScreenshots.filter(shot => {
+                if (!shot.time) return false;
+                const shotDate = new Date(shot.time).toISOString().split('T')[0];
+                return shotDate === state.currentDateFilter;
+            });
+        }
+
+        // Calculate Counts (using date-filtered screenshots)
         const typeCounts = { ALL: 0, MODAL: 0, DETAIL: 0, PAGE: 0, DUP: 0 };
-        const statusCounts = { PASS: 0, FAIL: 0, BLOCK: 0, UNTAGGED: 0 };
+        const statusCounts = { PASS: 0, FAIL: 0, BLOCK: 0, DELETE: 0, UNTAGGED: 0 };
         const filteredCounts = { ALL: 0, MODAL: 0, DETAIL: 0, PAGE: 0, DUP: 0 };
 
         const tempUrlGroups = new Map();
-        state.serverScreenshots.forEach(shot => {
+        workingScreenshots.forEach(shot => {
             const url = shot.webUrl || shot.url;
             if (!tempUrlGroups.has(url)) tempUrlGroups.set(url, []);
             tempUrlGroups.get(url).push(shot);
         });
 
-        tempUrlGroups.forEach((captures, url) => {
-            captures.sort((a, b) => b.time - a.time);
-            const latest = captures[0];
-            const effectiveUrl = latest.webUrl || latest.url;
-            const latestStatus = state.tags[`${effectiveUrl}#${latest.hash}`] || state.tags[effectiveUrl] || 'UNTAGGED';
+        tempUrlGroups.forEach(group => {
+            group.sort((a, b) => b.time - a.time);
+            const latest = group[0];
             const type = filter.getScreenshotType(latest.url);
+            const url = latest.webUrl || latest.url;
+            const key = latest.hash ? `${url}#${latest.hash}` : url;
+            const tag = state.tags[key] || state.tags[url];
 
-            typeCounts.ALL++;
-            if (typeCounts[type] !== undefined) typeCounts[type]++;
-            if (captures.length > 1) typeCounts.DUP++;
-
-            if (statusCounts[latestStatus] !== undefined) {
-                statusCounts[latestStatus]++;
+            // Count for status (all items)
+            if (!tag) {
+                statusCounts.UNTAGGED++;
+            } else if (statusCounts[tag] !== undefined) {
+                statusCounts[tag]++;
             } else {
                 statusCounts.UNTAGGED++;
             }
 
-            let matchesCurrentStatus = state.currentStatusFilter === 'ALL' || captures.some(cap => {
-                const cUrl = cap.webUrl || cap.url;
-                const s = state.tags[`${cUrl}#${cap.hash}`] || state.tags[cUrl] || 'UNTAGGED';
-                return s === state.currentStatusFilter;
-            });
+            // Count for type (EXCLUDE DELETE tagged items)
+            if (tag !== 'DELETE') {
+                typeCounts.ALL++;
+                if (typeCounts[type] !== undefined) typeCounts[type]++;
+                if (group.length > 1) typeCounts.DUP++;
 
-            if (matchesCurrentStatus) {
-                filteredCounts.ALL++;
-                if (filteredCounts[type] !== undefined) filteredCounts[type]++;
-                if (captures.length > 1) filteredCounts.DUP++;
+                // Filtered counts
+                if (state.currentStatusFilter !== 'ALL') {
+                    if (state.currentStatusFilter === 'UNTAGGED' && !tag) {
+                        filteredCounts.ALL++;
+                        if (filteredCounts[type] !== undefined) filteredCounts[type]++;
+                        if (group.length > 1) filteredCounts.DUP++;
+                    } else if (tag === state.currentStatusFilter) {
+                        filteredCounts.ALL++;
+                        if (filteredCounts[type] !== undefined) filteredCounts[type]++;
+                        if (group.length > 1) filteredCounts.DUP++;
+                    }
+                }
             }
         });
 
-        // Update UI counts
-        document.getElementById('count').innerText = data.searchedCount;
+        // Update UI counts (DELETE items excluded from totals)
+        const nonDeletePages = Array.from(tempUrlGroups.values()).filter(group => {
+            const latest = group[0];
+            const url = latest.webUrl || latest.url;
+            const key = latest.hash ? `${url}#${latest.hash}` : url;
+            const tag = state.tags[key] || state.tags[url];
+            return tag !== 'DELETE';
+        }).length;
+
+        document.getElementById('count').innerText = nonDeletePages;
         document.getElementById('shot-count').innerText = typeCounts.ALL;
 
         const traceLink = document.getElementById('trace-link');
@@ -146,11 +173,15 @@ async function update(isSwitching = false) {
         document.getElementById('count-pass').innerText = statusCounts.PASS;
         document.getElementById('count-fail').innerText = statusCounts.FAIL;
         document.getElementById('count-block').innerText = statusCounts.BLOCK;
+        document.getElementById('count-delete').innerText = statusCounts.DELETE;
         document.getElementById('count-untagged').innerText = statusCounts.UNTAGGED;
 
         const failBtn = document.getElementById('btn-research-fail');
         document.getElementById('fail-count-btn').innerText = statusCounts.FAIL;
         failBtn.style.display = statusCounts.FAIL > 0 ? 'inline-block' : 'none';
+
+        // Populate date filter dropdown
+        filter.populateDateFilter();
 
         // Refresh gallery if data changed
         if (state.filteredScreenshots.length === 0 && state.visualScreenshots.length === 0 && state.serverScreenshots.length > 0) {
@@ -180,6 +211,10 @@ window.setStatusFilter = (s) => {
     filter.setStatusFilter(s, () => filter.applyFilterAndReset(gallery.loadMore));
     browserHistory.pushState(browserHistory.getCurrentState());
 };
+window.setDateFilter = (date) => {
+    filter.setDateFilter(date, () => filter.applyFilterAndReset(gallery.loadMore));
+    browserHistory.pushState(browserHistory.getCurrentState());
+};
 window.startSearch = api.startSearch;
 window.stopSearch = api.stopSearch;
 window.researchFailures = async () => { await api.researchFailures(); update(); };
@@ -190,11 +225,15 @@ window.closeModal = modal.closeModal;
 window.prevImage = modal.prevImage;
 window.nextImage = modal.nextImage;
 window.switchDuplicate = modal.switchDuplicate;
+window.toggleSelectionMode = selection.toggleSelectionMode;
+window.applyDeleteToSelected = selection.applyDeleteToSelected;
+window.clearSelection = selection.clearSelection;
 
 // ===== Event Delegation for Card Clicks =====
 state.gallery.addEventListener('click', (e) => {
     const card = e.target.closest('.shot-card');
-    if (card) {
+    if (card && !state.isSelectionMode) {
+        // Only open modal if not in selection mode
         modal.openModal(card.dataset.url, card.dataset.hash, card.dataset.webUrl);
     }
 });

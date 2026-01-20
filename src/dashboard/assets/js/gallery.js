@@ -5,6 +5,7 @@
 
 import * as state from './state.js';
 import { getScreenshotType } from './filter.js';
+import { updateSelectionUI } from './selection.js';
 
 /**
  * Load more items into the gallery
@@ -84,11 +85,31 @@ export function createCard(shot, openModalFn) {
         <span class="badge ${badgeClass}">${type}</span>
         ${dupHtml}
         ${confidenceHtml}
-        <div style="cursor:pointer">
+        <input type="checkbox" class="card-checkbox" style="display: none; position: absolute; top: 10px; left: 10px; width: 20px; height: 20px; cursor: pointer; z-index: 10;" data-url="${webUrl}" data-hash="${shot.hash || ''}">
+        <div class="card-click-area" style="cursor:pointer">
             <img data-src="${url}" class="shot-img" alt="${name}">
         </div>
         <div class="shot-info">${name}</div>
     `;
+
+    // Handle checkbox toggle
+    const checkbox = div.querySelector('.card-checkbox');
+    checkbox.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const key = `${webUrl}#${shot.hash || ''}`;
+        state.toggleImageSelection(key);
+        updateSelectionUI();
+    });
+
+    // Handle card click (modal or checkbox toggle based on mode)
+    const clickArea = div.querySelector('.card-click-area');
+    clickArea.addEventListener('click', () => {
+        if (state.isSelectionMode) {
+            checkbox.checked = !checkbox.checked;
+            checkbox.dispatchEvent(new Event('click'));
+        }
+        // Modal opening is handled by event delegation in main.js
+    });
 
     // Lazy load images
     const img = div.querySelector('img');

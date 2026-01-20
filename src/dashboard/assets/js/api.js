@@ -121,3 +121,22 @@ export async function saveReason() {
         statusEl.innerText = 'Error saving';
     }
 }
+
+/**
+ * Set tag directly (for batch operations)
+ */
+export async function setTagDirect(url, status, hash = '') {
+    const key = hash ? `${url}#${hash}` : url;
+    state.tags[key] = status;
+
+    try {
+        await fetch('/api/tag', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url, status, hash })
+        });
+    } catch (e) {
+        console.error(`Failed to tag ${url}:`, e);
+        throw e;
+    }
+}

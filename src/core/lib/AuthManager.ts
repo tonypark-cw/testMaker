@@ -52,22 +52,15 @@ export class AuthManager {
                     console.log(`[AuthManager] Attempting auto-login for: ${this.config.username}`);
 
                     await emailLocator.fill(this.config.username);
-                    // [OPTIMIZATION] Removed unnecessary 500ms wait after blur
-                    // await page.waitForTimeout(500); // REMOVED
-
                     await passwordLocator.fill(this.config.password);
-                    // [OPTIMIZATION] Removed unnecessary 500ms wait after blur
-                    // await page.waitForTimeout(500); // REMOVED
 
                     const submitBtn = page.locator('button[type="submit"], input[type="submit"], button:has-text("Log in"), button:has-text("Sign in"), button:has-text("로그인")').first();
 
                     if (await submitBtn.isVisible().catch(() => false)) {
-                        // [REVERSE ENGINEERING WORKAROUND]
                         if (process.env.INJECT_CUSTOM_HEADERS === 'true') {
                             await this.injectCompanyId(context);
                         }
 
-                        // [OPTIMIZATION] Reduced wait before submit from 1s to 300ms
                         await page.waitForTimeout(300);
                         await submitBtn.click();
                         await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => { });
@@ -78,7 +71,6 @@ export class AuthManager {
                             console.log('[AuthManager] ✓ Cleared login form fields');
                         }
 
-                        // [OPTIMIZATION] Reduced post-login wait from 3s to 1s
                         await page.waitForTimeout(1000);
                         return await this.verifyLogin(page, context, passwordLocator);
                     } else {
@@ -94,8 +86,19 @@ export class AuthManager {
                     return true;
                 }
             } else {
-                console.log('[AuthManager] No login form detected, assuming already logged in.');
-                return true;
+                console.log('[AuthManager] No login form detected. Verifying active session...');
+                const hasAppShell = await page.locator('nav, aside, .sidebar, [role="navigation"], .navBar').first().isVisible({ timeout: 5000 }).catch(() => false);
+
+                if (hasAppShell) {
+                    console.log('[AuthManager] ✓ Active session confirmed (App Shell detected).');
+                    return true;
+                } else {
+                    console.error('[AuthManager] ❌ No login form AND no app shell detected. Possible 404 or unauthenticated state.');
+                    // Take a debug screenshot
+                    const debugPath = path.join(this.outputDir, 'auth-failed-debug.png');
+                    await page.screenshot({ path: debugPath }).catch(() => { });
+                    return false;
+                }
             }
         } catch (e) {
             console.log(`[AuthManager] Login error: ${(e as Error).message}`);

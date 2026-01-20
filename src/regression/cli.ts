@@ -110,12 +110,17 @@ program
     .option('--headless', 'Run in headless mode', true)
     .option('--batch', 'Run batch mode for all pages under URL prefix', false)
     .option('--force-baseline', 'Force recreate baseline even if exists', false)
+    .option('-u, --username <email>', 'Login username/email for authenticated tests')
+    .option('-p, --password <password>', 'Login password for authenticated tests')
     .action(async (options) => {
         try {
             const manager = new BaselineManager(options.output);
 
             console.log('🔍 Regression Test Runner');
             console.log(`   URL: ${options.url}`);
+            if (options.username) {
+                console.log(`   Auth: ${options.username}`);
+            }
             console.log('');
 
             // Check if batch mode or auto-detect
@@ -135,7 +140,11 @@ program
                 const runner = new BatchRunner({
                     headless: options.headless,
                     threshold: parseFloat(options.threshold),
-                    outputDir: options.output
+                    outputDir: options.output,
+                    auth: options.username ? {
+                        username: options.username,
+                        password: options.password
+                    } : undefined
                 });
 
                 const result = await runner.run(options.url, (current, total, url) => {

@@ -5,12 +5,13 @@
  * Compares current state against registered baselines.
  */
 
-import { chromium, Browser, Page } from 'playwright';
+import { chromium, Browser, BrowserContext, Page } from 'playwright';
 import { BaselineManager } from './BaselineManager.js';
 import { VisualComparator, VisualDiffResult } from './VisualComparator.js';
 import { ContentComparator, ContentDiff } from './ContentComparator.js';
 import { ContentExtractor } from './ContentExtractor.js';
 import { AnomalyDetector, AnomalyReport } from './AnomalyDetector.js';
+import { AuthHandler, AuthConfig } from './AuthHandler.js';
 import * as fs from 'fs';
 
 export interface PageTestResult {
@@ -61,6 +62,11 @@ export interface BatchRunnerOptions {
     timeout?: number;
     visualOnly?: boolean;
     contentOnly?: boolean;
+    // Authentication options
+    auth?: {
+        username?: string;
+        password?: string;
+    };
 }
 
 export class BatchRunner {
@@ -120,8 +126,50 @@ export class BatchRunner {
             return result;
         }
 
-        // Launch browser
-        const browser = await chromium.launch({ headless: this.options.headless });
+        // Initialize authentication if configured
+        let authHandler: AuthHandler | null = null;
+        let context: BrowserContext | null = null;
+        let tokens = { accessToken: '', refreshToken: '' };
+        let browser: Browser | null = null;
+
+        if (this.options.auth?.username && this.options.auth?.password) {
+            authHandler = new AuthHandler({
+                url: urlPrefix,
+                username: this.options.auth.username,
+                password: this.options.auth.password,
+                outputDir: this.options.outputDir,
+                headless: this.options.headless
+            });
+
+            const authResult = await authHandler.initialize();
+            if (authResult.success) {
+                console.log('[BatchRunner] ✅ Authenticated');
+                context = authResult.context;
+                tokens = authResult.tokens;
+            } else {
+                console.log('[BatchRunner] ⚠️ Auth failed, running without authentication');
+            }
+        } else {
+            // Try to load existing session
+            authHandler = new AuthHandler({
+                url: urlPrefix,
+                outputDir: this.options.outputDir,
+                headless: this.options.headless
+            });
+
+            const authResult = await authHandler.initialize();
+            if (authResult.success) {
+                console.log('[BatchRunner] ✅ Session restored');
+                context = authResult.context;
+                tokens = authResult.tokens;
+            }
+        }
+
+        // Fallback to unauthenticated browser if no context
+        if (!context) {
+            browser = await chromium.launch({ headless: this.options.headless });
+            context = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
+        }
 
         try {
             for (let i = 0; i < urls.length; i++) {
@@ -131,7 +179,7 @@ export class BatchRunner {
                     onProgress(i + 1, urls.length, url);
                 }
 
-                const pageResult = await this.testPage(browser, url);
+                const pageResult = await this.testPage(context, url, tokens);
                 result.pages.push(pageResult);
 
                 switch (pageResult.status) {
@@ -150,7 +198,12 @@ export class BatchRunner {
                 }
             }
         } finally {
-            await browser.close();
+            if (authHandler) {
+                await authHandler.close();
+            }
+            if (browser) {
+                await browser.close();
+            }
         }
 
         result.duration = Date.now() - startTime;
@@ -160,7 +213,11 @@ export class BatchRunner {
     /**
      * Test a single page
      */
-    private async testPage(browser: Browser, url: string): Promise<PageTestResult> {
+    private async testPage(
+        context: BrowserContext,
+        url: string,
+        tokens: { accessToken: string; refreshToken: string }
+    ): Promise<PageTestResult> {
         const startTime = Date.now();
         const result: PageTestResult = {
             url,
@@ -180,8 +237,19 @@ export class BatchRunner {
         let page: Page | null = null;
 
         try {
-            // Navigate to page
-            page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+            // Create page with token injection
+            page = await context.newPage();
+
+            // Inject tokens before navigation
+            if (tokens.accessToken) {
+                await page.addInitScript((t) => {
+                    localStorage.setItem('accessToken', t.accessToken);
+                    localStorage.setItem('refreshToken', t.refreshToken);
+                    sessionStorage.setItem('accessToken', t.accessToken);
+                    sessionStorage.setItem('refreshToken', t.refreshToken);
+                }, tokens);
+            }
+
             await page.goto(url, { waitUntil: 'networkidle', timeout: this.options.timeout });
 
             const runVisual = !this.options.contentOnly;

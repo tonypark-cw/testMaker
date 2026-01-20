@@ -21,10 +21,15 @@ export let currentWebUrl = null;
 export let isModalOpen = false;
 export let currentFilter = 'ALL';
 export let currentStatusFilter = 'ALL';
+export let currentDateFilter = 'ALL'; // Date filter state
 export let isRunning = false;
 export let queueLength = 0;
 export let lastScanTime = 0;
 export let scrollObserver = null;
+
+// Selection Mode State
+export let isSelectionMode = false;
+export let selectedImages = new Set(); // URLs of selected images
 
 // Constants
 export const BATCH_SIZE = 24;
@@ -42,10 +47,20 @@ export function setCurrentWebUrl(url) { currentWebUrl = url; }
 export function setIsModalOpen(open) { isModalOpen = open; }
 export function setCurrentFilter(filter) { currentFilter = filter; }
 export function setCurrentStatusFilter(filter) { currentStatusFilter = filter; }
+export function setCurrentDateFilter(date) { currentDateFilter = date; }
 export function setIsRunning(running) { isRunning = running; }
 export function setQueueLength(length) { queueLength = length; }
 export function setLastScanTime(time) { lastScanTime = time; }
 export function setScrollObserver(observer) { scrollObserver = observer; }
+export function setIsSelectionMode(mode) { isSelectionMode = mode; }
+export function toggleImageSelection(url) {
+    if (selectedImages.has(url)) {
+        selectedImages.delete(url);
+    } else {
+        selectedImages.add(url);
+    }
+}
+export function clearSelectedImages() { selectedImages.clear(); }
 
 // DOM Elements (initialized after DOM ready)
 export let gallery, loading, sentinel, btnStart, btnStop, inputUrl, runnerStatus;

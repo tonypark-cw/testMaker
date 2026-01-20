@@ -20,9 +20,8 @@ export class QueueManager {
 
         if (this.config.resume) {
             this.loadFromCheckpoint();
-        } else {
-            this.queue = [{ url: this.config.url, depth: 0, actionChain: [] }];
         }
+        // [TEST-FIX] Don't auto-add start URL here - let Runner control queue initialization
     }
 
     private loadFromCheckpoint() {
@@ -33,8 +32,7 @@ export class QueueManager {
             checkpoint.visitedUrls.forEach(url => this.visitedUrls.add(url));
             this.log(`[QueueManager] Restored ${this.queue.length} jobs and ${this.visitedUrls.size} visited URLs.`);
         } else {
-            this.log(`[QueueManager] No checkpoint found for ${this.domain}. Starting fresh.`);
-            this.queue = [{ url: this.config.url, depth: 0, actionChain: [] }];
+            this.log(`[QueueManager] No checkpoint found for ${this.domain}. Starting fresh with empty queue.`);
         }
     }
 
@@ -45,25 +43,53 @@ export class QueueManager {
     public addJobs(jobs: ScrapeJob[]): number {
         let addedCount = 0;
         for (const job of jobs) {
+            if (job.depth > this.config.depth) continue;
+
             const normalized = this.normalizeUrl(job.url);
-            // Check if already in queue or visited
-            const inQueue = this.queue.some(q => q.url === normalized);
+
+            // [CRITICAL FIX] Only explore URLs under the start URL path
+            // Example: if start URL is /app/auditlog, only allow /app/auditlog/xxx, not /app/adjustment
+            const startUrlPath = new URL(this.config.url).pathname;
+            const jobUrlPath = new URL(normalized).pathname;
+
+            if (!jobUrlPath.startsWith(startUrlPath)) {
+                this.log(`[QueueMgr] 🚫 Out of scope: ${normalized} (not under ${startUrlPath})`);
+                continue;
+            }
+
+            const inQueue = this.queue.some(j => this.normalizeUrl(j.url) === normalized);
+
             if (!this.visitedUrls.has(normalized) && !inQueue) {
                 this.queue.push({ ...job, url: normalized });
                 addedCount++;
             } else {
-                // this.log(`[QueueManager] ⏭️ Skipping duplicate/visited: ${normalized}`);
+                const reason = this.visitedUrls.has(normalized) ? 'already visited' : 'already in queue';
+                this.log(`[QueueMgr] ⏭️  Skipped: ${normalized} (${reason})`);
             }
+        }
+        if (addedCount > 0) {
+            this.log(`[QueueMgr] 📊 Queue summary: ${addedCount} added, ${this.queue.length} total queued, ${this.visitedUrls.size} visited`);
         }
         return addedCount;
     }
 
     public markVisited(url: string) {
-        this.visitedUrls.add(this.normalizeUrl(url));
+        const normalized = this.normalizeUrl(url);
+        const wasAlreadyVisited = this.visitedUrls.has(normalized);
+        this.visitedUrls.add(normalized);
+
+        if (wasAlreadyVisited) {
+            this.log(`[QueueMgr] ⚠️  WARNING: ${normalized} was already marked as visited!`);
+        } else {
+            this.log(`[QueueMgr] ✅ Marked visited: ${normalized} (total: ${this.visitedUrls.size})`);
+        }
     }
 
     public isVisited(url: string): boolean {
-        return this.visitedUrls.has(this.normalizeUrl(url));
+        const normalized = this.normalizeUrl(url);
+        const result = this.visitedUrls.has(normalized);
+        this.log(`[QueueMgr] 🔍 Check visited: ${normalized} → ${result ? 'YES (skip)' : 'NO (process)'}`);
+        return result;
     }
 
     public getQueueLength(): number {

@@ -87,12 +87,72 @@ export function setStatusFilter(status, applyFn) {
 }
 
 /**
+ * Extract unique dates from screenshots and populate dropdown
+ */
+export function populateDateFilter() {
+    const select = document.getElementById('date-select');
+    if (!select) return; // Guard if element doesn't exist yet
+
+    // Preserve current selection
+    const currentSelection = state.currentDateFilter;
+
+    const dates = new Set();
+
+    state.serverScreenshots.forEach(shot => {
+        if (shot.time) {
+            const date = new Date(shot.time);
+            const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD
+            dates.add(dateStr);
+        }
+    });
+
+    const sortedDates = Array.from(dates).sort().reverse(); // 최신순
+
+    select.innerHTML = '<option value="ALL">All Dates</option>';
+
+    sortedDates.forEach(date => {
+        const option = document.createElement('option');
+        option.value = date;
+        option.textContent = date;
+        select.appendChild(option);
+    });
+
+    // Restore previous selection
+    select.value = currentSelection;
+}
+
+/**
+ * Set date filter
+ */
+export function setDateFilter(date, applyFn) {
+    state.setCurrentDateFilter(date);
+
+    const select = document.getElementById('date-select');
+    if (select) {
+        select.value = date;
+    }
+
+    if (applyFn) applyFn();
+}
+
+/**
  * Apply current filters and reset gallery
  */
 export function applyFilterAndReset(loadMoreFn) {
+    // Apply Date Filter FIRST (on a copy to avoid mutating serverScreenshots)
+    let workingList = state.serverScreenshots.slice();
+
+    if (state.currentDateFilter !== 'ALL') {
+        workingList = workingList.filter(shot => {
+            if (!shot.time) return false;
+            const shotDate = new Date(shot.time).toISOString().split('T')[0];
+            return shotDate === state.currentDateFilter;
+        });
+    }
+
     // Group by URL (webUrl) to show capture versions
     const urlGroups = new Map();
-    state.serverScreenshots.forEach(shot => {
+    workingList.forEach(shot => {
         const url = shot.webUrl || shot.url;
         if (!urlGroups.has(url)) {
             urlGroups.set(url, {
@@ -144,10 +204,32 @@ export function applyFilterAndReset(loadMoreFn) {
         }
     }
 
-    state.setFilteredScreenshots(baseList);
+    // Now apply status filter to the baseList
+    workingList = baseList; // Re-assign workingList to the filtered baseList
+
+    // Apply Status Filter
+    if (state.currentStatusFilter !== 'ALL') {
+        workingList = workingList.filter(shot => {
+            const url = shot.webUrl || shot.url;
+            const key = shot.hash ? `${url}#${shot.hash}` : url;
+            const tag = state.tags[key];
+
+            if (state.currentStatusFilter === 'UNTAGGED') return !tag;
+            return tag === state.currentStatusFilter;
+        });
+    } else {
+        // [FEATURE] Hide DELETE tagged items by default (unless DELETE filter is active)
+        workingList = workingList.filter(shot => {
+            const url = shot.webUrl || shot.url;
+            const key = shot.hash ? `${url}#${shot.hash}` : url;
+            const tag = state.tags[key];
+            return tag !== 'DELETE'; // Exclude DELETE tagged items from ALL view
+        });
+    }
+
+    state.setFilteredScreenshots(workingList);
     state.setVisualScreenshots([]);
     state.gallery.innerHTML = '';
-
     if (loadMoreFn) loadMoreFn();
 
     // Re-connect observer

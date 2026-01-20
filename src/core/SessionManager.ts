@@ -100,7 +100,7 @@ export class SessionManager {
         }
 
         if (!this.state.refreshToken) {
-            throw new Error('No refresh token available');
+            throw new Error('No refresh token available. Please ensure you are correctly logged in and the session is valid.');
         }
 
         if (!this.refreshHandler) {

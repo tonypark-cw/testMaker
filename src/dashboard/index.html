@@ -60,6 +60,22 @@
                 </div>
             </div>
         </div>
+
+        <!-- Multi-Select Toolbar -->
+        <div id="multi-select-toolbar" style="display: flex; align-items: center; gap: 10px; margin-top: 15px; padding-top: 15px; border-top: 1px solid #334155;">
+            <button id="btn-toggle-select" class="runner-btn" onclick="toggleSelectionMode()" style="background: #6366f1; font-size: 13px;">
+                📋 Selection Mode
+            </button>
+            <div id="selection-actions" style="display: none; align-items: center; gap: 10px;">
+                <span id="selected-count" style="color: #94a3b8; font-size: 13px;">0 selected</span>
+                <button class="runner-btn" onclick="applyDeleteToSelected()" style="background: #dc2626; font-size: 13px;">
+                    🗑️ DELETE Selected
+                </button>
+                <button class="runner-btn" onclick="clearSelection()" style="background: #64748b; font-size: 13px;">
+                    Clear
+                </button>
+            </div>
+        </div>
     </header>
 
     <div class="filter-bar">
@@ -76,12 +92,22 @@
                     class="filter-count">0</span></button>
         </div>
 
+        <!-- Date Filter Section -->
+        <div class="filter-group" id="date-filters" style="margin-left: 10px;">
+            <label style="font-size: 11px; color: #94a3b8; margin-right: 8px; font-weight: 500;">Date:</label>
+            <select id="date-select" onchange="setDateFilter(this.value)" style="padding: 6px 10px; border-radius: 4px; border: 1px solid #475569; background: #1e293b; color: #e2e8f0; font-size: 12px; cursor: pointer;">
+                <option value="ALL">All Dates</option>
+            </select>
+        </div>
+
         <div class="filter-group" id="status-filters">
             <button class="filter-btn status-pass" onclick="setStatusFilter('PASS')">PASS <span id="count-pass"
                     class="filter-count">0</span></button>
             <button class="filter-btn status-fail" onclick="setStatusFilter('FAIL')">FAIL <span id="count-fail"
                     class="filter-count">0</span></button>
             <button class="filter-btn status-block" onclick="setStatusFilter('BLOCK')">BLOCK <span id="count-block"
+                    class="filter-count">0</span></button>
+            <button class="filter-btn status-delete" onclick="setStatusFilter('DELETE')" style="border-color: #dc2626; color: #dc2626;">DELETE <span id="count-delete"
                     class="filter-count">0</span></button>
             <button class="filter-btn status-untagged" onclick="setStatusFilter('UNTAGGED')">? <span id="count-untagged"
                     class="filter-count">0</span></button>
@@ -109,6 +135,7 @@
             <button class="qa-btn btn-pass" onclick="setTag('PASS')">PASS</button>
             <button class="qa-btn btn-fail" onclick="setTag('FAIL')">FAIL</button>
             <button class="qa-btn btn-block" onclick="setTag('BLOCK')">BLOCK</button>
+            <button class="qa-btn btn-delete" onclick="setTag('DELETE')" style="background: #dc2626;">DELETE</button>
         </div>
 
         <div id="fail-reason-container" style="display:none; width: 80%; margin-top: 10px;">

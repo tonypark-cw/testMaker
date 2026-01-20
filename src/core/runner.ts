@@ -149,7 +149,7 @@ export class Runner {
                 if (this.queueManager.getQueueLength() === 0) {
                     this.queueManager.addJobs([{ url: normalizedStart, depth: 0, actionChain: [] }]);
                 }
-                this.queueManager.markVisited(normalizedStart);
+                // [BUG FIX] Removed markVisited() here - worker will mark it when actually processing
             }
 
             this.authenticatedPage = loginPage;

@@ -14,11 +14,54 @@ Playwright E2E 테스트 자동화 도구를 개발하는 개발자.
 
 ---
 
+## ⚠️ Git 커밋 컨벤션 (필수)
+
+**반드시 `docs/COMMIT_MESSAGE_CONVENTION.md` 문서를 따를 것!**
+
+### 형식
+```
+[Type] Description
+```
+
+### 허용된 타입 (대소문자 구분)
+| Type | 용도 |
+|------|------|
+| `[Add]` | 새로운 기능/파일 추가 |
+| `[Fix]` | 버그 수정 |
+| `[Refactor]` | 동작 변경 없는 코드 개선 |
+| `[Docs]` | 문서 변경 |
+| `[Update]` | 기존 기능 업데이트 |
+| `[Feature]` | 주요 신규 기능 |
+| `[Optimize]` | 성능 최적화 |
+| `[Cleanup]` | 불필요한 코드 제거 |
+| `[Config]` | 설정 변경 |
+| `[Merge]` | 머지 커밋 |
+| `[Test]` | 테스트 추가/수정 |
+| `[Style]` | 코드 스타일/포맷팅 |
+
+### ❌ 금지
+- `feat:`, `fix:` 등 소문자 conventional commits 형식
+- `[FEAT]`, `[FIX]` 등 전체 대문자
+- `[Verified]`, `[Save]` 등 목록에 없는 타입
+
+### 예시
+```
+✅ [Add] Implement user authentication
+✅ [Fix] Resolve null pointer in login flow
+✅ [Refactor] Extract validation logic to helper
+❌ feat: add new feature
+❌ [FEAT] Add new feature
+❌ Add new feature
+```
+
+---
+
 ## 프로젝트 컨텍스트
 
 ### 문서
 | 문서 | 경로 |
 |------|------|
+| **⚠️ 커밋 컨벤션** | `docs/COMMIT_MESSAGE_CONVENTION.md` |
 | 프로젝트 브리핑 | `docs/PROJECT_BRIEFING.md` |
 | Scraper Phases | `docs/architecture/scraper-phases.md` |
 | Dashboard | `docs/architecture/dashboard.md` |
@@ -60,21 +103,4 @@ Playwright E2E 테스트 자동화 도구를 개발하는 개발자.
 
 ---
 
-Last Updated: 2026-01-14
-
-## 개발 원칙 (Dev Principles)
-
-프로젝트 코딩 원칙 문서: [`docs/CODING_PRINCIPLES.md`](../docs/CODING_PRINCIPLES.md)
-
-**핵심 원칙**:
-1. TypeScript strict mode 준수
-2. Explorer 패턴으로 책임 분리
-3. Defensive logging (이모지 + 컨텍스트)
-4. Try-catch로 에러 처리
-5. 중요 로직은 유닛 테스트 필수
-6. Immutability 유지 (Set/Map 활용)
-
-**변경 시 문서 업데이트 필수**:
-- `docs/PROJECT_BRIEFING.md`
-- 관련 architecture 문서
-
+Last Updated: 2026-01-16

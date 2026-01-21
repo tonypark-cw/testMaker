@@ -75,7 +75,7 @@ export class BatchRunner {
     private contentComparator: ContentComparator;
     private contentExtractor: ContentExtractor;
     private anomalyDetector: AnomalyDetector;
-    private options: Required<BatchRunnerOptions>;
+    private options: Omit<Required<BatchRunnerOptions>, 'auth'> & Pick<BatchRunnerOptions, 'auth'>;
 
     constructor(options: BatchRunnerOptions = {}) {
         this.options = {
@@ -85,7 +85,8 @@ export class BatchRunner {
             concurrency: options.concurrency ?? 1,
             timeout: options.timeout ?? 60000,
             visualOnly: options.visualOnly ?? false,
-            contentOnly: options.contentOnly ?? false
+            contentOnly: options.contentOnly ?? false,
+            auth: options.auth
         };
 
         this.baselineManager = new BaselineManager(this.options.outputDir);

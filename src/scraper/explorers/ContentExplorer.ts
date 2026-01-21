@@ -1,6 +1,6 @@
 import { Page, Request } from 'playwright';
-import { ActionRecord, ModalDiscovery } from '../../../../types/index.js';
-import { UISettler } from '../UISettler.js';
+import { ActionRecord, ModalDiscovery } from '../../../types/index.js';
+import { UISettler } from '../lib/UISettler.js';
 
 export class ContentExplorer {
     /**

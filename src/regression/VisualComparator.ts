@@ -5,6 +5,9 @@ import { PNG } from 'pngjs';
 import sharp from 'sharp';
 import { VisualDiff } from './types.js';
 
+// Re-export for backwards compatibility
+export type VisualDiffResult = VisualDiff;
+
 export class VisualComparator {
     private threshold: number;
     private outputDir: string;

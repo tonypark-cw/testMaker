@@ -79,6 +79,7 @@ TestMaker는 웹 페이지를 자동으로 크롤링하여:
 | **Modal Discovery** | 모달/다이얼로그 내부 요소 자동 탐지 및 컨텍스트 스캔 |
 | **Row-Click Discovery** | 데이터 테이블 행 클릭을 통한 상세 페이지 BFS 탐색 |
 | **Menu Expansion** | 사이드바 및 네비게이션 메뉴의 재귀적 확장 탐색 |
+| **Tab & Filter Discovery** | 탭, 셀렉트 박스, 체크박스 등 동적 UI 요소 자동 탐색 및 캡처 |
 | **Auth Capture** | 헤드레스 브라우저 인증 환경을 극복하기 위한 세션 캡처 모듈 |
 
 ---
@@ -431,23 +432,41 @@ DASHBOARD_PASS=secure-password
 ```
 testMaker/
 ├── src/
-│   ├── core/                # 엔진 핵심 로직
-│   │   ├── cli.ts           # CLI 진입점 및 환경 설정
-│   │   ├── scraper.ts       # 페이지 분석 및 요소 추출
-│   │   ├── runner.ts        # 멀티탭 워커 및 인증 흐름 제어
-│   │   ├── types.ts         # 코어 타입 정의
-│   │   └── rl/              # 신뢰도 점수 스코어링 모듈
+│   ├── cli/                 # CLI 진입점 및 환경 설정
+│   │   ├── index.ts         # 메인 CLI
+│   │   └── supervisor.ts    # 프로세스 감시
+│   │
+│   ├── scraper/             # 핵심 분석 엔진
+│   │   ├── index.ts         # Scraper 메인 클래스
+│   │   ├── runner.ts        # 멀티탭 워커 및 제어
+│   │   ├── explorers/       # 탐색 전략 (Nav, Action, etc)
+│   │   ├── queue/           # 작업 큐 관리
+│   │   ├── rl/              # 신뢰도 점수 (RL)
+│   │   ├── services/        # 분석/변환/생성 서비스
+│   │   └── lib/             # 스크래퍼 유틸 (UISettler 등)
 │   │
 │   ├── dashboard/           # 결과 조회 웹 UI
 │   │   ├── server.ts        # Express 기반 API 서버
 │   │   ├── index.html       # 대시보드 메인 뷰
 │   │   └── worker.ts        # 백그라운드 작업 관리
 │   │
-│   ├── tools/               # 유틸리티 도구
-│   │   ├── captureAuth.ts   # 세션 헤더/토큰 캡처 도구
-│   │   └── generate_auth.ts # 인증 상태 생성 도구
+│   ├── recorder/            # 사용자 행동 녹화
+│   │   ├── index.ts         # 레코더 메인
+│   │   └── tracker/         # 이벤트 트래커
 │   │
-│   └── utils.ts             # 유틸리티 함수
+│   ├── regression/          # 회귀 테스트 시스템
+│   │   ├── cli.ts           # 회귀 CLI
+│   │   └── ...              # 비교/분석 로직
+│   │
+│   ├── shared/              # 공용 모듈
+│   │   ├── auth/            # 인증 관리 (AuthManager)
+│   │   ├── network/         # 네트워크 관리
+│   │   ├── utils.ts         # 유틸리티 함수
+│   │   └── types.ts         # 공용 타입
+│   │
+│   └── tools/               # 기타 도구
+│       ├── captureAuth.ts
+│       └── generate_auth.ts
 │
 ├── scripts/                 # 기동 및 코드 생성 스크립트 (Root)
 │   ├── analyzer.ts          # 요소 그룹화 및 시나리오 추출
@@ -526,7 +545,7 @@ interface TestScenario {
 - [x] Self-Healing 컨텍스트 캡처
 - [x] SPA 라우트 인터셉션
 - [x] 네비게이션 버튼 클릭 탐색
-- [x] 탭/아코디언 콘텐츠 탐색
+- [x] 탭/아코디언 및 필터(Select/Checkbox) 요소 탐색
 - [x] iframe 콘텐츠 탐색
 - [x] 프레임워크별 Link 감지
 

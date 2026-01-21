@@ -13,7 +13,15 @@
       "Bash(kill:*)",
       "Bash(npm run regression:*)",
       "Bash(npm run regression:init:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(npx commitlint:*)",
+      "Bash(git check-ignore:*)",
+      "Bash(find:*)",
+      "Bash(du:*)",
+      "Bash(echo \"✓ utils.ts 삭제됨\" ls output/stage/screenshots/trace-*.zip)",
+      "Bash(npm run lint:*)",
+      "Bash(npm install:*)",
+      "Bash(echo:*)"
     ]
   }
 }

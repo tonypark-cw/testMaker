@@ -1,5 +1,5 @@
 import { BrowserContext, Route } from 'playwright';
-import { SessionManager } from './SessionManager.js';
+import { SessionManager } from '../auth/SessionManager.js';
 
 export class NetworkManager {
     private rateLimitUntil: number = 0;
@@ -137,8 +137,6 @@ export class NetworkManager {
             });
         }
     }
-<<<<<<< Updated upstream
-=======
 
     private currentAction: string | null = null;
 
@@ -198,5 +196,4 @@ export class NetworkManager {
             }
         });
     }
->>>>>>> Stashed changes
 }

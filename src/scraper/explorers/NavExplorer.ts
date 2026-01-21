@@ -1,5 +1,5 @@
 import { Page } from 'playwright';
-import { ActionRecord, ModalDiscovery } from '../../../../types/index.js';
+import { ActionRecord, ModalDiscovery } from '../../../types/index.js';
 import { UISettler } from '../lib/UISettler.js';
 
 export class NavExplorer {

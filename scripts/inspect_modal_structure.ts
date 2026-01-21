@@ -91,7 +91,15 @@ dotenv.config();
 
         // Smart Inspection
         const modalInfo = await page.evaluate(() => {
-            const potentialModals = [];
+            const potentialModals: Array<{
+                selector: string;
+                tagName: string;
+                className: string;
+                id: string;
+                role: string | null;
+                text: string;
+                outerHTML: string;
+            }> = [];
             // Check common modal selectors
             const selectors = [
                 '[role="dialog"]',

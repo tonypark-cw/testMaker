@@ -63,16 +63,16 @@ export class ScreenshotCache {
         });
 
         this.watcher
-            .on('add', (filePath) => this.onFileAdded(filePath))
-            .on('change', (filePath) => this.onFileChanged(filePath))
-            .on('unlink', (filePath) => this.onFileRemoved(filePath))
+            .on('add', (filePath: string) => this.onFileAdded(filePath))
+            .on('change', (filePath: string) => this.onFileChanged(filePath))
+            .on('unlink', (filePath: string) => this.onFileRemoved(filePath))
             .on('ready', () => {
                 this.isReady = true;
                 console.log(`[ScreenshotCache] Ready. Watching ${this.cache.size} screenshots`);
                 this.readyCallbacks.forEach(cb => cb());
                 this.readyCallbacks = [];
             })
-            .on('error', (error) => {
+            .on('error', (error: Error) => {
                 console.error('[ScreenshotCache] Watcher error:', error);
             });
     }

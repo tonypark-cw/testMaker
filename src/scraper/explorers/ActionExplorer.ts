@@ -1,6 +1,6 @@
 import { Page } from 'playwright';
-import { ActionRecord, ModalDiscovery } from '../../../../types/index.js';
-import { UISettler } from '../UISettler.js';
+import { ActionRecord, ModalDiscovery } from '../../../types/index.js';
+import { UISettler } from '../lib/UISettler.js';
 
 export class ActionExplorer {
     /**
@@ -94,8 +94,7 @@ export class ActionExplorer {
                 } catch { /* ignore */ }
             }
         }
-<<<<<<< Updated upstream
-=======
+
     }
 
     /**
@@ -154,6 +153,6 @@ export class ActionExplorer {
                 console.error('[ActionExplorer] Error during row discovery:', e);
             }
         }
->>>>>>> Stashed changes
+
     }
 }

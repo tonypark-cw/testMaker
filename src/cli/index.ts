@@ -1,10 +1,10 @@
 import { program } from 'commander';
-import { Runner } from './runner.js';
-import { ScraperConfig } from './types.js';
+import { Runner } from '../scraper/runner.js';
+import { ScraperConfig } from '../shared/types.js';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
 import { execSync, spawnSync } from 'child_process';
-import { Recorder } from './recorder.js';
+import { Recorder } from '../recorder/index.js';
 
 dotenv.config();
 
@@ -72,12 +72,7 @@ program
             username: username,
             password: password,
             quiet: options.quiet,
-<<<<<<< Updated upstream
             resume: options.resume
-=======
-            resume: options.resume,
-            skipScreenshots: !options.screenshots
->>>>>>> Stashed changes
         };
 
         // Handle Ctrl+C gracefully (Shared handler)

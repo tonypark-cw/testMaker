@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { program } from 'commander';
-import { ScoringProcessor } from '../src/core/lib/ScoringProcessor.js';
+import { ScoringProcessor } from '../src/scraper/lib/ScoringProcessor.js';
 
 // Parse CLI arguments
 program

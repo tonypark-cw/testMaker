@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { RunnerCheckpoint, ScrapeJob } from '../types.js';
+import { RunnerCheckpoint, ScrapeJob } from '../../shared/types.js';
 
 export class CheckpointManager {
     private checkpointDir: string;

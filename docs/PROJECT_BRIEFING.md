@@ -24,14 +24,15 @@ Distributed Logging
 
 | Component | File | Responsibility |
 |-----------|------|----------------|
-| CLI | src/core/cli.ts | 명령어 파싱 |
-| Supervisor | src/core/supervisor.ts | 프로세스 감시, 자동 재시작 |
-| Runner | src/core/runner.ts | 브라우저 관리, 전역 429 제어, 탭 분배 |
-| SessionManager | src/core/SessionManager.ts | 토큰 관리 (Singleton), 자동 갱신, 백오프 |
-| Scraper | src/core/scraper.ts | 8 Phase 탐색 엔진 |
+| CLI | src/cli/index.ts | 명령어 파싱 |
+| Supervisor | src/cli/supervisor.ts | 프로세스 감시, 자동 재시작 |
+| Runner | src/scraper/runner.ts | 브라우저 관리, 전역 429 제어, 탭 분배 |
+| SessionManager | src/shared/auth/SessionManager.ts | 토큰 관리 (Singleton), 자동 갱신, 백오프 |
+| Scraper | src/scraper/index.ts | 8 Phase 탐색 엔진 |
 | Dashboard | src/dashboard/server.ts | 실시간 모니터링 UI (Adaptive Watcher) |
-| NetworkManager | src/core/NetworkManager.ts | CORS-safe 헤더 주입 |
-| RecoveryManager | src/core/RecoveryManager.ts | 에러 임계값 복구 |
+| NetworkManager | src/shared/network/NetworkManager.ts | CORS-safe 헤더 주입 |
+| RecoveryManager | src/shared/network/RecoveryManager.ts | 에러 임계값 복구 |
+| Recorder | src/recorder/index.ts | 사용자 행동 녹화 및 학습 |
 
 > 상세: [architecture/scraper-phases.md](./architecture/scraper-phases.md)
 
@@ -709,7 +710,43 @@ await FilterExplorer.exploreRadios(...);
 | `tests/QueueManager.test.ts` | **NEW** - 23 unit tests |
 
 ---
+---
 
+## Architectural Roadmap (Future)
+
+### 1. Separation of Concerns (SoC) & Hexagonal Architecture
+현재의 "파일 구조 리팩토링"을 넘어, **비즈니스 로직**과 **인프라스트럭처(구현)**를 명확히 분리하는 아키텍처 도입 예정.
+
+- **Core Domain (Pure Logic)**:
+  - 탐색 전략(Phases), 우선순위 큐(Queueing), 신뢰도 점수(RL), 시나리오 분석.
+  - 외부 라이브러리(Playwright, FS)에 의존하지 않는 순수 TypeScript 객체.
+  
+- **Infrastructure (Adapters)**:
+  - `PlaywrightAdapter`: 브라우저 제어, 클릭, 스크린샷 실제 수행.
+  - `FileSystemAdapter`: 파일 저장/로딩.
+  - `NetworkAdapter`: API 트래픽 캡처 및 제어.
+
+### 2. Command Pattern (Action Abstraction)
+`Scraper`가 직접 DOM을 조작하는 대신, 추상화된 **Command** 객체를 발행하고 실행.
+
+- **Action Definition**: `ClickAction`, `InputTextAction`, `NavigateAction` 등의 커맨드 객체 생성.
+- **Executor**: 커맨드를 받아 실제 Playwright API로 변환하여 실행.
+- **Benefits**:
+  - 실행 로그(Trace) 자동 기록.
+  - 재시도(Retry) 및 에러 핸들링 중앙화.
+  - Mock Executor를 이용한 로직 단위 테스트 용이성 확보.
+
+### 3. Event-Driven Architecture
+탐색, 수집, 분석 로직 간의 결합도를 낮추기 위해 **Event Bus** 도입.
+
+- **Publisher**: `Scraper`는 `ElementFound`, `PageLoaded`, `ActionCompleted` 등의 이벤트만 발행.
+- **Subscribers**:
+  - `DataCollector`: 이벤트 수신 시 스크린샷/메타데이터 저장.
+  - `Analyzer`: 이벤트 수신 시 패턴 분석 및 시나리오 생성.
+  - `Learner`: 사용자 행동 패턴 학습.
+- **Effect**: 각 모듈이 서로의 존재를 모른 채 독립적으로 동작 및 확장 가능.
+
+---
 
 ---
 

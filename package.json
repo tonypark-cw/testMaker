@@ -4,11 +4,11 @@
   "description": "Automated Test Analysis Tool",
   "type": "module",
   "scripts": {
-    "analyze": "tsx src/core/cli.ts",
-    "search": "tsx src/core/cli.ts",
+    "analyze": "tsx src/cli/index.ts",
+    "search": "tsx src/cli/index.ts",
     "dashboard": "tsx watch src/dashboard/server.ts",
-    "supervisor": "tsx src/core/supervisor.ts",
-    "start:supervisor": "tsx src/core/supervisor.ts",
+    "supervisor": "tsx src/cli/supervisor.ts",
+    "start:supervisor": "tsx src/cli/supervisor.ts",
     "worker": "tsx src/dashboard/worker.ts",
     "test": "playwright test",
     "test:unit": "vitest run",
@@ -18,7 +18,7 @@
     "regression:init": "tsx src/regression/cli.ts init",
     "regression:list": "tsx src/regression/cli.ts list",
     "regression": "tsx src/regression/cli.ts run",
-    "record": "tsx src/core/cli.ts record"
+    "record": "tsx src/cli/index.ts record"
   },
   "keywords": [],
   "author": "",
@@ -27,6 +27,7 @@
     "@commitlint/cli": "^20.3.1",
     "@commitlint/config-conventional": "^20.3.1",
     "@playwright/test": "^1.57.0",
+    "@types/chokidar": "^1.7.5",
     "@types/node": "^25.0.3",
     "@types/pixelmatch": "^5.2.6",
     "@types/pngjs": "^6.0.5",

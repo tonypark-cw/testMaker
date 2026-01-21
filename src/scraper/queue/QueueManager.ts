@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { ScrapeJob, ScraperConfig, RunnerCheckpoint } from '../types.js';
-import { CheckpointManager } from './CheckpointManager.js';
+import { ScrapeJob, ScraperConfig, RunnerCheckpoint } from '../../shared/types.js';
+import { CheckpointManager } from '../lib/CheckpointManager.js';
 
 export class QueueManager {
     private queue: ScrapeJob[] = [];
@@ -119,7 +119,7 @@ export class QueueManager {
             const u = new URL(url);
             // Ignore fragments, normalize trailing slashes
             u.hash = '';
-            let normalized = u.toString().replace(/\/$/, '');
+            const normalized: string = u.toString().replace(/\/$/, '');
 
             // Special case for dashboard IDs - treat /app/inventory/123 same as /app/inventory/456 for discovery purposes?
             // No, for now let's keep it simple.

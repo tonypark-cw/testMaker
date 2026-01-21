@@ -198,20 +198,12 @@ export class UISettler {
                             }, null, 2));
                         } catch { /* ignore */ }
 
-<<<<<<< Updated upstream
                         console.log(`[UISettler] Saved unique modal: ${safeName}`);
                     }
                 }
             }
         } catch { /* ignore */ }
-=======
-                            console.log(`[UISettler] Saved unique modal: ${safeName}`);
-                        }
-                    }
-                }
-            } catch { /* ignore */ }
-        }
->>>>>>> Stashed changes
+
 
         return {
             triggerText,

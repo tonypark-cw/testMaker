@@ -4,16 +4,16 @@ import * as fs from 'fs';
 import * as crypto from 'crypto';
 import sharp from 'sharp';
 import { ActionRecord, ModalDiscovery, TestableElement, GoldenPathInfo } from '../../types/index.js';
-import { ScrapeResult, ScraperConfig, ScrapeJob } from './types.js';
+import { ScrapeResult, ScraperConfig, ScrapeJob } from '../shared/types.js';
 import { RLStateManager } from './rl/RLStateManager.js';
 import { UISettler } from './lib/UISettler.js';
-import { NavExplorer } from './lib/explorers/NavExplorer.js';
-import { ContentExplorer } from './lib/explorers/ContentExplorer.js';
-import { ActionExplorer } from './lib/explorers/ActionExplorer.js';
-import { TabExplorer } from './lib/explorers/TabExplorer.js';
-import { FilterExplorer } from './lib/explorers/FilterExplorer.js';
+import { NavExplorer } from './explorers/NavExplorer.js';
+import { ContentExplorer } from './explorers/ContentExplorer.js';
+import { ActionExplorer } from './explorers/ActionExplorer.js';
+import { TabExplorer } from './explorers/TabExplorer.js';
+import { FilterExplorer } from './explorers/FilterExplorer.js';
 import { ScoringProcessor } from './lib/ScoringProcessor.js';
-import { NetworkManager } from './NetworkManager.js';
+import { NetworkManager } from '../shared/network/NetworkManager.js';
 import { StabilityAnalyzer } from './lib/StabilityAnalyzer.js';
 
 export class Scraper {
@@ -285,12 +285,8 @@ export class Scraper {
     const radioCount = await FilterExplorer.exploreRadios(page, targetUrl, this.outputDir, timestamp, pageName);
     console.log(`[Scraper] Explored ${selectCount} selects, ${checkboxCount} checkboxes, ${toggleCount} toggles, ${radioCount} radios.`);
 
-<<<<<<< Updated upstream
-=======
     // [Phase 8] Transaction Detail Discovery (Automated Row Clicking)
     await ActionExplorer.discoverTransactionDetails(page, targetUrl, this.actionChain, this.networkManager);
-
->>>>>>> Stashed changes
     // --- AUTO-SCROLL ---
     console.log('[Scraper] Scrolling to discover more content...');
     try {

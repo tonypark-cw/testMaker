@@ -4,6 +4,9 @@ import * as fs from 'fs';
 import * as crypto from 'crypto';
 import sharp from 'sharp';
 import { ActionRecord, ModalDiscovery, TestableElement } from '../../../types/index.js';
+import { CommandExecutor } from '../commands/CommandExecutor.js';
+import { ClickCommand } from '../commands/ClickCommand.js';
+import { NetworkManager } from '../../shared/network/NetworkManager.js';
 
 /**
  * UISettler
@@ -215,35 +218,27 @@ export class UISettler {
     }
 
     /**
-     * Coordinate-based clicking to bypass SPA event filtering
+     * Coordinate-based clicking to bypass SPA event filtering.
+     * Uses CommandExecutor for centralized retry logic and automatic logging.
      */
-    public static async smartClick(page: Page, handle: ElementHandle<Element> | Locator, actionChain: ActionRecord[], networkManager?: any) {
-        let txt = 'element';
-        try {
-            txt = (await handle.innerText().catch(() => '')).trim() || (await handle.getAttribute('aria-label')) || 'element';
-            actionChain.push({
-                type: 'click',
-                selector: (await handle.getAttribute('class')) || 'unknown',
-                label: txt.substring(0, 30),
-                timestamp: new Date().toISOString(),
-                url: page.url()
-            });
-        } catch { /* ignore */ }
+    public static async smartClick(
+        page: Page,
+        handle: ElementHandle<Element> | Locator,
+        actionChain: ActionRecord[],
+        networkManager?: NetworkManager
+    ): Promise<void> {
+        const executor = new CommandExecutor(
+            { page, actionChain, networkManager },
+            { maxRetries: 2, retryDelayMs: 300 }
+        );
 
-        // [NEW] Action-Network Correlation
-        if (networkManager && typeof networkManager.setCurrentAction === 'function') {
-            networkManager.setCurrentAction(`Clicked: ${txt.substring(0, 50)}`);
-        }
+        const command = new ClickCommand(handle);
 
         try {
-            const box = await handle.boundingBox();
-            if (box) {
-                await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-            } else {
-                await handle.click({ force: true }).catch(() => (handle as any).evaluate((el: HTMLElement) => el.click()));
-            }
-        } catch {
-            await handle.click({ force: true }).catch(() => { });
+            await executor.execute(command);
+        } catch (e) {
+            // Silently fail for non-critical clicks (existing behavior)
+            // Error already logged by CommandExecutor
         }
     }
 }

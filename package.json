@@ -18,7 +18,8 @@
     "regression:init": "tsx src/regression/cli.ts init",
     "regression:list": "tsx src/regression/cli.ts list",
     "regression": "tsx src/regression/cli.ts run",
-    "record": "tsx src/recorder/cli.ts"
+    "record": "tsx src/recorder/cli.ts",
+    "analyze:session": "tsx src/recorder/analyze-cli.ts"
   },
   "keywords": [],
   "author": "",

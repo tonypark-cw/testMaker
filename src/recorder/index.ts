@@ -42,7 +42,7 @@ export class Recorder {
 
         const browser = await chromium.launch({ headless: false });
         this.context = await browser.newContext({
-            viewport: { width: 1280, height: 720 }
+            viewport: { width: 1920, height: 1080 }
         });
 
         const page = await this.context.newPage();

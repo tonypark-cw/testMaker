@@ -71,6 +71,40 @@ export type ActionType =
     | 'focus'
     | 'navigate';
 
+/**
+ * Action Record for Golden Path tracking
+ * Records user journey through the application
+ */
+export interface ActionRecord {
+    /** Action type performed */
+    type: 'click' | 'nav' | 'input' | 'scroll' | 'wait';
+    /** CSS selector of target element */
+    selector: string;
+    /** Human-readable label */
+    label: string;
+    /** ISO timestamp */
+    timestamp: string;
+    /** URL where action occurred */
+    url: string;
+    /** Optional value for input actions */
+    value?: string;
+}
+
+/**
+ * Simplified element for modal content
+ * Lighter than full TestableElement for modal discoveries
+ */
+export interface ModalElement {
+    /** CSS selector */
+    selector: string;
+    /** Element tag name */
+    tag: string;
+    /** Element text or label */
+    label: string;
+    /** Element type */
+    type: ElementType | 'other';
+}
+
 /** 테스트 시나리오 (그룹화된 액션들) */
 export interface TestScenario {
     /** 시나리오 ID */
@@ -98,20 +132,22 @@ export type ScenarioCategory =
     | 'crud-operation'
     | 'general';
 
-/** Golden Path Information */
-export interface GoldenPathInfo {
-    /** Page is in stable state (no loading indicators, no errors) */
-    isStable: boolean;
-    /** Page has sufficient testable elements */
-    hasTestableElements: boolean;
-    /** Confidence score (0-1) for page being a valid test starting point */
-    confidence: number;
-    /** Reasons for the stability assessment */
-    reasons: string[];
+/** 모달 발견 정보 */
+export interface ModalDiscovery {
+    /** Text of the trigger element (button/link) */
+    triggerText: string;
+    /** Modal title or heading */
+    modalTitle: string;
+    /** Elements found inside the modal */
+    elements: ModalElement[];
+    /** Links discovered in modal */
+    links: string[];
+    /** Screenshot path if captured */
+    screenshotPath?: string;
 }
 
 /** 분석 결과 */
-export interface AnalysisResult {
+export interface SearchResult {
     success: boolean;
     url: string;
     timestamp: string;
@@ -120,7 +156,11 @@ export interface AnalysisResult {
     scenarios: TestScenario[];
     discoveredLinks: string[];
     sidebarLinks?: string[];
-    goldenPath?: GoldenPathInfo;
+    modalDiscoveries?: ModalDiscovery[];
+    /** Recorded user interactions for Golden Path */
+    actionChain?: ActionRecord[];
+    /** Functional path breadcrumb (3-Way Mapping) */
+    functionalPath?: string;
     metadata: {
         totalElements: number;
         byType: Record<string, number>;
@@ -130,10 +170,13 @@ export interface AnalysisResult {
     error?: string;
 }
 
+// Backward compatibility alias
+export type AnalysisResult = SearchResult;
+
 /** 생성 옵션 */
 export interface GeneratorOptions {
     outputDir: string;
-    formats: ('markdown' | 'playwright' | 'both')[];
+    formats: string[];
     baseUrl?: string;
     includeScreenshots?: boolean;
 }
@@ -150,3 +193,15 @@ export const SCENARIO_HINTS: Record<ScenarioCategory, string[]> = {
     'crud-operation': ['create', 'edit', 'delete', 'update', 'add', 'remove'],
     'general': [],
 };
+
+/**
+ * Golden Path analysis result
+ * Evaluates page stability and testability
+ */
+export interface GoldenPathInfo {
+    isStable: boolean;            // Overall stability assessment
+    hasTestableElements: boolean; // Minimum testable elements present
+    confidence: number;           // 0.0 to 1.0 confidence score
+    reasons: string[];            // Human-readable analysis reasons
+}
+

@@ -17,6 +17,7 @@
 - [Dashboard](#dashboard)
 - [Supervisor](#supervisor)
 - [Self-Healing](#self-healing)
+- [Regression Testing](#regression-testing)
 - [환경 변수](#환경-변수)
 - [프로젝트 구조](#프로젝트-구조)
 
@@ -72,12 +73,14 @@ TestMaker는 웹 페이지를 자동으로 크롤링하여:
 
 | 기능 | 설명 |
 |------|------|
-| **Dashboard** | 웹 기반 결과 조회 및 분석 실행 UI |
-| **Supervisor** | 테스트 프로세스 감독 및 자동 재시작 |
-| **Self-Healing** | 테스트 실패 시 컨텍스트 캡처 및 자동 복구 지원 |
-| **Modal Discovery** | 모달 다이얼로그 내부 요소 자동 탐색 |
-| **Row-Click Discovery** | 테이블 행 클릭으로 상세 페이지 탐색 |
-| **Menu Expansion** | 사이드바/네비게이션 메뉴 자동 확장 |
+| **Dashboard** | 웹 기반 분석 결과 시각화 및 실행 인터페이스 |
+| **RL Scoring** | AI 기반 페이지 신뢰도 및 탐색 안정성 점수 검증 (Reliability Scorer) |
+| **Header Injection** | API 역공학을 통한 세션 안정화 헤더 강제 주입 |
+| **Modal Discovery** | 모달/다이얼로그 내부 요소 자동 탐지 및 컨텍스트 스캔 |
+| **Row-Click Discovery** | 데이터 테이블 행 클릭을 통한 상세 페이지 BFS 탐색 |
+| **Menu Expansion** | 사이드바 및 네비게이션 메뉴의 재귀적 확장 탐색 |
+| **Tab & Filter Discovery** | 탭, 셀렉트 박스, 체크박스 등 동적 UI 요소 자동 탐색 및 캡처 |
+| **Auth Capture** | 헤드레스 브라우저 인증 환경을 극복하기 위한 세션 캡처 모듈 |
 
 ---
 
@@ -157,8 +160,8 @@ graph TB
 
     subgraph Support["Support Systems"]
         E[Dashboard Server]
-        F[Supervisor]
-        G[Healer]
+        F[RL Scorer]
+        G[Auth Capture Tool]
     end
 
     subgraph Output["Output Artifacts"]
@@ -230,10 +233,10 @@ npm run analyze -- --url https://example.com --force
 | `--limit <n>` | 최대 페이지 수 | `50` |
 | `--format <type>` | 출력 형식 (markdown/playwright/both) | `both` |
 | `--screenshots` | 스크린샷 포함 | `true` |
-| `--auth-file <path>` | 인증 상태 파일 | `TESTMAKER_AUTH_FILE` |
-| `--username <user>` | 로그인 사용자명 | `emailname` 환경변수 |
-| `--password <pass>` | 로그인 비밀번호 | `password` 환경변수 |
-| `--recursive` | 재귀 모드 활성화 | `false` |
+| `--auth-file <path>` | 인증 상태 파일 | `output/auth.json` |
+| `--username <user>` | 로그인 사용자명 | `EMAIL` (env) |
+| `--password <pass>` | 로그인 비밀번호 | `PASSWORD` (env) |
+| `--concurrency <n>` | 병합 탭 수 | `1` |
 | `--force` | 캐시 무시 | `false` |
 | `--headless/--no-headless` | 헤드리스 모드 | `true` |
 
@@ -270,8 +273,12 @@ output/
 │   └── {domain}/
 │       └── {path}.webp
 │
-├── temp-auth.json                 # 인증 상태 캐시
-└── supervisor.log                 # Supervisor 로그
+├── json/                          # 분석 결과 JSON (Domain/Hash 기반)
+├── markdown/                      # 테스트 케이스 문서 (Markdown)
+├── playwright/                    # Playwright 실행 코드 (.spec.ts)
+├── screenshots/                   # 페이지별 WebP 스크린샷
+├── temp-auth.json                 # 인증 세션 캐시
+└── runner.log                     # 실행 로그
 ```
 
 ### JSON 출력 예시
@@ -401,12 +408,17 @@ test.afterEach(async ({ page }, testInfo) => {
 
 ```bash
 # 분석 대상
-TESTMAKER_URL=https://example.com
-TESTMAKER_AUTH_FILE=./auth-state.json
+TESTMAKER_URL=https://stage.ianai.co
 
-# 로그인 정보
-emailname=user@example.com
-password=your-password
+# 로그인 정보 (EMAIL, PASSWORD 권장)
+EMAIL=your-email@example.com
+PASSWORD=your-password
+
+# 임시 세션 유지 Workaround (Backend 이슈 해결 시 false 설정)
+INJECT_CUSTOM_HEADERS=true
+CUSTOM_COMPANY_ID=0199daf1-af4d-7b42-8265-6c18b3724036
+BLOCK_REFRESH_TOKEN=false
+CLEAR_LOGIN_FIELDS=false
 
 # Dashboard 인증
 DASHBOARD_USER=admin
@@ -420,44 +432,54 @@ DASHBOARD_PASS=secure-password
 ```
 testMaker/
 ├── src/
-│   ├── core/
-│   │   ├── cli.ts           # CLI 진입점
-│   │   ├── scraper.ts       # 페이지 스크래핑 (948 LOC)
-│   │   ├── supervisor.ts    # 프로세스 감독
-│   │   └── healer.ts        # Self-healing 컨텍스트 캡처
+│   ├── cli/                 # CLI 진입점 및 환경 설정
+│   │   ├── index.ts         # 메인 CLI
+│   │   └── supervisor.ts    # 프로세스 감시
 │   │
-│   ├── dashboard/
-│   │   ├── server.ts        # HTTP 서버
-│   │   └── scripts/         # 프론트엔드 스크립트
+│   ├── scraper/             # 핵심 분석 엔진
+│   │   ├── index.ts         # Scraper 메인 클래스
+│   │   ├── runner.ts        # 멀티탭 워커 및 제어
+│   │   ├── explorers/       # 탐색 전략 (Nav, Action, etc)
+│   │   ├── queue/           # 작업 큐 관리
+│   │   ├── rl/              # 신뢰도 점수 (RL)
+│   │   ├── services/        # 분석/변환/생성 서비스
+│   │   └── lib/             # 스크래퍼 유틸 (UISettler 등)
 │   │
-│   ├── tools/
-│   │   └── generate_auth.ts # 인증 상태 생성 도구
+│   ├── dashboard/           # 결과 조회 웹 UI
+│   │   ├── server.ts        # Express 기반 API 서버
+│   │   ├── index.html       # 대시보드 메인 뷰
+│   │   └── worker.ts        # 백그라운드 작업 관리
 │   │
-│   └── utils.ts             # 유틸리티 함수
+│   ├── recorder/            # 사용자 행동 녹화
+│   │   ├── index.ts         # 레코더 메인
+│   │   └── tracker/         # 이벤트 트래커
+│   │
+│   ├── regression/          # 회귀 테스트 시스템
+│   │   ├── cli.ts           # 회귀 CLI
+│   │   └── ...              # 비교/분석 로직
+│   │
+│   ├── shared/              # 공용 모듈
+│   │   ├── auth/            # 인증 관리 (AuthManager)
+│   │   ├── network/         # 네트워크 관리
+│   │   ├── utils.ts         # 유틸리티 함수
+│   │   └── types.ts         # 공용 타입
+│   │
+│   └── tools/               # 기타 도구
+│       ├── captureAuth.ts
+│       └── generate_auth.ts
 │
-├── scripts/
-│   ├── analyzer.ts          # 요소 분석 및 그룹화
-│   ├── generator.ts         # TC/Playwright 코드 생성
-│   └── heal.ts              # 비정상 종료 시 복구 로직
+├── scripts/                 # 기동 및 코드 생성 스크립트 (Root)
+│   ├── analyzer.ts          # 요소 그룹화 및 시나리오 추출
+│   ├── generator.ts         # 최종 Artifact (MD, Playwright) 생성
+│   └── heal.ts              # 에러 분석 및 복구 도구
 │
-├── types/
-│   └── index.ts             # TypeScript 타입 정의
-│
-├── templates/               # Handlebars 템플릿
-│
-├── tests/                   # 생성된 Playwright 테스트
-│   └── golden_paths/        # Golden Path 테스트
-│
-├── output/                  # 분석 결과
-│   ├── json/
-│   ├── markdown/
-│   ├── playwright/
-│   └── screenshots/
-│
-├── docs/
+├── docs/                    # 프로젝트 문서 및 진행 로그
 │   ├── progress_log.md      # 개발 진행 이력
-│   └── PROJECT_BRIEFING.md  # 프로젝트 브리핑
-│
+│   └── PROJECT_BRIEFING.md  # 아키텍처 및 상세 명세
+├── types/                   # 공통 인터페이스 정의
+├── templates/               # 코드 생성용 Handlebars 템플릿
+├── output/                  # 모든 분석 결과물 저장소
+├── tests/                   # 생성된 테스트 코드 및 수동 테스트 세트
 ├── package.json
 ├── playwright.config.ts
 └── tsconfig.json
@@ -521,16 +543,78 @@ interface TestScenario {
 - [x] Dashboard 웹 UI
 - [x] Supervisor 프로세스 관리
 - [x] Self-Healing 컨텍스트 캡처
+- [x] SPA 라우트 인터셉션
+- [x] 네비게이션 버튼 클릭 탐색
+- [x] 탭/아코디언 및 필터(Select/Checkbox) 요소 탐색
+- [x] iframe 콘텐츠 탐색
+- [x] 프레임워크별 Link 감지
 
 ### 추후 개발 예정
 
-- [x] SPA 라우트 인터셉션 (Phase 6) ✅
-- [x] 네비게이션 버튼 클릭 탐색 (Phase 7) ✅
-- [x] 탭/아코디언 콘텐츠 탐색 (Phase 8) ✅
-- [x] iframe 콘텐츠 탐색 (Phase 9) ✅
-- [x] 프레임워크별 Link 감지 (Phase 10) ✅
 - [ ] BDD (Gherkin) 지원
 - [ ] AI 기반 예상 결과 추론
+
+---
+
+## Regression Testing
+
+UI 변경 사항을 자동으로 감지하고 검증하는 회귀 테스트 시스템입니다.
+
+### 주요 기능
+
+| 단계 | 기능 | 설명 |
+|------|------|------|
+| **Phase 1** | Visual Regression | `pixelmatch` 기반 픽셀 단위 비교 |
+| **Phase 2** | Content Verification | 테이블, 버튼, 입력 필드 구조 검증 |
+| **Phase 3** | Anomaly Detection | 중요 요소 변경 자동 감지 |
+
+### 사용법
+
+```bash
+# 베이스라인 생성 (최초 1회)
+npm run regression:baseline -- --url https://example.com
+
+# 회귀 테스트 실행 (전체)
+npm run regression:test -- --url https://example.com
+
+# Visual만 테스트
+npm run regression:test -- --url https://example.com --visual-only
+
+# Content만 테스트
+npm run regression:test -- --url https://example.com --content-only
+```
+
+### Anomaly Detection
+
+중요 요소의 변경을 자동 감지하여 심각도를 판단합니다:
+
+| 유형 | 심각도 | 점수 |
+|------|--------|------|
+| 중요 버튼 삭제 (Submit, Save 등) | CRITICAL | +30 |
+| 필수 입력 필드 삭제 | CRITICAL | +25 |
+| 테이블 삭제 | WARNING | +15 |
+| 컬럼 삭제 | WARNING | +10 |
+
+```
+점수 70+ → CRITICAL: 배포 금지
+점수 40-69 → WARNING: 검토 필요
+점수 0-39 → INFO: 정상
+```
+
+### 출력 구조
+
+```
+output/
+├── regressions/
+│   ├── baselines/           # 베이스라인 스크린샷
+│   │   └── {domain}/
+│   │       ├── index.json   # 베이스라인 인덱스
+│   │       └── *.webp       # 스크린샷
+│   ├── diffs/               # 차이 이미지
+│   │   └── *.png
+│   └── content/             # 콘텐츠 추출 데이터
+│       └── *.json
+```
 
 ---
 

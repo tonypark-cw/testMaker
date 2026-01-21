@@ -1,0 +1,4 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+node node_modules/@commitlint/cli/index.cjs --edit "$1"

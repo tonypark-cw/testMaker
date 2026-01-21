@@ -1,0 +1,58 @@
+{
+  "id": "019b96bf-edf8-7eb4-b398-df6d5a409dcb",
+  "active": true,
+  "txn_datetime": "2026-01-07T04:38:34Z",
+  "paid_amount": 15800,
+  "currency": "USD",
+  "exchange_rate": 1,
+  "internal_notes": "",
+  "ref_number": null,
+  "custom_fields": null,
+  "linked_transaction": null,
+  "customer": {
+    "id": "019b8b98-96e0-7322-95cc-8bb9299abdb2",
+    "name": "테스트 커스터머"
+  },
+  "project_code": null,
+  "payment_method": null,
+  "deposit_account": {
+    "id": "019b2445-5594-7c45-a306-f9669ba3f1af",
+    "name": "Checking"
+  },
+  "line_items": [
+    {
+      "id": "019b96bf-ee02-7d48-96bd-c4cb11c42ef6",
+      "line_number": 1,
+      "amount": 15800,
+      "description": null,
+      "is_adjustment": null,
+      "linked_transaction": [
+        {
+          "entity_name": "shipment",
+          "entity_key": "019b96bf-c5ce-72df-bf24-d081f93b2cdf"
+        }
+      ],
+      "invoice": {
+        "id": "019b96bf-c54d-7766-9cc1-8bd0220644e4",
+        "name": "INV-0123"
+      },
+      "credit_memo": null,
+      "bill": null,
+      "pre_payment": null,
+      "adjustment_account": null,
+      "class_ref": null,
+      "open_balance": 15800,
+      "txn_datetime": "2026-01-07T04:38:24Z",
+      "due_date": null,
+      "total_amount": 15800,
+      "tax_amount": 0,
+      "net_amount": 15800
+    }
+  ],
+  "vendor": null,
+  "payment_account": null,
+  "department": null,
+  "applied_amount": null,
+  "unapplied_amount": 0,
+  "triggerAction": "manual_navigation"
+}

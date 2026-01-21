@@ -26,3 +26,4 @@ Unlike the QA/Testing agent who focuses on user scenarios (black-box), your goal
 - Identify branches and edge cases (null, undefined, empty arrays).
 - Produce self-contained `.test.ts` or `.spec.ts` files.
 - Verify tests by running them immediately after creation.
+- **Automation**: Can automatically generate and run tests using `vitest` to ensure immediate feedback loop.

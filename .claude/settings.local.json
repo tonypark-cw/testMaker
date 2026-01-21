@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run build:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run search:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push)",
+      "Bash(npm test:*)",
+      "Bash(npm run test:unit:*)",
+      "Bash(git push:*)",
+      "Bash(kill:*)",
+      "Bash(npm run regression:*)",
+      "Bash(npm run regression:init:*)",
+      "Bash(ls:*)",
+      "Bash(npx commitlint:*)",
+      "Bash(git check-ignore:*)",
+      "Bash(find:*)",
+      "Bash(du:*)",
+      "Bash(echo \"✓ utils.ts 삭제됨\" ls output/stage/screenshots/trace-*.zip)",
+      "Bash(npm run lint:*)",
+      "Bash(npm install:*)",
+      "Bash(echo:*)"
+    ]
+  }
+}

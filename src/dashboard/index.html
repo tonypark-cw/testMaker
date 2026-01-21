@@ -1,144 +1,162 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TestMaker Live Dashboard</title>
-    <link rel="stylesheet" href="./styles/main.css">
-    <link rel="stylesheet" href="./styles/header.css">
-    <link rel="stylesheet" href="./styles/gallery.css">
-    <link rel="stylesheet" href="./styles/modal.css">
-    <link rel="stylesheet" href="./styles/home_status.css">
+    <link rel="stylesheet" href="/assets/dashboard.css">
 </head>
+
 <body>
 
     <header>
-        <!-- Row 1: Title & Stats -->
-        <div class="header-top">
-            <div class="header-left">
-                <div style="display:flex; align-items:center; gap:15px;">
-                    <h1 style="margin:0;">TestMaker Live <span style="font-size:14px; color:#4da6ff; vertical-align:middle;">●</span></h1>
-                    <a href="/about.html" class="status-link-btn" id="supervisor-link">
-                        <span id="supervisor-status" class="status-badge" title="Click for System Status & Architecture">IDLE</span>
-                    </a>
-                </div>
-            </div>
-            
-            <div class="header-right">
-                 <a href="#" id="trace-link" class="trace-btn" target="_blank">Download Trace</a>
-                 <div class="stats">
-                    <div class="card">
-                        <span class="value" id="gp-count">0</span>
-                        <span class="label">Verified Golden Path</span>
-                    </div>
-                    <div class="stat-card" style="position: relative; overflow: visible;">
-                        <span class="stat-value" id="exp-count">0</span>
-                        <span class="label">Exploration Captures</span>
-                        <div id="stats-tooltip" style="display: none;">Loading...</div>
+        <div style="display:flex; flex-direction: column; gap: 10px;">
+            <div style="display:flex; align-items:center; gap:10px; justify-content: space-between;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <h1>TestMaker Live <span style="font-size:14px; color:#4da6ff; vertical-align:middle;">●</span></h1>
+                    <div id="supervisor-badge" class="status-badge"
+                        style="display:none; font-size: 11px; padding: 2px 8px; border-radius: 12px; background: #334155; color: #94a3b8; border: 1px solid #475569;">
+                        🛡️ Watchtower: <span id="supervisor-status">Unknown</span>
                     </div>
                 </div>
-            </div>
-        </div>
 
-        <!-- Row 2: Controls (Address, Runner, Tabs) -->
-        <div class="header-controls">
+                <!-- Environment Selector -->
+                <div class="filter-group" style="margin:0;">
+                    <button class="filter-btn active" id="env-stage" onclick="switchEnvironment('stage')"
+                        style="font-size: 13px;">
+                        🟦 Stage
+                    </button>
+                    <button class="filter-btn" id="env-dev" onclick="switchEnvironment('dev')" style="font-size: 13px;">
+                        🟩 Dev
+                    </button>
+                </div>
+            </div>
+
             <!-- Runner Box -->
             <div class="runner-box">
-                <input type="text" id="target-url" class="runner-input" placeholder="Enter target URL to analyze..." value="https://stage.ianai.co/">
-                <button id="btn-start" class="runner-btn btn-start">Start Analysis</button>
-                <button id="btn-stop" class="runner-btn btn-stop">Stop</button>
+                <input type="text" id="target-url" class="runner-input" placeholder="Enter target URL to search..."
+                    value="https://stage.ianai.co/">
+                <button id="btn-start" class="runner-btn btn-start" onclick="startSearch()">Start Search</button>
+                <button id="btn-stop" class="runner-btn btn-stop" onclick="stopSearch()">Stop</button>
+                <button id="btn-research-fail" class="runner-btn" onclick="researchFailures()"
+                    style="display:none; background: #d35400; font-size: 13px;">Re-search FAIL (<span
+                        id="fail-count-btn">0</span>)</button>
                 <span id="runner-status" class="runner-status">Idle</span>
-            </div>
-
-            <!-- Main Tabs -->
-            <div class="main-tabs">
-                <button class="tab-btn active" onclick="window.setTab('GOLDEN')">⭐ GOLDEN PATH</button>
-                <button class="tab-btn" onclick="window.setTab('EXPLORATION')">🔍 EXPLORATION</button>
+                <span id="queue-status" class="runner-status" style="display:none; background: #2980b9;">Queue: 0</span>
             </div>
         </div>
 
-        <!-- Row 3: Filters & Date -->
-        <div class="filters">
-            <span class="filter-group-label">Type:</span>
-            <button class="filter-btn active" onclick="setFilter('ALL')">ALL <span class="count-badge"></span></button>
-            <button class="filter-btn" onclick="setFilter('MODAL')">Modal <span class="count-badge"></span></button>
-            <button class="filter-btn" onclick="setFilter('PAGE')">Page <span class="count-badge"></span></button>
-            <button class="filter-btn" onclick="setFilter('DETAIL')">Detail <span class="count-badge"></span></button>
-            
-            <span class="filter-group-separator">|</span>
-            
-            <span class="filter-group-label">Depth:</span>
-            <button class="filter-btn active" onclick="setFilter('DEPTH_ALL')">ALL <span class="count-badge"></span></button>
-            <button class="filter-btn" onclick="setFilter('LEVEL 1')">Level 1 <span class="count-badge"></span></button>
-            <button class="filter-btn" onclick="setFilter('LEVEL 2')">Level 2 <span class="count-badge"></span></button>
-            <button class="filter-btn" onclick="setFilter('LEVEL 3+')">Level 3+ <span class="count-badge"></span></button>
-
-            <div id="qa-filters" style="display:inline">
-                <span class="filter-group-separator">|</span>
-                <span class="filter-group-label">QA:</span>
-                <button class="filter-btn active" onclick="setFilter('QA_ALL')">ALL <span class="count-badge"></span></button>
-                <button class="filter-btn btn-filter-pass" onclick="setFilter('PASS')">PASS <span class="count-badge"></span></button>
-                <button class="filter-btn btn-filter-fail" onclick="setFilter('FAIL')">FAIL <span class="count-badge"></span></button>
-                <button class="filter-btn btn-filter-untagged" onclick="setFilter('UNTAGGED')">UNTAGGED <span class="count-badge"></span></button>
+        <div style="display:flex; align-items:center; gap:20px;">
+            <a href="#" id="trace-link" class="trace-btn" target="_blank">Download Trace</a>
+            <div class="stats">
+                <div class="card">
+                    <span class="value" id="count">0</span>
+                    <span class="label">Searched Pages</span>
+                </div>
+                <div class="card">
+                    <span class="value" id="shot-count">0</span>
+                    <span class="label">Screenshots</span>
+                </div>
             </div>
-            
-            <!-- Date Filter (Right Aligned) -->
-            <span id="date-filter-group" style="margin-left: auto;">
-                <select id="date-filter" class="filter-select">
-                    <option value="" disabled selected>Select Date...</option>
-                </select>
-            </span>
+        </div>
+
+        <!-- Multi-Select Toolbar -->
+        <div id="multi-select-toolbar" style="display: flex; align-items: center; gap: 10px; margin-top: 15px; padding-top: 15px; border-top: 1px solid #334155;">
+            <button id="btn-toggle-select" class="runner-btn" onclick="toggleSelectionMode()" style="background: #6366f1; font-size: 13px;">
+                📋 Selection Mode
+            </button>
+            <div id="selection-actions" style="display: none; align-items: center; gap: 10px;">
+                <span id="selected-count" style="color: #94a3b8; font-size: 13px;">0 selected</span>
+                <button class="runner-btn" onclick="applyDeleteToSelected()" style="background: #dc2626; font-size: 13px;">
+                    🗑️ DELETE Selected
+                </button>
+                <button class="runner-btn" onclick="clearSelection()" style="background: #64748b; font-size: 13px;">
+                    Clear
+                </button>
+            </div>
         </div>
     </header>
 
+    <div class="filter-bar">
+        <div class="filter-group" id="type-filters">
+            <button class="filter-btn active" onclick="setFilter('ALL')">ALL <span id="count-all"
+                    class="filter-count">0</span></button>
+            <button class="filter-btn" onclick="setFilter('PAGE')">PAGE <span id="count-page"
+                    class="filter-count">0</span></button>
+            <button class="filter-btn" onclick="setFilter('MODAL')">MODAL <span id="count-modal"
+                    class="filter-count">0</span></button>
+            <button class="filter-btn" onclick="setFilter('DETAIL')">DETAIL <span id="count-detail"
+                    class="filter-count">0</span></button>
+            <button class="filter-btn" onclick="setFilter('DUP')">DUP <span id="count-duplicate"
+                    class="filter-count">0</span></button>
+        </div>
 
-    <div class="gallery" id="gallery">
-        <!-- Skeleton Loading State -->
-        <div class="skeleton-card"><div class="skeleton-img skeleton-shimmer"></div><div class="skeleton-text skeleton-shimmer"></div></div>
-        <div class="skeleton-card"><div class="skeleton-img skeleton-shimmer"></div><div class="skeleton-text skeleton-shimmer"></div></div>
-        <div class="skeleton-card"><div class="skeleton-img skeleton-shimmer"></div><div class="skeleton-text skeleton-shimmer"></div></div>
-        <div class="skeleton-card"><div class="skeleton-img skeleton-shimmer"></div><div class="skeleton-text skeleton-shimmer"></div></div>
-        <div class="skeleton-card"><div class="skeleton-img skeleton-shimmer"></div><div class="skeleton-text skeleton-shimmer"></div></div>
-        <div class="skeleton-card"><div class="skeleton-img skeleton-shimmer"></div><div class="skeleton-text skeleton-shimmer"></div></div>
-        <div class="skeleton-card"><div class="skeleton-img skeleton-shimmer"></div><div class="skeleton-text skeleton-shimmer"></div></div>
-        <div class="skeleton-card"><div class="skeleton-img skeleton-shimmer"></div><div class="skeleton-text skeleton-shimmer"></div></div>
-        <div class="skeleton-card"><div class="skeleton-img skeleton-shimmer"></div><div class="skeleton-text skeleton-shimmer"></div></div>
-        <div class="skeleton-card"><div class="skeleton-img skeleton-shimmer"></div><div class="skeleton-text skeleton-shimmer"></div></div>
+        <!-- Date Filter Section -->
+        <div class="filter-group" id="date-filters" style="margin-left: 10px;">
+            <label style="font-size: 11px; color: #94a3b8; margin-right: 8px; font-weight: 500;">Date:</label>
+            <select id="date-select" onchange="setDateFilter(this.value)" style="padding: 6px 10px; border-radius: 4px; border: 1px solid #475569; background: #1e293b; color: #e2e8f0; font-size: 12px; cursor: pointer;">
+                <option value="ALL">All Dates</option>
+            </select>
+        </div>
+
+        <div class="filter-group" id="status-filters">
+            <button class="filter-btn status-pass" onclick="setStatusFilter('PASS')">PASS <span id="count-pass"
+                    class="filter-count">0</span></button>
+            <button class="filter-btn status-fail" onclick="setStatusFilter('FAIL')">FAIL <span id="count-fail"
+                    class="filter-count">0</span></button>
+            <button class="filter-btn status-block" onclick="setStatusFilter('BLOCK')">BLOCK <span id="count-block"
+                    class="filter-count">0</span></button>
+            <button class="filter-btn status-delete" onclick="setStatusFilter('DELETE')" style="border-color: #dc2626; color: #dc2626;">DELETE <span id="count-delete"
+                    class="filter-count">0</span></button>
+            <button class="filter-btn status-untagged" onclick="setStatusFilter('UNTAGGED')">? <span id="count-untagged"
+                    class="filter-count">0</span></button>
+        </div>
     </div>
+
+    <div class="gallery" id="gallery"></div>
     <div class="loading" id="loading">Loading more...</div>
     <div id="sentinel" style="height: 20px; margin-top: 20px;"></div>
 
     <!-- Lightbox Modal -->
     <div class="modal" id="modal">
+        <div class="modal-title" id="modal-title"></div>
         <div class="close-container">
-            <button class="back-btn">Back to Gallery</button>
-            <button class="close-icon">&times;</button>
+            <button class="back-btn" onclick="closeModal()">Back to Gallery</button>
+            <button class="close-icon" onclick="closeModal()">&times;</button>
         </div>
-        
-        <button class="modal-nav prev-btn">&#10094;</button>
-        <button class="modal-nav next-btn">&#10095;</button>
-        
+
+        <button class="modal-nav prev-btn" onclick="prevImage()">&#10094;</button>
+        <button class="modal-nav next-btn" onclick="nextImage()">&#10095;</button>
+
         <img src="" alt="" class="modal-img" id="modal-img">
-        
-        <div class="qa-toolbar">
-            <button class="qa-btn btn-pass">PASS</button>
-            <button class="qa-btn btn-fail">FAIL</button>
 
+        <div class="qa-toolbar">
+            <button class="qa-btn btn-pass" onclick="setTag('PASS')">PASS</button>
+            <button class="qa-btn btn-fail" onclick="setTag('FAIL')">FAIL</button>
+            <button class="qa-btn btn-block" onclick="setTag('BLOCK')">BLOCK</button>
+            <button class="qa-btn btn-delete" onclick="setTag('DELETE')" style="background: #dc2626;">DELETE</button>
         </div>
 
-        <div class="modal-caption" id="modal-caption"></div>
+        <div id="fail-reason-container" style="display:none; width: 80%; margin-top: 10px;">
+            <textarea id="fail-reason" placeholder="Why did this fail? (e.g. Missing element, layout issue...)"
+                style="width: 100%; height: 60px; background: #1e293b; color: white; border: 1px solid #475569; padding: 8px; border-radius: 4px; font-family: sans-serif; resize: vertical; margin-bottom: 5px;"></textarea>
+            <div style="display: flex; justify-content: flex-end; align-items: center; gap: 10px;">
+                <span id="reason-status" style="color: #94a3b8; font-size: 11px;"></span>
+                <button onclick="saveReason()"
+                    style="background: #3b82f6; border: none; color: white; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">Save</button>
+            </div>
+        </div>
+
+        <div class="modal-history-container" style="width: 80%; margin-top: 20px;">
+            <div style="font-size: 13px; font-weight: 600; color: #94a3b8; margin-bottom: 8px;">CAPTURE HISTORY</div>
+            <div id="modal-history" class="history-list"></div>
+        </div>
         <div class="modal-hint">Use ← → arrow keys to navigate</div>
     </div>
 
-    <!-- About Modal Removed (Migrated to /about.html) -->
+    <script type="module" src="/assets/js/main.js"></script>
 
-    <!-- Mermaid CDN -->
-    <script type="module">
-        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-        mermaid.initialize({ startOnLoad: true, theme: 'dark' });
-    </script>
-
-    <!-- Main Module -->
-    <script type="module" src="./scripts/main.js"></script>
 </body>
+
 </html>

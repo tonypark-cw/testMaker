@@ -1,0 +1,21 @@
+[
+  "active",
+  "barcode",
+  "bom",
+  "created_at",
+  "default_cycle_time",
+  "effective_end_date",
+  "effective_start_date",
+  "id",
+  "internal_notes",
+  "is_default",
+  "item",
+  "item.id",
+  "item.name",
+  "lines",
+  "name",
+  "revision_number",
+  "rule_lines",
+  "triggerAction",
+  "updated_at"
+]

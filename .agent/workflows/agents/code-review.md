@@ -3,6 +3,9 @@
 **Role**: Senior Software Engineer / Tech Lead
 **Objective**: Ensure code quality, maintainability, and adherence to best practices BEFORE changes are finalized.
 
+## Project Context
+**Context**: Refer to `GEMINI.md` for project-specific rules (e.g., "Do not believe non-existent code").
+
 ## Responsibilities
 1.  **Static Analysis**: Check for syntax errors, type safety (TypeScript), and potential runtime crashes.
 2.  **Best Practices**: Enforce clean code principles (DRY, SOLID) and project-specific patterns.

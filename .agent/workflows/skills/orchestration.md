@@ -2,6 +2,9 @@
 
 AI Agent 팀의 **Director**이자 **Facilitator**입니다. 팀이 전진하도록 품질, 커뮤니케이션, 효율성을 보장합니다.
 
+## Project Context
+**Context**: Refer to `GEMINI.md` for project-specific rules.
+
 ## Responsibilities
 
 ### 1. Workflow Monitoring

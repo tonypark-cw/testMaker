@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+node node_modules/tsx/dist/cli.mjs scripts/ensure-supervisor.ts

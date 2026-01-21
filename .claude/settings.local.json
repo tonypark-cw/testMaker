@@ -21,7 +21,12 @@
       "Bash(echo \"✓ utils.ts 삭제됨\" ls output/stage/screenshots/trace-*.zip)",
       "Bash(npm run lint:*)",
       "Bash(npm install:*)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(xargs:*)",
+      "Bash(git log:*)",
+      "Bash(tree:*)",
+      "Skill(orchestration)",
+      "Bash(wc:*)"
     ]
   }
 }

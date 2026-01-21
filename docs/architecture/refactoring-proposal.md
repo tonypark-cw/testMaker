@@ -29,7 +29,7 @@
 
 **강점**:
 - Explorer 패턴의 독립성 (NavExplorer, ContentExplorer, ActionExplorer)
-- 서비스 계층 분리 (TransformerService, GeneratorService, AnalyzerService)
+- 서비스 계층 분리 (TransformerService, GeneratorService)
 - Singleton 패턴 (SessionManager, RLStateManager)
 - 모듈별 폴더 분리 완료 (`src/cli/`, `src/scraper/`, `src/shared/`)
 

@@ -150,7 +150,7 @@ export class Recorder {
         });
     }
 
-    private async saveSession() {
+    public saveSession() {
         if (!this.currentSession) return;
 
         this.currentSession.events = this.actionQueue;

@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import { ScraperConfig } from '../types.js';
 import { NetworkManager } from '../network/NetworkManager.js';
 import { RecoveryManager } from '../network/RecoveryManager.js';
+import { SessionManager } from './SessionManager.js';
 
 /**
  * AuthManager
@@ -21,22 +22,39 @@ export class AuthManager {
      * Performs login on the target page.
      */
     public async performLogin(page: Page, context: BrowserContext): Promise<boolean> {
-        // 1. Setup Network Listeners for Error Detection
-        this.setupListeners(page);
+        const sessionManager = SessionManager.getInstance();
 
-        console.log('[AuthManager] Navigating to target for login...');
-        await page.goto(this.config.url, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(e => {
-            console.error(`[AuthManager] Navigation failed: ${e.message}`);
-            if (e.message.includes('ERR_CONNECTION_REFUSED')) {
-                console.warn('[AuthManager] ⚠️ Server reachable check failed (Connection Refused). Proceeding anyway.');
-            }
-            throw e;
-        });
-
-        // [OPTIMIZATION] Replaced fixed 2s wait with dynamic element wait
-        // await page.waitForTimeout(2000); // REMOVED
+        // [PHASE 4] Global Auth Mutex: Ensure only one process logs in at a time
+        const release = await sessionManager.acquireLock().catch(() => null);
 
         try {
+            // Check again after acquiring lock (another process might have logged in while we waited)
+            const tokens = sessionManager.getTokens();
+
+            if (sessionManager.hasValidSession()) {
+                console.log('[AuthManager] ✓ Valid session found after lock acquisition. Restoring browser state...');
+
+                // Session is already restored via Runner.ts context creation
+                console.log('[AuthManager] ✓ Session detected. Skipping login flow.');
+
+                if (process.env.INJECT_CUSTOM_HEADERS === 'true') {
+                    await this.injectCompanyId(context);
+                }
+                return true;
+            }
+
+            console.log('[AuthManager] Navigating to target for login...');
+            await page.goto(this.config.url, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(e => {
+                console.error(`[AuthManager] Initial navigation failed: ${e.message}`);
+                if (e.message.includes('ERR_CONNECTION_REFUSED')) {
+                    console.warn('[AuthManager] ⚠️ Server reachable check failed (Connection Refused).');
+                }
+                throw e;
+            });
+
+            // 1. Setup Network Listeners for Error Detection (After initial load to avoid interruption)
+            this.setupListeners(page);
+
             const emailLocator = page.locator('input[type="email"], input[name="email"], input[placeholder*="email" i], input[type="text"]').first();
             const passwordLocator = page.locator('input[type="password"], input[name="password"], input[placeholder*="password" i]').first();
 
@@ -65,6 +83,18 @@ export class AuthManager {
                         await submitBtn.click();
                         await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => { });
 
+                        // [CRITICAL] Wait for SPA to process login and set tokens
+                        console.log('[AuthManager] Waiting for post-login token generation...');
+                        await page.waitForTimeout(5000);
+
+                        // 1. First capture tokens (poll until available)
+                        const tokensCaptured = await this.captureTokens(page);
+
+                        // 2. Then capture full session state (includes cookies & now populated localStorage)
+                        const cookieCaptured = await this.captureSessionState(context);
+
+                        console.log(`[AuthManager] Session capture result: tokens=${tokensCaptured}, cookies=${cookieCaptured}`);
+
                         if (process.env.CLEAR_LOGIN_FIELDS === 'true') {
                             await emailLocator.fill('').catch(() => { });
                             await passwordLocator.fill('').catch(() => { });
@@ -72,7 +102,8 @@ export class AuthManager {
                         }
 
                         await page.waitForTimeout(1000);
-                        return await this.verifyLogin(page, context, passwordLocator);
+                        const verified = await this.verifyLogin(page, context, passwordLocator);
+                        return verified;
                     } else {
                         console.log('[AuthManager] Submit button not found.');
                         return false;
@@ -103,6 +134,8 @@ export class AuthManager {
         } catch (e) {
             console.log(`[AuthManager] Login error: ${(e as Error).message}`);
             return false;
+        } finally {
+            if (release) await release();
         }
     }
 
@@ -199,5 +232,124 @@ export class AuthManager {
             console.log(`[AuthManager] Session saved to ${tempAuthFile}`);
             return true;
         }
+    }
+
+    /**
+     * Restore session state to browser (both cookies and localStorage)
+     */
+    private async restoreSessionState(context: BrowserContext, page: Page, tokens: { accessToken: string, refreshToken: string }): Promise<void> {
+        console.log('[AuthManager] Restoring session state (cookies + localStorage)...');
+
+        try {
+            // 1. Restore cookies (for cookie-based auth)
+            if (tokens.refreshToken) {
+                const urlObj = new URL(this.config.url);
+                const apiDomain = urlObj.hostname.replace(/^(stage|dev)\./, '.api-$1.');
+
+                await context.addCookies([{
+                    name: 'refresh_token',
+                    value: tokens.refreshToken,
+                    domain: apiDomain,
+                    path: '/v2/user',
+                    httpOnly: true,
+                    secure: true,
+                    sameSite: 'None',
+                    expires: Math.floor(Date.now() / 1000) + 86400 * 7
+                }]);
+                console.log('[AuthManager] ✓ Cookies restored');
+            }
+
+            // 2. Restore localStorage (for token-based auth) - only on valid app pages
+            if (tokens.accessToken && page.url() !== 'about:blank' && !page.url().includes('chrome://')) {
+                try {
+                    await page.evaluate(({ access, refresh }) => {
+                        localStorage.setItem('accessToken', access);
+                        localStorage.setItem('refreshToken', refresh);
+                        sessionStorage.setItem('accessToken', access);
+                        sessionStorage.setItem('refreshToken', refresh);
+                    }, { access: tokens.accessToken, refresh: tokens.refreshToken });
+                    console.log('[AuthManager] ✓ localStorage restored');
+                } catch (e) {
+                    console.log('[AuthManager] ℹ️ localStorage not available on this page (cookies will be used)');
+                }
+            }
+        } catch (e) {
+            console.warn('[AuthManager] Failed to restore session:', e);
+        }
+    }
+
+    /**
+     * Capture session state (cookies + localStorage) and save to shared session file
+     */
+    private async captureSessionState(context: BrowserContext): Promise<boolean> {
+        console.log('[AuthManager] Capturing session state to shared file...');
+        const sessionManager = SessionManager.getInstance();
+
+        try {
+            // 1. Save full storage state (Cookies + LocalStorage)
+            const storagePath = sessionManager.getStorageStatePath();
+            if (storagePath) {
+                await context.storageState({ path: storagePath });
+                console.log(`[AuthManager] ✓ Full storage state saved to ${storagePath}`);
+            }
+
+            // 2. Also update in-memory tokens if cookie-based
+            const cookies = await context.cookies();
+            const refreshCookie = cookies.find(c => c.name === 'refresh_token');
+
+            if (refreshCookie) {
+                sessionManager.setTokens(refreshCookie.value, refreshCookie.value, 3600);
+                return true;
+            }
+
+            return !!storagePath;
+        } catch (e) {
+            console.error('[AuthManager] Failed to capture session state:', e);
+            return false;
+        }
+    }
+    private async captureTokens(page: Page): Promise<boolean> {
+        console.log('[AuthManager] Starting token capture from browser storage...');
+        const sessionManager = SessionManager.getInstance();
+        let attempts = 0;
+        const maxAttempts = 15; // Increased from 5 to 15 (15 seconds total)
+
+        while (attempts < maxAttempts) {
+            const tokens = await page.evaluate(() => {
+                return {
+                    access: localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken') || '',
+                    refresh: localStorage.getItem('refreshToken') || sessionStorage.getItem('refreshToken') || ''
+                };
+            }).catch(() => ({ access: '', refresh: '' }));
+
+            // 1. Success via LocalStorage
+            if (tokens.access && tokens.refresh) {
+                sessionManager.setTokens(tokens.access, tokens.refresh, 3600);
+                console.log('[AuthManager] ✓ Tokens successfully captured from LocalStorage');
+                return true;
+            }
+
+            // 2. Fallback: Check Cookies immediately
+            const cookies = await page.context().cookies();
+
+            // [DEBUG] Log all cookie names to find the correct token
+            const cookieNames = cookies.map(c => `${c.name}=${c.value.substring(0, 10)}...`);
+            console.log(`[AuthManager] Available Cookies: ${cookieNames.join(', ')}`);
+
+            const refreshCookie = cookies.find(c => c.name === 'refresh_token' || c.name.includes('refresh') || c.name.includes('token'));
+
+            if (refreshCookie) {
+                sessionManager.setTokens(refreshCookie.value, refreshCookie.value, 3600);
+                console.log(`[AuthManager] ✓ Refresh Token captured from Cookie: ${refreshCookie.name}`);
+                return true;
+            }
+
+            console.log(`[AuthManager] Token capture attempt ${attempts + 1}: Waiting for tokens...`);
+            await page.waitForTimeout(1000);
+            attempts++;
+        }
+
+        console.warn('[AuthManager] ⚠️ Failed to capture tokens from Storage or Cookies after attempts');
+        return false;
     }
 }

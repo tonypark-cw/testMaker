@@ -56,7 +56,11 @@ export class NetworkManager {
                     }
 
                     if (this.cachedToken) {
-                        headers['Authorization'] = `Bearer ${this.cachedToken}`;
+                        // [FIX] Prevent duplicate headers by checking case-insensitively
+                        const authKey = Object.keys(headers).find(k => k.toLowerCase() === 'authorization') || 'Authorization';
+
+                        // Only inject if not already present or if we want to force-override (currently force-overriding to ensure validity)
+                        headers[authKey] = `Bearer ${this.cachedToken}`;
                     }
                 } catch (e) { /* Token may not be available yet */ }
 

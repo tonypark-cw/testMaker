@@ -1,4 +1,4 @@
-import { Page } from 'playwright';
+import { BrowserPage } from '../adapters/BrowserPage.js';
 import sharp from 'sharp';
 import * as fs from 'fs';
 
@@ -28,7 +28,7 @@ export class ScoringProcessor {
      * Unified calculation of page quality and consistency.
      * Scale: 0 - 100
      */
-    static async calculate(page: Page | null, metadata: {
+    static async calculate(page: BrowserPage | null, metadata: {
         url: string;
         pageTitle: string;
         screenshotPath?: string;
@@ -56,7 +56,7 @@ export class ScoringProcessor {
         // 2. Stability / Performance (30 pts)
         let isSpinner = false;
         if (page && typeof page.evaluate === 'function') {
-            isSpinner = await page.evaluate((selectors) => {
+            isSpinner = await page.evaluate((selectors: string[]) => {
                 for (const sel of selectors) {
                     const el = document.querySelector(sel);
                     if (el) {
@@ -81,7 +81,7 @@ export class ScoringProcessor {
                     if (!img.complete || img.naturalWidth === 0) broken++;
                 });
                 return broken;
-            }).catch(() => 0);
+            }, undefined).catch(() => 0);
         }
 
         if (brokenCount > 0) {

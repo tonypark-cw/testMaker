@@ -1,4 +1,5 @@
 import { Command, CommandContext, CommandTarget, CommandOptions } from './Command.js';
+import { BrowserPage } from '../adapters/BrowserPage.js';
 import { ActionRecord } from '../../../types/index.js';
 
 /**
@@ -101,19 +102,19 @@ export class SelectCommand implements Command {
     /**
      * Fallback select strategy using keyboard navigation.
      */
-    private async fallbackSelect(page: import('playwright').Page): Promise<void> {
+    private async fallbackSelect(page: BrowserPage): Promise<void> {
         try {
             await this.target.click();
             await page.waitForTimeout(200);
 
             if (this.selectIndex !== undefined) {
                 for (let i = 0; i <= this.selectIndex; i++) {
-                    await page.keyboard.press('ArrowDown');
+                    await page.keyboardPress('ArrowDown');
                 }
             } else {
-                await page.keyboard.press('ArrowDown');
+                await page.keyboardPress('ArrowDown');
             }
-            await page.keyboard.press('Enter');
+            await page.keyboardPress('Enter');
         } catch {
             /* ignore */
         }
@@ -124,7 +125,7 @@ export class SelectCommand implements Command {
      */
     toRecord(url: string): ActionRecord {
         const value = this.selectValue || this.selectLabel ||
-                      (this.selectIndex !== undefined ? `index:${this.selectIndex}` : 'default');
+            (this.selectIndex !== undefined ? `index:${this.selectIndex}` : 'default');
         return {
             type: 'select',
             selector: this.selector,

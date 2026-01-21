@@ -1,18 +1,31 @@
-import { Page } from 'playwright';
 import sharp from 'sharp';
+import { CommandExecutor, ClickCommand } from '../commands/index.js';
+import { ActionRecord } from '../../../types/index.js';
+import { NetworkManager } from '../../shared/network/NetworkManager.js';
+import { TIMING } from '../config/constants.js';
+import { BrowserPage } from '../adapters/BrowserPage.js';
+
+/**
+ * Context for tab exploration operations.
+ */
+export interface TabExplorationContext {
+    page: BrowserPage;
+    targetUrl: string;
+    outputDir: string;
+    timestamp: string;
+    screenshotBaseName: string;
+    actionChain: ActionRecord[];
+    networkManager?: NetworkManager;
+}
 
 export class TabExplorer {
     /**
      * Phase 4.5: Tab Exploration
      * Clicks on tab buttons to discover different page states.
+     * Integrated with Command Pattern for Golden Path tracking.
      */
-    static async exploreTabs(
-        page: Page,
-        targetUrl: string,
-        outputDir: string,
-        timestamp: string,
-        screenshotBaseName: string
-    ): Promise<number> {
+    static async exploreTabs(ctx: TabExplorationContext): Promise<number> {
+        const { page, targetUrl, outputDir, timestamp, screenshotBaseName, actionChain, networkManager } = ctx;
         console.log('[TabExplorer] Starting tab exploration...');
 
         // Find all tab buttons
@@ -32,6 +45,11 @@ export class TabExplorer {
             return 0;
         }
 
+        const executor = new CommandExecutor(
+            { page, actionChain, networkManager },
+            { maxRetries: 2, retryDelayMs: 300 }
+        );
+
         let capturedCount = 0;
         const capturedTabs = new Set<string>();
 
@@ -48,9 +66,12 @@ export class TabExplorer {
 
                 console.log(`[TabExplorer] Clicking tab: "${tabLabel}"`);
 
-                // Click and wait for content change
-                await tab.click();
-                await page.waitForTimeout(800);
+                // Use ClickCommand instead of direct click
+                const command = new ClickCommand(tab, {
+                    label: `Tab: ${tabLabel}`
+                });
+                await executor.execute(command);
+                await page.waitForTimeout(TIMING.DOM_STABILITY_WAIT);
 
                 // Capture screenshot
                 const screenshotPath = `${outputDir}/${screenshotBaseName}_tab-${tabLabel.toLowerCase().replace(/\s+/g, '-')}_${timestamp}.webp`;

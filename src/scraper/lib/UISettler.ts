@@ -1,12 +1,13 @@
-import { Page, ElementHandle, Locator } from 'playwright';
-import * as path from 'path';
-import * as fs from 'fs';
 import * as crypto from 'crypto';
+import * as fs from 'fs';
+import * as path from 'path';
 import sharp from 'sharp';
 import { ActionRecord, ModalDiscovery, TestableElement } from '../../../types/index.js';
 import { CommandExecutor } from '../commands/CommandExecutor.js';
 import { ClickCommand } from '../commands/ClickCommand.js';
 import { NetworkManager } from '../../shared/network/NetworkManager.js';
+import { BrowserPage } from '../adapters/BrowserPage.js';
+import { BrowserElement } from '../adapters/BrowserElement.js';
 
 /**
  * UISettler
@@ -16,20 +17,23 @@ export class UISettler {
     /**
      * Close any open modals/drawers
      */
-    public static async closeModals(page: Page) {
-        await page.keyboard.press('Escape');
+    /**
+     * Close any open modals/drawers
+     */
+    public static async closeModals(page: BrowserPage) {
+        await page.keyboardPress('Escape');
         await page.waitForTimeout(300);
         await page.evaluate(() => {
             const sel = '.ianai-Modal-close, .mantine-Modal-close, [aria-label="Close"], .ianai-CloseButton-root, button[class*="CloseButton"], .ianai-Drawer-close, .mantine-Drawer-close';
             document.querySelectorAll(sel).forEach(btn => (btn as HTMLElement).click());
-        });
+        }, undefined);
         await page.waitForTimeout(300);
     }
 
     /**
      * Check if a modal/drawer is currently open
      */
-    public static async isModalOpen(page: Page): Promise<boolean> {
+    public static async isModalOpen(page: BrowserPage): Promise<boolean> {
         return await page.evaluate(() => {
             const selectors = [
                 '.ianai-Modal-content', '.mantine-Modal-content', '.mantine-Modal-inner',
@@ -46,21 +50,21 @@ export class UISettler {
                 }
             }
             return false;
-        });
+        }, undefined);
     }
 
     /**
      * Settle UI and clean up transient elements (popovers, etc.)
      */
-    public static async settleAndCleanup(page: Page) {
+    public static async settleAndCleanup(page: BrowserPage) {
         console.log('[UISettler] Settling UI and cleaning ghost elements...');
 
         // Smart Dismiss: Click "Stay" on "Leave without saving" modals
         try {
-            const modalText = await page.innerText('body').catch(() => '');
+            const modalText = await page.evaluate(() => document.body.innerText, undefined).catch(() => '');
             if (modalText.includes('leave without saving') || modalText.includes('Discard') || modalText.includes('Unsaved')) {
-                const stayBtn = await page.getByRole('button', { name: /Stay/i }).first();
-                if (await stayBtn.isVisible().catch(() => false)) {
+                const stayBtn = await page.locator('button:has-text("Stay")').first();
+                if (await stayBtn.isVisible()) {
                     console.log('[UISettler] Detected "Leave without saving" modal - clicking "Stay".');
                     await stayBtn.click();
                     await page.waitForTimeout(300);
@@ -91,7 +95,7 @@ export class UISettler {
                     }
                 });
             });
-        }).catch(() => { });
+        }, undefined).catch(() => { });
         await page.waitForTimeout(500);
     }
 
@@ -99,7 +103,7 @@ export class UISettler {
      * Extract content from an open modal
      */
     public static async extractModalContent(
-        page: Page,
+        page: BrowserPage,
         triggerText: string,
         url: string,
         outputDir: string,
@@ -166,7 +170,7 @@ export class UISettler {
 
         let screenshotPath: string | undefined;
         try {
-            const modalEl = await page.$('.ianai-Modal-content, .mantine-Modal-content, [role="dialog"], .ianai-Drawer-content');
+            const modalEl = await page.waitForSelector('.ianai-Modal-content, .mantine-Modal-content, [role="dialog"], .ianai-Drawer-content', { timeout: 2000 });
             if (modalEl) {
                 const png = await modalEl.screenshot({ type: 'png' });
                 const stats = await sharp(png).stats();
@@ -222,8 +226,8 @@ export class UISettler {
      * Uses CommandExecutor for centralized retry logic and automatic logging.
      */
     public static async smartClick(
-        page: Page,
-        handle: ElementHandle<Element> | Locator,
+        page: BrowserPage,
+        handle: BrowserElement,
         actionChain: ActionRecord[],
         networkManager?: NetworkManager
     ): Promise<void> {
@@ -232,7 +236,7 @@ export class UISettler {
             { maxRetries: 2, retryDelayMs: 300 }
         );
 
-        const command = new ClickCommand(handle);
+        const command = new ClickCommand(handle as any);
 
         try {
             await executor.execute(command);

@@ -1,6 +1,6 @@
-import { Page } from 'playwright';
-import { TestableElement, GoldenPathInfo } from '../../../types/index.js';
+import { ActionRecord, TestableElement, GoldenPathInfo } from '../../../types/index.js';
 import { ScoringProcessor } from './ScoringProcessor.js';
+import { BrowserPage } from '../adapters/BrowserPage.js';
 
 /**
  * StabilityAnalyzer
@@ -11,7 +11,7 @@ export class StabilityAnalyzer {
      * Analyze page stability and testability for Golden Path generation
      */
     public static async analyzeGoldenPath(
-        page: Page,
+        page: BrowserPage,
         elements: TestableElement[],
         metadata: { url: string; pageTitle: string; screenshotPath?: string }
     ): Promise<GoldenPathInfo> {

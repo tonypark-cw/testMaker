@@ -1,6 +1,21 @@
-import { Page } from 'playwright';
 import { ActionRecord, ModalDiscovery } from '../../../types/index.js';
 import { UISettler } from '../lib/UISettler.js';
+import { CommandExecutor, ClickCommand } from '../commands/index.js';
+import { TIMING } from '../config/constants.js';
+import { NetworkManager } from '../../shared/network/NetworkManager.js';
+import { BrowserPage } from '../adapters/BrowserPage.js';
+
+/**
+ * Context for navigation exploration.
+ */
+export interface NavExplorationContext {
+    page: BrowserPage;
+    targetUrl: string;
+    actionChain: ActionRecord[];
+    networkManager?: NetworkManager;
+    visitedExpansionButtons: Set<string>;
+    visitedSidebarButtons: Set<string>;
+}
 
 export class NavExplorer {
     /**
@@ -8,13 +23,15 @@ export class NavExplorer {
      * Finds and clicks sidebar/navigation expansion buttons to reveal more links.
      */
     static async expandMenus(
-        page: Page,
-        targetUrl: string,
-        visitedExpansionButtons: Set<string>,
-        actionChain: ActionRecord[],
-        discoveredLinks: Array<{ url: string; path: string[] }>,
-        previousPath: string[]
+        ctx: NavExplorationContext
     ): Promise<number> {
+        const { page, visitedExpansionButtons, actionChain, networkManager } = ctx;
+
+        const executor = new CommandExecutor(
+            { page, actionChain, networkManager },
+            { maxRetries: 1, retryDelayMs: 200 }
+        );
+
         // Broaden search to include Mantine buttons and position-based sidebar items
         const expandableButtons = await page.locator('aside button, .sidebar button, nav button, .nav-item[role="button"], .mantine-UnstyledButton-root, button[aria-expanded]').all();
         let expandedCount = 0;
@@ -34,8 +51,12 @@ export class NavExplorer {
                 if (isExpanded === 'false' || (isNavHeader && (isExpanded === null || isExpanded === ''))) {
                     if (await button.isVisible()) {
                         visitedExpansionButtons.add(id);
-                        await UISettler.smartClick(page, button, actionChain);
-                        await page.waitForTimeout(1000); // Wait for menu animation
+
+                        // Use ClickCommand
+                        const command = new ClickCommand(button, { label: `Expand: ${text}` });
+                        await executor.execute(command);
+
+                        await page.waitForTimeout(TIMING.MENU_ANIMATION_DELAY);
                         expandedCount++;
                     }
                 }
@@ -51,17 +72,25 @@ export class NavExplorer {
      * Clicks all navigation items in sidebars or nav bars.
      */
     static async discoverSidebar(
-        page: Page,
-        targetUrl: string,
-        visitedSidebarButtons: Set<string>,
-        actionChain: ActionRecord[],
-        discoveredLinks: Array<{ url: string; path: string[] }>,
-        modalDiscoveries: ModalDiscovery[],
-        previousPath: string[],
-        outputDir: string,
-        timestamp: string,
-        capturedModalHashes: Set<string>
+        ctx: NavExplorationContext & {
+            discoveredLinks: Array<{ url: string; path: string[] }>,
+            modalDiscoveries: ModalDiscovery[],
+            previousPath: string[],
+            outputDir: string,
+            timestamp: string,
+            capturedModalHashes: Set<string>
+        }
     ): Promise<void> {
+        const {
+            page, targetUrl, visitedSidebarButtons, actionChain, networkManager,
+            discoveredLinks, modalDiscoveries, previousPath, outputDir, timestamp, capturedModalHashes
+        } = ctx;
+
+        const executor = new CommandExecutor(
+            { page, actionChain, networkManager },
+            { maxRetries: 1, retryDelayMs: 200 }
+        );
+
         // Broaden sidebar items to include all links and buttons on the left side, or with specific classes
         const sidebarItems = await page.locator('aside a, .sidebar a, nav a, .nav-item, [role="menuitem"], .mantine-NavLink-root, a[href^="/app/"]').all();
 
@@ -97,8 +126,12 @@ export class NavExplorer {
                     // If no href, only click if it's NOT an expandable menu (to avoid toggling)
                     const isExpanded = await item.getAttribute('aria-expanded');
                     if (isExpanded === null || isExpanded === '') { // Not an expandable menu header
-                        await UISettler.smartClick(page, item, actionChain);
-                        await page.waitForTimeout(1000);
+
+                        // Use ClickCommand
+                        const command = new ClickCommand(item, { label: `Nav: ${cleanText}` });
+                        await executor.execute(command);
+
+                        await page.waitForTimeout(TIMING.NAVIGATION_DELAY);
 
                         const newUrl = page.url();
                         const normalizedTarget = targetUrl.replace(/\/$/, '');
@@ -108,7 +141,7 @@ export class NavExplorer {
                             discoveredLinks.push({ url: newUrl, path: [...previousPath, cleanText] });
                             // Go back to target if it navigated away
                             await page.goto(targetUrl, { waitUntil: 'networkidle' }).catch(() => { });
-                            await page.waitForTimeout(1000);
+                            await page.waitForTimeout(TIMING.NAVIGATION_DELAY);
                         } else {
                             // Check for modal if no navigation occurred
                             const discovery = await UISettler.extractModalContent(page, cleanText, targetUrl, outputDir, timestamp, capturedModalHashes);

@@ -1,12 +1,13 @@
-import { Page, ElementHandle, Locator } from 'playwright';
 import { ActionRecord } from '../../../types/index.js';
 import { NetworkManager } from '../../shared/network/NetworkManager.js';
+import { BrowserPage } from '../adapters/BrowserPage.js';
+import { BrowserElement } from '../adapters/BrowserElement.js';
 
 /**
  * Context passed to all Commands during execution.
  */
 export interface CommandContext {
-    page: Page;
+    page: BrowserPage;
     actionChain: ActionRecord[];
     networkManager?: NetworkManager;
 }
@@ -29,6 +30,12 @@ export interface Command {
     execute(ctx: CommandContext): Promise<void>;
 
     /**
+     * Optional validation logic to run after execute().
+     * Returns true if the action was successful (e.g. modal appeared, value updated).
+     */
+    validate?(ctx: CommandContext): Promise<boolean>;
+
+    /**
      * Convert command to an ActionRecord for Golden Path tracking.
      * @param url - Current page URL at execution time
      */
@@ -47,4 +54,4 @@ export interface CommandOptions {
 /**
  * Target element type (either ElementHandle or Locator).
  */
-export type CommandTarget = ElementHandle<Element> | Locator;
+export type CommandTarget = BrowserElement;

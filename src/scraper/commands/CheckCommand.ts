@@ -91,7 +91,7 @@ export class CheckCommand implements Command {
     private async fallbackToggle(): Promise<void> {
         try {
             // Check current state and click if needed
-            const isChecked = await this.target.isChecked().catch(() => false);
+            const isChecked = await this.target.isChecked();
 
             if ((this.shouldCheck && !isChecked) || (!this.shouldCheck && isChecked)) {
                 await this.target.click({ force: true });

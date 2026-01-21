@@ -1,4 +1,5 @@
 import { Command, CommandContext, CommandTarget, CommandOptions } from './Command.js';
+import { BrowserPage } from '../adapters/BrowserPage.js';
 import { ActionRecord } from '../../../types/index.js';
 
 /**
@@ -76,8 +77,8 @@ export class InputCommand implements Command {
                 const name = await this.target.getAttribute('name');
                 const label = this.label.toLowerCase();
                 this.sensitive = type === 'password' ||
-                                 name?.toLowerCase().includes('password') ||
-                                 label.includes('password');
+                    name?.toLowerCase().includes('password') ||
+                    label.includes('password');
             } catch {
                 /* ignore */
             }
@@ -108,21 +109,33 @@ export class InputCommand implements Command {
     /**
      * Fallback strategy using keyboard typing.
      */
-    private async fallbackType(page: import('playwright').Page): Promise<void> {
+    private async fallbackType(page: BrowserPage): Promise<void> {
         try {
             await this.target.click();
             if (this.clearFirst) {
-                await page.keyboard.press('Control+A');
-                await page.keyboard.press('Backspace');
+                await page.keyboardPress('Control+A');
+                await page.keyboardPress('Backspace');
             }
-            await page.keyboard.type(this.value, { delay: 10 });
+            await page.keyboardType(this.value, { delay: 10 });
         } catch {
             // Last resort: evaluate
-            await (this.target as any).evaluate((el: HTMLInputElement, val: string) => {
+            await this.target.evaluate((el: HTMLInputElement, val: string) => {
                 el.value = val;
                 el.dispatchEvent(new Event('input', { bubbles: true }));
                 el.dispatchEvent(new Event('change', { bubbles: true }));
             }, this.value);
+        }
+    }
+
+    /**
+     * Validate that the value was correctly set.
+     */
+    async validate(_ctx: CommandContext): Promise<boolean> {
+        try {
+            const currentValue = await this.target.evaluate((el: HTMLInputElement) => el.value);
+            return currentValue === this.value;
+        } catch {
+            return false;
         }
     }
 

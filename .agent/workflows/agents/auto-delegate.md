@@ -42,6 +42,7 @@ Request Analysis:
 | 테스트, 검증, QA, 커버리지 | `testing` |
 | 파일 찾기, 구조 파악 | `worker` |
 | 버그 수정, 리팩토링 | `worker` |
+| TSC 에러, 빨간줄, 린트 오류 | `analysis` → `implementation` |
 
 ### Step 3: Complexity Assessment
 

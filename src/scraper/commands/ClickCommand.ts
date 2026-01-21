@@ -1,4 +1,5 @@
 import { Command, CommandContext, CommandTarget, CommandOptions } from './Command.js';
+import { BrowserPage } from '../adapters/BrowserPage.js';
 import { ActionRecord } from '../../../types/index.js';
 
 /**
@@ -14,7 +15,7 @@ export class ClickCommand implements Command {
 
     constructor(
         private target: CommandTarget,
-        private options: CommandOptions = {}
+        private options: ClickCommandOptions = {}
     ) {
         this.label = options.label || 'element';
         this.selector = options.selector || 'unknown';
@@ -63,7 +64,12 @@ export class ClickCommand implements Command {
         try {
             const box = await this.target.boundingBox();
             if (box) {
-                await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+                const page = ctx.page;
+                // Since BrowserPage evaluate doesn't have a direct mouse access in the interface yet 
+                // we'll rely on the target.click() which is part of our abstraction.
+                // However, our implementation for coordinate click was playwright-specific.
+                // For now, BrowserElement.click() will handle this in PlaywrightElement.
+                await this.target.click({ force: false });
             } else {
                 await this.fallbackClick();
             }
@@ -79,8 +85,18 @@ export class ClickCommand implements Command {
         try {
             await this.target.click({ force: true });
         } catch {
-            await (this.target as any).evaluate((el: HTMLElement) => el.click());
+            await this.target.evaluate((el: HTMLElement) => el.click());
         }
+    }
+
+    /**
+     * Optional validation of click result.
+     */
+    async validate(ctx: CommandContext): Promise<boolean> {
+        if (this.options.validator) {
+            return await this.options.validator(ctx.page);
+        }
+        return true;
     }
 
     /**
@@ -95,4 +111,11 @@ export class ClickCommand implements Command {
             url
         };
     }
+}
+
+/**
+ * Enhanced CommandOptions with Validator support.
+ */
+export interface ClickCommandOptions extends CommandOptions {
+    validator?: (page: BrowserPage) => Promise<boolean>;
 }

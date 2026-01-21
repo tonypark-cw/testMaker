@@ -11,6 +11,10 @@ import { NetworkManager } from '../shared/network/NetworkManager.js';
 import { SessionManager } from '../shared/auth/SessionManager.js';
 import { AuthManager } from '../shared/auth/AuthManager.js';
 import { QueueManager } from './queue/QueueManager.js';
+import { PlaywrightPage } from './adapters/playwright/PlaywrightPage.js';
+import { BrowserPage } from './adapters/BrowserPage.js';
+import { RLStateManager } from './rl/RLStateManager.js';
+import { RLSubscriber } from './subscribers/RLSubscriber.js';
 
 export class Runner {
     private browser: Browser | null = null;
@@ -56,6 +60,10 @@ export class Runner {
 
         if (!fs.existsSync(this.outputDir)) fs.mkdirSync(this.outputDir, { recursive: true });
 
+        // Initialize RL System (Decoupled via EventBus)
+        const rlManager = new RLStateManager(this.outputDir);
+        new RLSubscriber(rlManager);
+
         // [SRP] Delegate healthy URL pre-scanning to QueueManager
         if (!this.config.force) {
             this.queueManager.loadHealthyVisitedUrls();
@@ -89,7 +97,7 @@ export class Runner {
                     const shouldFilter = process.env.FILTER_DEV_ERRORS !== 'false' &&
                         ignoredPatterns.some(pattern => pattern.test(text));
 
-                    if (!shouldFilter && (msg.type() === 'error' || text.includes('[DEBUG]'))) {
+                    if (!shouldFilter && text.includes('[DEBUG]')) {
                         this.log(`[Browser ${msg.type()}] ${text}`);
                     }
                 });
@@ -295,7 +303,7 @@ export class Runner {
                     this.log(`[SessionManager] Using API Base: ${apiBase}`);
 
                     const response = await this.context!.request.post(`${apiBase}/v2/user/token`, {
-                        data: { refreshToken },
+                        data: { refresh_token: refreshToken },
                         headers: {
                             'Origin': originBase,
                             'Referer': `${originBase}/app`,
@@ -437,7 +445,8 @@ export class Runner {
                 }, { access: accessToken, refresh: refreshToken });
             }
 
-            const result = await scraper.scrape(page, job);
+            const browserPage = new PlaywrightPage(page as any);
+            const result = await scraper.scrape(browserPage, job);
 
             if (!result.error && result.discoveredLinks) {
                 const newJobs = result.discoveredLinks

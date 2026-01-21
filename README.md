@@ -69,18 +69,19 @@ TestMaker는 웹 페이지를 자동으로 크롤링하여:
 | **Screenshot Capture** | 각 페이지 스크린샷 자동 저장 (WebP 최적화) |
 | **Authentication** | 로그인 상태 유지 및 인증 지원 |
 
-### Advanced Features
+### Advanced Architecture (Phase 3 Complete)
 
 | 기능 | 설명 |
 |------|------|
+| **Exploration Orchestrator** | Strategy Pattern을 통한 유연한 탐색 페이즈 제어 |
+| **Exploration Context** | 세션별 상태 격리로 멀티탭 환경 경쟁 조건 완전 해결 |
+| **Event-Driven Bus** | Pub/Sub 기반 비결합 시스템으로 확장성 확보 |
+| **Command Validation** | UI 액션 실행 후 상태 검증 및 스마트 재시도 로직 강화 |
+| **Hexagonal Architecture** | Playwright 의존성 분리를 통한 테스트 용이성 (WIP) |
 | **Dashboard** | 웹 기반 분석 결과 시각화 및 실행 인터페이스 |
-| **RL Scoring** | AI 기반 페이지 신뢰도 및 탐색 안정성 점수 검증 (Reliability Scorer) |
-| **Header Injection** | API 역공학을 통한 세션 안정화 헤더 강제 주입 |
-| **Modal Discovery** | 모달/다이얼로그 내부 요소 자동 탐지 및 컨텍스트 스캔 |
+| **RL Scoring** | AI 기반 페이지 신뢰도 및 탐색 안정성 점수 검증 |
+| **Modal Discovery** | 모달 내부 요소 자동 탐지 및 컨텍스트 스캔 |
 | **Row-Click Discovery** | 데이터 테이블 행 클릭을 통한 상세 페이지 BFS 탐색 |
-| **Menu Expansion** | 사이드바 및 네비게이션 메뉴의 재귀적 확장 탐색 |
-| **Tab & Filter Discovery** | 탭, 셀렉트 박스, 체크박스 등 동적 UI 요소 자동 탐색 및 캡처 |
-| **Auth Capture** | 헤드레스 브라우저 인증 환경을 극복하기 위한 세션 캡처 모듈 |
 
 ---
 
@@ -433,40 +434,27 @@ DASHBOARD_PASS=secure-password
 testMaker/
 ├── src/
 │   ├── cli/                 # CLI 진입점 및 환경 설정
-│   │   ├── index.ts         # 메인 CLI
-│   │   └── supervisor.ts    # 프로세스 감시
 │   │
-│   ├── scraper/             # 핵심 분석 엔진
-│   │   ├── index.ts         # Scraper 메인 클래스
-│   │   ├── runner.ts        # 멀티탭 워커 및 제어
-│   │   ├── explorers/       # 탐색 전략 (Nav, Action, etc)
-│   │   ├── queue/           # 작업 큐 관리
-│   │   ├── rl/              # 신뢰도 점수 (RL)
-│   │   ├── services/        # 분석/변환/생성 서비스
-│   │   └── lib/             # 스크래퍼 유틸 (UISettler 등)
+│   ├── scraper/             # 핵심 분석 엔진 (Advanced Architecture)
+│   │   ├── index.ts         # Orchestrator (Scraper)
+│   │   ├── runner.ts        # Worker 관리 및 제어
+│   │   ├── phases/          # Strategy Pattern 페이즈 (Navigation, Capture 등)
+│   │   ├── commands/        # Command Pattern (Validation & Retry)
+│   │   ├── adapters/        # Hexagonal Adapters (Playwright, etc)
+│   │   ├── explorers/       # UI 탐색 전략 (Nav, Action, etc)
+│   │   ├── queue/           # 작업 큐 관리 (BFS)
+│   │   ├── rl/              # 강화학습 상태 및 점수
+│   │   └── lib/             # 핵심 라이브러리 (UISettler, Analyzer 등)
 │   │
 │   ├── dashboard/           # 결과 조회 웹 UI
-│   │   ├── server.ts        # Express 기반 API 서버
-│   │   ├── index.html       # 대시보드 메인 뷰
-│   │   └── worker.ts        # 백그라운드 작업 관리
 │   │
-│   ├── recorder/            # 사용자 행동 녹화
-│   │   ├── index.ts         # 레코더 메인
-│   │   └── tracker/         # 이벤트 트래커
-│   │
-│   ├── regression/          # 회귀 테스트 시스템
-│   │   ├── cli.ts           # 회귀 CLI
-│   │   └── ...              # 비교/분석 로직
-│   │
-│   ├── shared/              # 공용 모듈
+│   ├── shared/              # 공용 모듈 (Decoupled)
 │   │   ├── auth/            # 인증 관리 (AuthManager)
+│   │   ├── events/          # Pub/Sub Event Bus
 │   │   ├── network/         # 네트워크 관리
-│   │   ├── utils.ts         # 유틸리티 함수
-│   │   └── types.ts         # 공용 타입
+│   │   └── types.ts         # 공용 타입 정의
 │   │
-│   └── tools/               # 기타 도구
-│       ├── captureAuth.ts
-│       └── generate_auth.ts
+│   └── tools/               # 기타 유틸리티 도구
 │
 ├── scripts/                 # 기동 및 코드 생성 스크립트 (Root)
 │   ├── analyzer.ts          # 요소 그룹화 및 시나리오 추출

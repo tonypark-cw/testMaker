@@ -65,6 +65,10 @@ Distributed Logging
 | Data-Only Mode (--no-screenshots) | ✅ | High-speed discovery skipping visual artifacts |
 | Automated Row Discovery | ✅ | Clicks table rows to trigger detail API schemas |
 | Field Key Aggregation (print_label) | ✅ | Consolidated field map for each menu |
+| Exploration Orchestrator | ✅ | Strategy Pattern 기반 페이즈 흐름 제어 |
+| State Isolation (Context) | ✅ | 탐색 세션별 컨텍스트 격리로 병합 안정성 확보 |
+| Event-Driven Architecture | ✅ | Pub/Sub 기반 비결합 시스템 (EventBus) |
+| Command Validation | ✅ | 액션 실행 후 UI 상태 검증 및 스마트 재시도 |
 
 ---
 
@@ -130,17 +134,24 @@ npm run search -- --url "https://stage.ianai.co" --concurrency 3 --headless
 
 ## Recent Updates Summary (2026-01-21)
 
-### Project Structure Refactoring (Complete)
-
-**src/core/ → 모듈별 분리**:
+**src/core/ → 모듈별 분리 및 고도화**:
 ```
-src/core/ (삭제됨)
-    ↓
 src/cli/        - CLI (index.ts, inspector.ts, supervisor.ts)
 src/recorder/   - 레코더 (index.ts, tracker/)
-src/scraper/    - 스크래퍼 (index.ts, explorers/, services/, queue/, rl/, lib/)
-src/shared/     - 공유 모듈 (auth/, network/, types.ts)
+src/scraper/    - 스크래퍼
+    ├── index.ts        - 오케스트레이터 (Scraper)
+    ├── phases/         - Strategy Pattern (Navigation, Capture 등)
+    ├── explorers/      - UI 탐색 전략
+    ├── commands/       - Command Pattern + Validation
+    └── ...
+src/shared/     - 공유 모듈 (auth/, network/, events/, types.ts)
 ```
+
+**Architectural Evolution (Phase 3)**:
+- **Strategy Pattern**: `Scraper` 로직을 독립적인 `IExplorationPhase`들로 분해.
+- **Context Isolation**: `ExplorationContext` 도입으로 모든 static 상태 제거, 멀티탭 안정성 극대화.
+- **Decoupling**: `EventBus` 도입으로 Scraper와 RL/Logging 시스템 간의 하드링크 제거.
+- **Command Reliability**: `ClickCommand`, `InputCommand`에 `validate()` 추가로 탐색 성공률 향상.
 
 **Code Quality Improvements**:
 - ESLint 에러 31개 → 0개 수정

@@ -48,6 +48,14 @@ export class CommandExecutor {
 
                 await command.execute(this.ctx);
 
+                // Run validation if available
+                if (command.validate) {
+                    const isValid = await command.validate(this.ctx);
+                    if (!isValid) {
+                        throw new Error(`Execution completed but validation failed for ${command.type}`);
+                    }
+                }
+
                 if (this.verbose) {
                     console.log(`[Executor] ✓ ${command.type}: "${command.label}" succeeded`);
                 }

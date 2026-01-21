@@ -111,11 +111,12 @@ npm run search -- --url "https://stage.ianai.co" --concurrency 3 --headless
 
 ## Code Health
 
-**Last Verified**: 2026-01-20
+**Last Verified**: 2026-01-21
 
 | Component | Status |
 |-----------|--------|
-| TypeScript Compilation | ✅ Pass |
+| TypeScript Compilation | ✅ Pass (0 errors) |
+| ESLint | ✅ Pass (0 errors, 103 warnings) |
 | Multi-Environment Support | ✅ Dev/Stage/Mac/Win |
 | Dashboard Responsiveness | ✅ Instant (No Flicker) |
 | Rate Limiting | ✅ 429/500 Handled |
@@ -123,6 +124,42 @@ npm run search -- --url "https://stage.ianai.co" --concurrency 3 --headless
 | Queue Management | ✅ Fixed visited URL tracking |
 | QueueManager Tests | ✅ 23 test cases passing |
 | URL Scope Filtering | ✅ Child-path-only exploration |
+| Git Conventions | ✅ commitlint enforced (12 types) |
+
+---
+
+## Recent Updates Summary (2026-01-21)
+
+### Project Structure Refactoring (Complete)
+
+**src/core/ → 모듈별 분리**:
+```
+src/core/ (삭제됨)
+    ↓
+src/cli/        - CLI (index.ts, inspector.ts, supervisor.ts)
+src/recorder/   - 레코더 (index.ts, tracker/)
+src/scraper/    - 스크래퍼 (index.ts, explorers/, services/, queue/, rl/, lib/)
+src/shared/     - 공유 모듈 (auth/, network/, types.ts)
+```
+
+**Code Quality Improvements**:
+- ESLint 에러 31개 → 0개 수정
+- TypeScript 컴파일 에러 23개 → 0개 수정
+- 불필요한 파일 정리 (~3GB 절약: trace 파일, 백업, 로그)
+
+**Git & Convention Enforcement**:
+- commitlint 강화: 12개 허용 타입만 사용 가능
+  - `[Add]`, `[Fix]`, `[Refactor]`, `[Docs]`, `[Update]`, `[Feature]`
+  - `[Optimize]`, `[Cleanup]`, `[Config]`, `[Merge]`, `[Test]`, `[Style]`
+- GEMINI.md에 Git 컨벤션 + ESLint 규칙 섹션 추가
+- Git 히스토리 정리 (컨벤션 위반 커밋 수정, Co-Author 제거)
+
+**Files Modified**:
+- `commitlint.config.js`: type-enum 커스텀 규칙 추가
+- `.gemini/GEMINI.md`: 컨벤션 + ESLint 가이드 추가
+- `docs/COMMIT_MESSAGE_CONVENTION.md`: 루트 → docs/ 이동
+- 10개 파일 린트 수정 (빈 catch, 미사용 변수, escape 문자 등)
+- 14개 파일 TS 경로 수정 (모듈 import 경로)
 
 ---
 

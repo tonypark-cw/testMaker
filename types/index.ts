@@ -77,7 +77,7 @@ export type ActionType =
  */
 export interface ActionRecord {
     /** Action type performed */
-    type: 'click' | 'nav' | 'input' | 'scroll' | 'wait';
+    type: 'click' | 'nav' | 'input' | 'scroll' | 'wait' | 'select' | 'check';
     /** CSS selector of target element */
     selector: string;
     /** Human-readable label */

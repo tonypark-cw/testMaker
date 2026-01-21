@@ -38,7 +38,9 @@ async function captureAuth() {
                 try {
                     const body = await response.json();
                     console.log('  Login Response Body:', JSON.stringify(body, null, 2));
-                } catch (e) { }
+                } catch {
+                    /* ignored */
+                }
             }
         }
     });

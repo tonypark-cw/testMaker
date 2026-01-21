@@ -37,7 +37,9 @@ export async function stopSearch() {
     if (!confirm('Are you sure you want to stop the analysis?')) return;
     try {
         await fetch('/api/stop', { method: 'POST' });
-    } catch (e) { }
+    } catch {
+        /* ignored */
+    }
 }
 
 /**
@@ -45,7 +47,7 @@ export async function stopSearch() {
  */
 export async function researchFailures() {
     const failUrls = Object.entries(state.tags)
-        .filter(([url, status]) => status === 'FAIL')
+        .filter(([, status]) => status === 'FAIL')
         .map(([url]) => url);
 
     if (failUrls.length === 0) return alert('No FAIL items to re-search.');
@@ -70,7 +72,9 @@ export async function researchFailures() {
                 body: JSON.stringify({ url: originalUrl, depth: 4, limit: 50 })
             });
             queuedCount++;
-        } catch (e) { console.error(e); }
+        } catch (e) {
+            console.error(e);
+        }
     }
     alert(`Queued ${queuedCount} pages for re-analysis.`);
 }
@@ -90,7 +94,9 @@ export async function setTag(status, nextImageFn) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url: state.currentWebUrl, status, hash: state.currentModalHash })
         });
-    } catch (e) { }
+    } catch {
+        /* ignored */
+    }
 
     // Auto-advance after tagging
     if (nextImageFn) {
@@ -117,7 +123,7 @@ export async function saveReason() {
         });
         statusEl.innerText = 'Saved!';
         setTimeout(() => statusEl.innerText = '', 2000);
-    } catch (e) {
+    } catch {
         statusEl.innerText = 'Error saving';
     }
 }

@@ -49,7 +49,7 @@ export async function loadMore() {
 /**
  * Create a card element for a screenshot
  */
-export function createCard(shot, openModalFn) {
+export function createCard(shot) {
     const url = shot.url;
     const webUrl = shot.webUrl || url;
     const name = webUrl.split('/').pop().substring(0, 50) || 'home';

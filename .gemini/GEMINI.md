@@ -56,6 +56,38 @@ Playwright E2E 테스트 자동화 도구를 개발하는 개발자.
 
 ---
 
+## ⚠️ ESLint 규칙 (필수)
+
+**코드 작성 후 반드시 `npm run lint` 실행하여 오류 확인!**
+
+### 주요 규칙
+| 규칙 | 설명 | 해결 방법 |
+|------|------|----------|
+| `no-unused-vars` | 사용하지 않는 변수 금지 | 변수 삭제 또는 `_` 접두사 사용 |
+| `no-explicit-any` | `any` 타입 금지 | 구체적인 타입 지정 |
+| `no-empty` | 빈 블록 금지 | 주석 추가 또는 로직 구현 |
+| `quotes` | 홑따옴표 사용 | `"string"` → `'string'` |
+
+### 올바른 패턴
+```typescript
+// ❌ 잘못된 예
+catch (e) {}                    // 빈 블록
+const unused = 'value';         // 사용 안함
+function fn(data: any) {}       // any 타입
+
+// ✅ 올바른 예
+catch (_e) { /* ignored */ }    // 주석 추가
+const _unused = 'value';        // _ 접두사
+function fn(data: unknown) {}   // unknown 또는 구체적 타입
+```
+
+### 자동 수정
+```bash
+npm run lint -- --fix  # 자동 수정 가능한 오류 수정
+```
+
+---
+
 ## 프로젝트 컨텍스트
 
 ### 문서

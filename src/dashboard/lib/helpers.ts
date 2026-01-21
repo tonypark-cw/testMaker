@@ -60,7 +60,9 @@ export function getWebUrlForScreenshot(screenshotFullPath: string): any {
                     webUrlCache[screenshotFullPath] = data;
                     return data;
                 }
-            } catch (e) { }
+            } catch {
+                /* ignored */
+            }
         }
     }
     return null;
@@ -71,7 +73,11 @@ export function getWebUrlForScreenshot(screenshotFullPath: string): any {
  */
 export function loadTags(): Record<string, string> {
     if (fs.existsSync(TAGS_FILE)) {
-        try { return JSON.parse(fs.readFileSync(TAGS_FILE, 'utf-8')); } catch { }
+        try {
+            return JSON.parse(fs.readFileSync(TAGS_FILE, 'utf-8'));
+        } catch {
+            /* ignored */
+        }
     }
     return {};
 }
@@ -81,7 +87,11 @@ export function loadTags(): Record<string, string> {
  */
 export function loadReasons(): Record<string, string> {
     if (fs.existsSync(REASONS_FILE)) {
-        try { return JSON.parse(fs.readFileSync(REASONS_FILE, 'utf-8')); } catch { }
+        try {
+            return JSON.parse(fs.readFileSync(REASONS_FILE, 'utf-8'));
+        } catch {
+            /* ignored */
+        }
     }
     return {};
 }
@@ -92,7 +102,11 @@ export function loadReasons(): Record<string, string> {
 export function updateTag(url: string, status: string, hash?: string): void {
     let tags: Record<string, string> = {};
     if (fs.existsSync(TAGS_FILE)) {
-        try { tags = JSON.parse(fs.readFileSync(TAGS_FILE, 'utf-8')); } catch { }
+        try {
+            tags = JSON.parse(fs.readFileSync(TAGS_FILE, 'utf-8'));
+        } catch {
+            /* ignored */
+        }
     }
     const key = hash ? `${url}#${hash}` : url;
     tags[key] = status;
@@ -105,7 +119,11 @@ export function updateTag(url: string, status: string, hash?: string): void {
 export function updateReason(url: string, reason: string, hash?: string): void {
     let reasons: Record<string, string> = {};
     if (fs.existsSync(REASONS_FILE)) {
-        try { reasons = JSON.parse(fs.readFileSync(REASONS_FILE, 'utf-8')); } catch { }
+        try {
+            reasons = JSON.parse(fs.readFileSync(REASONS_FILE, 'utf-8'));
+        } catch {
+            /* ignored */
+        }
     }
     const key = hash ? `${url}#${hash}` : url;
     reasons[key] = reason;

@@ -120,7 +120,9 @@ async function getStats(environment = 'stage') {
             // Process check is platform specific, returning empty for now to avoid crashes on Windows
             const stdout: string = '';
             if (stdout && stdout.trim()) isActuallyRunning = true;
-        } catch (e) { }
+        } catch {
+            /* ignored */
+        }
     }
 
     let supervisorStatus = { overall: 'unknown' };
@@ -129,7 +131,9 @@ async function getStats(environment = 'stage') {
         if (fs.existsSync(supPath)) {
             supervisorStatus = JSON.parse(fs.readFileSync(supPath, 'utf-8'));
         }
-    } catch (e) { }
+    } catch {
+        /* ignored */
+    }
 
     return {
         searchedCount: screenshots.length,
@@ -225,7 +229,14 @@ const server = http.createServer(async (req, res) => {
     // ===== API: Stop =====
     if (pathname === '/api/stop' && req.method === 'POST') {
         if (currentProcess && isRunning) {
-            try { currentProcess.kill('SIGTERM'); setTimeout(() => { if (isRunning) isRunning = false; }, 2000); } catch (e) { }
+            try {
+                currentProcess.kill('SIGTERM');
+                setTimeout(() => {
+                    if (isRunning) isRunning = false;
+                }, 2000);
+            } catch {
+                /* ignored */
+            }
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ success: true }));
         } else {

@@ -15,7 +15,7 @@ import * as selection from './selection.js';
 state.initDOMElements();
 
 // ===== Data Update Function =====
-async function update(isSwitching = false) {
+async function update() {
     try {
         const res = await fetch(`${state.API_URL}?env=${state.currentEnvironment}`);
         const data = await res.json();

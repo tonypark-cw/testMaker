@@ -11,7 +11,7 @@ export class FileSystemWatcher {
     private cache = new Map<string, any>();
     private watchedDir: string;
     private nativeWatcher: fs.FSWatcher | null = null;
-    private pollingInterval: NodeJS.Timeout | null = null;
+    private pollingInterval: ReturnType<typeof setInterval> | null = null;
     private latestChangeTime: number = 0;
 
     constructor(dir: string) {
@@ -43,9 +43,13 @@ export class FileSystemWatcher {
                         } else if (item.endsWith('.webp') || item.endsWith('.png')) {
                             this.updateCache(fullPath, stat);
                         }
-                    } catch { }
+                    } catch {
+                        /* ignored */
+                    }
                 });
-            } catch { }
+            } catch {
+                /* ignored */
+            }
         };
         traverse(this.watchedDir);
     }

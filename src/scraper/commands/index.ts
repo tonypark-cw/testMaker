@@ -1,4 +1,3 @@
-// Command Pattern exports
 export { type Command, type CommandContext, type CommandOptions, type CommandTarget } from './Command.js';
 export { ClickCommand } from './ClickCommand.js';
 export { InputCommand, type InputOptions } from './InputCommand.js';

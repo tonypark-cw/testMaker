@@ -1,5 +1,9 @@
 import { BrowserContext, Route } from 'playwright';
-import { SessionManager } from '../auth/SessionManager.js';
+
+export interface AuthProvider {
+    getTokens(): { accessToken: string; refreshToken: string };
+    getAccessToken(): Promise<string>;
+}
 
 export class NetworkManager {
     private rateLimitUntil: number = 0;
@@ -10,6 +14,12 @@ export class NetworkManager {
     private cachedToken: string = '';
     private lastTokenCheckTime: number = 0;
     private readonly TOKEN_CACHE_DURATION_MS = 5000; // 5 seconds
+
+    private authProvider: AuthProvider | null = null;
+
+    public setAuthProvider(provider: AuthProvider): void {
+        this.authProvider = provider;
+    }
 
     public getRateLimitUntil(): number { return this.rateLimitUntil; }
     public resetRateLimit(): void {
@@ -37,21 +47,19 @@ export class NetworkManager {
 
             if (url.includes('ianai-dev.com') || url.includes('ianai.co') || url.includes('localhost')) {
                 const headers = await request.allHeaders();
-                headers['company-id'] = companyId;
-
                 try {
-                    // Use cached token to reduce SessionManager queries
                     const now = Date.now();
 
                     // Only check token if we don't have one or cache expired
                     if (!this.cachedToken || (now - this.lastTokenCheckTime > this.TOKEN_CACHE_DURATION_MS)) {
-                        const sessionMgr = SessionManager.getInstance();
-                        const tokens = sessionMgr.getTokens();
+                        if (this.authProvider) {
+                            const tokens = this.authProvider.getTokens();
 
-                        // Only call getAccessToken if tokens are initialized
-                        if (tokens.accessToken && tokens.refreshToken) {
-                            this.cachedToken = await sessionMgr.getAccessToken();
-                            this.lastTokenCheckTime = now;
+                            // Only call getAccessToken if tokens are initialized
+                            if (tokens.accessToken && tokens.refreshToken) {
+                                this.cachedToken = await this.authProvider.getAccessToken();
+                                this.lastTokenCheckTime = now;
+                            }
                         }
                     }
 

@@ -8,7 +8,6 @@ import { SearchResult } from '../../types/index.js';
 import { ScrapeJob, ScraperConfig } from '../shared/types.js';
 import { RecoveryManager } from '../shared/network/RecoveryManager.js';
 import { NetworkManager } from '../shared/network/NetworkManager.js';
-import { SessionManager } from '../shared/auth/SessionManager.js';
 import { AuthManager } from '../shared/auth/AuthManager.js';
 import { QueueManager } from './queue/QueueManager.js';
 import { PlaywrightPage } from './adapters/playwright/PlaywrightPage.js';
@@ -41,6 +40,10 @@ export class Runner {
     constructor(private config: ScraperConfig, private outputDir: string, private concurrency: number = 3) {
         this.queueManager = new QueueManager(config, outputDir, (msg) => this.log(msg));
         this.authManager = new AuthManager(config, this.networkManager, this.recoveryManager, outputDir);
+
+        // Link NetworkManager to AuthManager for token injection
+        this.networkManager.setAuthProvider(this.authManager);
+
         this.labelsDir = path.join(this.outputDir, 'print_label');
         if (!fs.existsSync(this.labelsDir)) fs.mkdirSync(this.labelsDir, { recursive: true });
     }
@@ -157,6 +160,10 @@ export class Runner {
             // Start Tracing
             await this.context.tracing.start({ screenshots: true, snapshots: true, sources: true });
 
+            // Link NetworkManager and Setup Refresh Handler BEFORE Login
+            this.networkManager.setAuthProvider(this.authManager);
+            this.setupAuthRefreshHandler();
+
             // Initial Auth
             const loginPage = await this.context.newPage();
             this.log('[Runner] Performing authentication...');
@@ -171,7 +178,7 @@ export class Runner {
             }
 
             this.log('[Runner] Auth Success! Proceeding to crawl...');
-            await this.initializeSessionManager(loginPage);
+            await this.initializeAuthTokens(loginPage);
 
             // Initial Job Handling
             if (!this.config.resume || this.queueManager.getQueueLength() === 0) {
@@ -244,7 +251,7 @@ export class Runner {
         return 3600;
     }
 
-    private async initializeSessionManager(page: Page) {
+    private async initializeAuthTokens(page: Page) {
         try {
             // [AUTH-FIX] Wait for tokens to be populated in localStorage
             let attempts = 0;
@@ -289,58 +296,57 @@ export class Runner {
             // Extract actual token expiry time
             tokens.expiresIn = await this.extractTokenExpiry(page, cookies);
 
-            const sessionMgr = SessionManager.getInstance();
-            sessionMgr.setTokens(tokens.access, tokens.refresh, tokens.expiresIn);
-            this.log(`[Runner] SessionManager initialized with tokens (expires in ${tokens.expiresIn}s).`);
-
-            sessionMgr.setRefreshHandler(async (refreshToken) => {
-                this.log('[SessionManager] Refreshing token...');
-                try {
-                    // [AUTH-FIX] Dynamic API URL based on environment
-                    const isDev = this.config.url.includes('dev.ianai.co');
-                    const apiBase = isDev ? 'https://api-dev.ianai.co' : 'https://api-stage.ianai.co';
-                    const originBase = isDev ? 'https://dev.ianai.co' : 'https://stage.ianai.co';
-                    this.log(`[SessionManager] Using API Base: ${apiBase}`);
-
-                    const response = await this.context!.request.post(`${apiBase}/v2/user/token`, {
-                        data: { refresh_token: refreshToken },
-                        headers: {
-                            'Origin': originBase,
-                            'Referer': `${originBase}/app`,
-                            'Content-Type': 'application/json'
-                        }
-                    });
-
-                    if (response.ok()) {
-                        const data = await response.json();
-                        const expiresIn = data.expiresIn ?? data.expires_in ?? 3600;
-                        const newAccessToken = data.accessToken || data.token;
-
-                        if (!newAccessToken) {
-                            console.error('[SessionManager] Refresh response missing accessToken:', data);
-                            throw new Error('Refresh response missing accessToken');
-                        }
-
-                        this.log(`[SessionManager] Token refreshed (expires in ${expiresIn}s)`);
-                        return {
-                            accessToken: newAccessToken,
-                            refreshToken: data.refreshToken || refreshToken,
-                            expiresIn: expiresIn
-                        };
-                    } else {
-                        const errorText = await response.text();
-                        console.error(`[SessionManager] Refresh failed: ${response.status()} - ${errorText}`);
-                        throw new Error(`Refresh failed: ${response.status()}`);
-                    }
-                } catch (e) {
-                    console.error('[SessionManager] Refresh error:', e);
-                    throw e;
-                }
-            });
+            this.authManager.setTokens(tokens.access, tokens.refresh, tokens.expiresIn);
+            this.log(`[Runner] Auth state initialized (expires in ${tokens.expiresIn}s).`);
 
         } catch (e) {
-            console.error('[Runner] Failed to initialize SessionManager:', e);
+            console.error('[Runner] Failed to initialize Auth Tokens:', e);
         }
+    }
+
+    private setupAuthRefreshHandler() {
+        if (!this.context) return;
+
+        this.authManager.setRefreshHandler(async (refreshToken) => {
+            this.log('[AuthManager] Refreshing token via Runner configured handler...');
+            try {
+                // [AUTH-FIX] Dynamic API URL based on environment
+                const isDev = this.config.url.includes('dev.ianai.co');
+                const apiBase = isDev ? 'https://api-dev.ianai.co' : 'https://api-stage.ianai.co';
+                const originBase = isDev ? 'https://dev.ianai.co' : 'https://stage.ianai.co';
+
+                const response = await this.context!.request.post(`${apiBase}/v2/user/token`, {
+                    data: { refresh_token: refreshToken },
+                    headers: {
+                        'Origin': originBase,
+                        'Referer': `${originBase}/app`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok()) {
+                    const data = await response.json();
+                    const expiresIn = data.expiresIn ?? data.expires_in ?? 3600;
+                    const newAccessToken = data.accessToken || data.token;
+
+                    if (!newAccessToken) {
+                        throw new Error('Refresh response missing accessToken');
+                    }
+
+                    return {
+                        accessToken: newAccessToken,
+                        refreshToken: data.refreshToken || refreshToken,
+                        expiresIn: expiresIn
+                    };
+                } else {
+                    const errorText = await response.text();
+                    throw new Error(`Refresh failed: ${response.status()} - ${errorText}`);
+                }
+            } catch (e) {
+                console.error('[AuthManager] Refresh error:', e);
+                throw e;
+            }
+        });
     }
 
     private async processQueue() {
@@ -407,10 +413,9 @@ export class Runner {
 
         try {
             // [AUTH-FIX] Ensure tokens are fresh BEFORE creating/using page
-            const sessionMgr = SessionManager.getInstance();
             let accessToken: string;
             try {
-                accessToken = await sessionMgr.getAccessToken(); // Triggers refresh if expiring, returns valid token
+                accessToken = await this.authManager.getAccessToken(); // Triggers refresh if expiring, returns valid token
                 console.log(`[Runner-Debug] Received accessToken: ${accessToken ? accessToken.substring(0, 10) + '...' : 'EMPTY'}`);
             } catch (e) {
                 console.error(`[Runner] Token refresh failed for ${job.url}. Aborting worker.`, e);
@@ -422,7 +427,7 @@ export class Runner {
                 return;
             }
 
-            const { refreshToken } = sessionMgr.getTokens();
+            const { refreshToken } = this.authManager.getTokens();
 
             if (shouldReuseTab) {
                 // Reuse the authenticated page (single tab mode)

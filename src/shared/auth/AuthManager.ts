@@ -4,13 +4,38 @@ import * as fs from 'fs';
 import { ScraperConfig } from '../types.js';
 import { NetworkManager } from '../network/NetworkManager.js';
 import { RecoveryManager } from '../network/RecoveryManager.js';
-import { SessionManager } from './SessionManager.js';
+
+export interface TokenRefreshResult {
+    accessToken: string;
+    refreshToken: string;
+    expiresIn: number;
+}
+
+export type RefreshHandler = (refreshToken: string) => Promise<TokenRefreshResult>;
+
+interface TokenState {
+    accessToken: string;
+    refreshToken: string;
+    expiresAt: number;
+    isRefreshing: boolean;
+}
 
 /**
  * AuthManager
  * Handles the logic for logging into the application and validating the session.
  */
 export class AuthManager {
+    private state: TokenState = {
+        accessToken: '',
+        refreshToken: '',
+        expiresAt: 0,
+        isRefreshing: false
+    };
+
+    private refreshPromise: Promise<string> | null = null;
+    private refreshHandler: RefreshHandler | null = null;
+    private readonly REFRESH_THRESHOLD_MS = 60 * 1000;
+
     constructor(
         private config: ScraperConfig,
         private networkManager: NetworkManager,
@@ -18,31 +43,75 @@ export class AuthManager {
         private outputDir: string
     ) { }
 
+    public setRefreshHandler(handler: RefreshHandler): void {
+        this.refreshHandler = handler;
+    }
+
+    public setTokens(accessToken: string, refreshToken: string, expiresInSeconds: number): void {
+        const expiresAt = Date.now() + (expiresInSeconds * 1000);
+        this.state = {
+            accessToken,
+            refreshToken,
+            expiresAt,
+            isRefreshing: false
+        };
+        const expiresInMinutes = Math.floor(expiresInSeconds / 60);
+        console.log(`[AuthManager] Tokens set in-memory (expires in ${expiresInMinutes}m)`);
+    }
+
+    public getTokens() {
+        return {
+            accessToken: this.state.accessToken,
+            refreshToken: this.state.refreshToken
+        };
+    }
+
+    public async getAccessToken(): Promise<string> {
+        if (this.refreshPromise) return this.refreshPromise;
+        if (this.isExpiringSoon()) return this.refreshTokens();
+        return this.state.accessToken;
+    }
+
+    private isExpiringSoon(): boolean {
+        if (!this.state.accessToken) return true;
+        return Date.now() + this.REFRESH_THRESHOLD_MS >= this.state.expiresAt;
+    }
+
+    public async refreshTokens(): Promise<string> {
+        if (this.refreshPromise) return this.refreshPromise;
+
+        if (!this.state.refreshToken) {
+            throw new Error('No refresh token available for in-memory refresh.');
+        }
+
+        if (!this.refreshHandler) {
+            throw new Error('Refresh handler not configured in AuthManager');
+        }
+
+        this.state.isRefreshing = true;
+        this.refreshPromise = (async () => {
+            try {
+                console.log('[AuthManager] Starting token refresh...');
+                const result = await this.refreshHandler!(this.state.refreshToken);
+                this.setTokens(result.accessToken, result.refreshToken, result.expiresIn);
+                return result.accessToken;
+            } catch (e) {
+                console.error('[AuthManager] Token refresh failed:', e);
+                throw e;
+            } finally {
+                this.state.isRefreshing = false;
+                this.refreshPromise = null;
+            }
+        })();
+
+        return this.refreshPromise;
+    }
+
     /**
      * Performs login on the target page.
      */
     public async performLogin(page: Page, context: BrowserContext): Promise<boolean> {
-        const sessionManager = SessionManager.getInstance();
-
-        // [PHASE 4] Global Auth Mutex: Ensure only one process logs in at a time
-        const release = await sessionManager.acquireLock().catch(() => null);
-
         try {
-            // Check again after acquiring lock (another process might have logged in while we waited)
-            const tokens = sessionManager.getTokens();
-
-            if (sessionManager.hasValidSession()) {
-                console.log('[AuthManager] ✓ Valid session found after lock acquisition. Restoring browser state...');
-
-                // Session is already restored via Runner.ts context creation
-                console.log('[AuthManager] ✓ Session detected. Skipping login flow.');
-
-                if (process.env.INJECT_CUSTOM_HEADERS === 'true') {
-                    await this.injectCompanyId(context);
-                }
-                return true;
-            }
-
             console.log('[AuthManager] Navigating to target for login...');
             await page.goto(this.config.url, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(e => {
                 console.error(`[AuthManager] Initial navigation failed: ${e.message}`);
@@ -134,8 +203,6 @@ export class AuthManager {
         } catch (e) {
             console.log(`[AuthManager] Login error: ${(e as Error).message}`);
             return false;
-        } finally {
-            if (release) await release();
         }
     }
 
@@ -191,6 +258,15 @@ export class AuthManager {
      * Verify if login was successful
      */
     private async verifyLogin(page: Page, context: BrowserContext, passwordLocator: any): Promise<boolean> {
+        // Ensure we have valid tokens (triggers refresh if we only have a refresh_token)
+        try {
+            const token = await this.getAccessToken();
+            console.log(`[AuthManager] Token verification: ${token ? 'ACTIVE' : 'MISSING'}`);
+        } catch (e) {
+            console.error('[AuthManager] Token refresh failed during verification:', e);
+            // Don't return false yet, the page shell might still be visible
+        }
+
         const currentUrl = page.url();
         const safeLogUrl = currentUrl.replace(/\/\/.*@/, '//***@');
         console.log(`[AuthManager] Post-login URL: ${safeLogUrl}`);
@@ -282,27 +358,19 @@ export class AuthManager {
      * Capture session state (cookies + localStorage) and save to shared session file
      */
     private async captureSessionState(context: BrowserContext): Promise<boolean> {
-        console.log('[AuthManager] Capturing session state to shared file...');
-        const sessionManager = SessionManager.getInstance();
+        console.log('[AuthManager] Capturing session state to in-memory store...');
 
         try {
-            // 1. Save full storage state (Cookies + LocalStorage)
-            const storagePath = sessionManager.getStorageStatePath();
-            if (storagePath) {
-                await context.storageState({ path: storagePath });
-                console.log(`[AuthManager] ✓ Full storage state saved to ${storagePath}`);
-            }
-
-            // 2. Also update in-memory tokens if cookie-based
             const cookies = await context.cookies();
             const refreshCookie = cookies.find(c => c.name === 'refresh_token');
 
             if (refreshCookie) {
-                sessionManager.setTokens(refreshCookie.value, refreshCookie.value, 3600);
+                // Tokens already handled by captureTokens. 
+                // We just return true to indicate session state is present via cookies.
                 return true;
             }
 
-            return !!storagePath;
+            return false;
         } catch (e) {
             console.error('[AuthManager] Failed to capture session state:', e);
             return false;
@@ -310,37 +378,68 @@ export class AuthManager {
     }
     private async captureTokens(page: Page): Promise<boolean> {
         console.log('[AuthManager] Starting token capture from browser storage...');
-        const sessionManager = SessionManager.getInstance();
         let attempts = 0;
-        const maxAttempts = 15; // Increased from 5 to 15 (15 seconds total)
+        const maxAttempts = 15;
 
         while (attempts < maxAttempts) {
             const tokens = await page.evaluate(() => {
-                return {
-                    access: localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken') || '',
-                    refresh: localStorage.getItem('refreshToken') || sessionStorage.getItem('refreshToken') || ''
+                // 1. Check direct keys
+                const directAccess = localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken');
+                const directRefresh = localStorage.getItem('refreshToken') || sessionStorage.getItem('refreshToken');
+                if (directAccess && directRefresh) return { access: directAccess, refresh: directRefresh };
+
+                // 2. Check nested keys (search all storage)
+                const findInStorage = (storage: Storage) => {
+                    for (let i = 0; i < storage.length; i++) {
+                        const key = storage.key(i);
+                        if (!key) continue;
+                        try {
+                            const val = JSON.parse(storage.getItem(key) || '');
+                            if (val && typeof val === 'object') {
+                                // Common nested patterns
+                                const access = val.accessToken || val.access_token || val.token || (val.state && val.state.accessToken);
+                                const refresh = val.refreshToken || val.refresh_token || (val.state && val.state.refreshToken);
+                                if (access && refresh) return { access, refresh };
+                            }
+                        } catch (e) { /* not JSON */ }
+                    }
+                    return null;
                 };
+
+                return findInStorage(localStorage) || findInStorage(sessionStorage) || { access: '', refresh: '' };
             }).catch(() => ({ access: '', refresh: '' }));
 
-            // 1. Success via LocalStorage
+            // 1. Success via Storage
             if (tokens.access && tokens.refresh) {
-                sessionManager.setTokens(tokens.access, tokens.refresh, 3600);
-                console.log('[AuthManager] ✓ Tokens successfully captured from LocalStorage');
+                this.setTokens(tokens.access, tokens.refresh, 3600);
+                console.log('[AuthManager] ✓ Tokens successfully captured from Storage (nested or direct)');
                 return true;
             }
+
+            // [DEBUG] Capture all keys for analysis
+            const allKeys = await page.evaluate(() => {
+                return {
+                    local: Object.keys(localStorage),
+                    session: Object.keys(sessionStorage)
+                };
+            }).catch(() => ({ local: [], session: [] }));
+
+            console.log(`[AuthManager-Debug] Attempt ${attempts + 1}: Local: [${allKeys.local.join(', ')}], Session: [${allKeys.session.join(', ')}]`);
 
             // 2. Fallback: Check Cookies immediately
             const cookies = await page.context().cookies();
 
-            // [DEBUG] Log all cookie names to find the correct token
-            const cookieNames = cookies.map(c => `${c.name}=${c.value.substring(0, 10)}...`);
-            console.log(`[AuthManager] Available Cookies: ${cookieNames.join(', ')}`);
+            // [DEBUG] Log all cookie names and domains
+            const cookieInfo = cookies.map(c => `${c.name} (${c.domain})`);
+            console.log(`[AuthManager-Debug] Available Cookies: ${cookieInfo.join(', ')}`);
 
             const refreshCookie = cookies.find(c => c.name === 'refresh_token' || c.name.includes('refresh') || c.name.includes('token'));
 
             if (refreshCookie) {
-                sessionManager.setTokens(refreshCookie.value, refreshCookie.value, 3600);
-                console.log(`[AuthManager] ✓ Refresh Token captured from Cookie: ${refreshCookie.name}`);
+                // If only refresh token found, set expires to 0 to force an immediate refresh attempt
+                // during verification or first worker call.
+                this.setTokens('', refreshCookie.value, 0);
+                console.log(`[AuthManager] ✓ Refresh Token captured from Cookie: ${refreshCookie.name}. (Access token empty, refresh queued)`);
                 return true;
             }
 

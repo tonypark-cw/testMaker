@@ -513,10 +513,13 @@ export class Runner {
         this.isRunning = false;
         if (this.context) {
             const tracePath = path.join(this.outputDir, '..', `trace-${Date.now()}.zip`);
-            await this.context.tracing.stop({ path: tracePath }).catch(() => { });
-            await this.context.close().catch(() => { });
+            try {
+                await this.context.tracing.stop({ path: tracePath }).catch(() => { });
+            } catch { /* ignore */ }
+
+            await this.context?.close().catch(() => { });
         }
-        if (this.browser) await this.browser.close().catch(() => { });
+        if (this.browser) await this.browser?.close().catch(() => { });
         this.browser = null;
         this.context = null;
         this.authenticatedPage = null;

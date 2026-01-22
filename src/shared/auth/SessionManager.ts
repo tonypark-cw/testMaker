@@ -33,7 +33,11 @@ export class SessionManager {
     private sessionFilePath: string = path.join(process.cwd(), 'output', 'temp-auth.json');
 
     private constructor() {
+<<<<<<< HEAD
         this.loadFromFile();
+=======
+        // In-memory only: Do not load from file
+>>>>>>> 2fa101f ([Update] Revert internal phase authority changes and prepare for AI Agent authority config)
     }
 
     public static getInstance(): SessionManager {
@@ -43,6 +47,7 @@ export class SessionManager {
         return SessionManager.instance;
     }
 
+<<<<<<< HEAD
     /**
      * Acquire a global lock on the session file.
      * Use this to synchronize login or refresh operations across processes.
@@ -79,16 +84,14 @@ export class SessionManager {
     /**
      * Set the handler function that performs the actual API call to refresh tokens.
      */
+=======
+    // Removed: setRefreshHandler (Not used in in-memory mode if we don't persist refresh tokens across restarts)
+    // Actually, we usually need it for runtime refresh. Keeping consistent with previous interface.
+>>>>>>> 2fa101f ([Update] Revert internal phase authority changes and prepare for AI Agent authority config)
     public setRefreshHandler(handler: RefreshHandler): void {
         this.refreshHandler = handler;
     }
 
-    /**
-     * Initialize or update tokens manually.
-     * @param accessToken New access token
-     * @param refreshToken New refresh token
-     * @param expiresInSeconds Expiration time in seconds from now
-     */
     public setTokens(accessToken: string, refreshToken: string, expiresInSeconds: number): void {
         const expiresAt = Date.now() + (expiresInSeconds * 1000);
         this.state = {
@@ -98,6 +101,7 @@ export class SessionManager {
             isRefreshing: false
         };
         const expiresInMinutes = Math.floor(expiresInSeconds / 60);
+<<<<<<< HEAD
         console.log(`[SessionManager] Tokens set (expires in ${expiresInMinutes}m, at ${new Date(expiresAt).toLocaleTimeString()})`);
         this.saveToFile();
     }
@@ -131,11 +135,11 @@ export class SessionManager {
      */
     public hasStorageState(): boolean {
         return !!this.storageStatePath && fs.existsSync(this.storageStatePath);
+=======
+        console.log(`[SessionManager] Tokens set (In-Memory) (expires in ${expiresInMinutes}m)`);
+>>>>>>> 2fa101f ([Update] Revert internal phase authority changes and prepare for AI Agent authority config)
     }
 
-    /**
-     * Get current raw tokens.
-     */
     public getTokens(): { accessToken: string; refreshToken: string } {
         return {
             accessToken: this.state.accessToken,
@@ -143,35 +147,47 @@ export class SessionManager {
         };
     }
 
-    /**
-     * Get a valid access token. Triggers refresh if expiring soon.
-     * Waits for pending refresh if one is in progress.
-     */
     public async getAccessToken(): Promise<string> {
-        // 1. If refreshing, wait for it
         if (this.refreshPromise) {
             return this.refreshPromise;
         }
 
-        // 2. Check if expired or expiring soon
         if (this.isExpiringSoon()) {
             return this.refreshTokens();
         }
 
-        // 3. Return valid token
         return this.state.accessToken;
     }
 
+<<<<<<< HEAD
     /**
      * Force a token refresh (or join an existing one).
      * Uses file locking to prevent multiple processes from refreshing simultaneously.
      */
     public async refreshTokens(): Promise<string> {
         // Deduping within the same process
+=======
+    public async refreshTokens(): Promise<string> {
+>>>>>>> 2fa101f ([Update] Revert internal phase authority changes and prepare for AI Agent authority config)
         if (this.refreshPromise) {
             return this.refreshPromise;
         }
 
+<<<<<<< HEAD
+=======
+        if (!this.state.refreshToken) {
+            // In-Memory mode: If we don't have a token, we can't refresh.
+            // Caller should handle login.
+            throw new Error('No refresh token available (In-Memory). Login required.');
+        }
+
+        if (!this.refreshHandler) {
+            throw new Error('Refresh handler not configured');
+        }
+
+        this.state.isRefreshing = true;
+
+>>>>>>> 2fa101f ([Update] Revert internal phase authority changes and prepare for AI Agent authority config)
         this.refreshPromise = (async () => {
             let release: (() => Promise<void>) | null = null;
             try {
@@ -280,17 +296,11 @@ export class SessionManager {
     public isExpiringSoon(): boolean {
         if (!this.state.accessToken) return true;
         const now = Date.now();
-        const timeRemaining = this.state.expiresAt - now;
+        // const timeRemaining = this.state.expiresAt - now;
         const isExpiring = now + this.REFRESH_THRESHOLD_MS >= this.state.expiresAt;
-        if (isExpiring) {
-            console.log(`[SessionManager] Token expiring soon (${Math.floor(timeRemaining / 1000)}s remaining)`);
-        }
         return isExpiring;
     }
 
-    /**
-     * For testing purposes: Reset singleton state
-     */
     public _reset(): void {
         this.state = {
             accessToken: '',

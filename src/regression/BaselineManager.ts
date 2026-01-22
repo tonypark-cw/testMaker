@@ -25,10 +25,14 @@ export class BaselineManager {
         const indexPath = path.join(domainDir, 'index.json');
         if (!fs.existsSync(indexPath)) return null;
 
-        const index: BaselineIndex = JSON.parse(fs.readFileSync(indexPath, 'utf-8'));
-        const baseline = index.pages[url];
-
-        return baseline || null;
+        try {
+            const index: BaselineIndex = JSON.parse(fs.readFileSync(indexPath, 'utf-8'));
+            const baseline = index.pages[url];
+            return baseline || null;
+        } catch (err) {
+            console.error(`[BaselineManager] Failed to parse index.json for ${domain}:`, err);
+            return null;
+        }
     }
 
     /**
@@ -88,7 +92,12 @@ export class BaselineManager {
         const contentPath = baseline.screenshotPath.replace('golden.webp', 'content.json');
         if (!fs.existsSync(contentPath)) return null;
 
-        return JSON.parse(fs.readFileSync(contentPath, 'utf-8'));
+        try {
+            return JSON.parse(fs.readFileSync(contentPath, 'utf-8'));
+        } catch (err) {
+            console.error(`[BaselineManager] Failed to parse content.json for ${url}:`, err);
+            return null;
+        }
     }
 
     /**
@@ -98,8 +107,13 @@ export class BaselineManager {
         const indexPath = path.join(this.baselinesDir, domain, 'index.json');
         if (!fs.existsSync(indexPath)) return [];
 
-        const index: BaselineIndex = JSON.parse(fs.readFileSync(indexPath, 'utf-8'));
-        return Object.values(index.pages);
+        try {
+            const index: BaselineIndex = JSON.parse(fs.readFileSync(indexPath, 'utf-8'));
+            return Object.values(index.pages);
+        } catch (err) {
+            console.error(`[BaselineManager] Failed to parse index.json for ${domain}:`, err);
+            return [];
+        }
     }
 
     private getPageName(url: string): string {
@@ -117,7 +131,11 @@ export class BaselineManager {
         let index: BaselineIndex = { domain, pages: {} };
 
         if (fs.existsSync(indexPath)) {
-            index = JSON.parse(fs.readFileSync(indexPath, 'utf-8'));
+            try {
+                index = JSON.parse(fs.readFileSync(indexPath, 'utf-8'));
+            } catch (err) {
+                console.error(`[BaselineManager] Failed to parse existing index.json, creating new:`, err);
+            }
         }
 
         index.pages[url] = {

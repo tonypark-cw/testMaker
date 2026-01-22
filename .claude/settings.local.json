@@ -36,7 +36,8 @@
       "Bash(fi)",
       "Bash(done)",
       "Bash(for file in \"src/core/runner.ts\" \"src/core/NetworkManager.ts\" \"src/core/SessionManager.ts\" \"src/core/lib/QueueManager.ts\" \"src/core/scraper.ts\" \"src/core/lib/explorers/ActionExplorer.ts\" \"src/core/lib/UISettler.ts\" \"src/core/cli.ts\")",
-      "Bash(npx madge:*)"
+      "Bash(npx madge:*)",
+      "Skill(review)"
     ]
   }
 }

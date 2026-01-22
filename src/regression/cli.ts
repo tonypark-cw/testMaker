@@ -137,9 +137,15 @@ program
                 console.log(`📦 Batch Mode: ${matchingBaselines.length} pages to test`);
                 console.log('');
 
+                const threshold = parseFloat(options.threshold);
+                if (isNaN(threshold) || threshold < 0 || threshold > 1) {
+                    console.error('❌ Invalid threshold value. Must be a number between 0 and 1.');
+                    process.exit(1);
+                }
+
                 const runner = new BatchRunner({
                     headless: options.headless,
-                    threshold: parseFloat(options.threshold),
+                    threshold,
                     outputDir: options.output,
                     auth: options.username ? {
                         username: options.username,
@@ -160,7 +166,12 @@ program
             }
 
             // SINGLE PAGE MODE
-            const comparator = new VisualComparator(parseFloat(options.threshold), options.output);
+            const singleThreshold = parseFloat(options.threshold);
+            if (isNaN(singleThreshold) || singleThreshold < 0 || singleThreshold > 1) {
+                console.error('❌ Invalid threshold value. Must be a number between 0 and 1.');
+                process.exit(1);
+            }
+            const comparator = new VisualComparator(singleThreshold, options.output);
 
             // Step 1: Check for existing baseline
             let baseline = manager.findBaseline(options.url);

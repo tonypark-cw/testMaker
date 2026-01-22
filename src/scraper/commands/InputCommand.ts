@@ -1,6 +1,7 @@
 import { Command, CommandContext, CommandTarget, CommandOptions } from './Command.js';
 import { BrowserPage } from '../adapters/BrowserPage.js';
 import { ActionRecord } from '../../types/index.js';
+import { THRESHOLDS, TIMING } from '../config/constants.js';
 
 /**
  * Options specific to InputCommand.
@@ -89,7 +90,7 @@ export class InputCommand implements Command {
 
         // Set current action for Network correlation
         if (networkManager && typeof networkManager.setCurrentAction === 'function') {
-            const displayValue = this.sensitive ? '***' : this.value.substring(0, 20);
+            const displayValue = this.sensitive ? '***' : this.value.substring(0, THRESHOLDS.BUTTON_TEXT_MAX_LENGTH);
             networkManager.setCurrentAction(`Input: ${this.label} = ${displayValue}`);
         }
 
@@ -116,7 +117,7 @@ export class InputCommand implements Command {
                 await page.keyboardPress('Control+A');
                 await page.keyboardPress('Backspace');
             }
-            await page.keyboardType(this.value, { delay: 10 });
+            await page.keyboardType(this.value, { delay: TIMING.TYPING_DELAY });
         } catch {
             // Last resort: evaluate
             await this.target.evaluate((el: HTMLInputElement, val: string) => {
@@ -147,8 +148,8 @@ export class InputCommand implements Command {
         return {
             type: 'input',
             selector: this.selector,
-            label: this.label.substring(0, 30),
-            value: this.sensitive ? '***' : this.value.substring(0, 50),
+            label: this.label.substring(0, THRESHOLDS.LABEL_MAX_LENGTH),
+            value: this.sensitive ? '***' : this.value.substring(0, THRESHOLDS.VALUE_MAX_LENGTH),
             timestamp: new Date().toISOString(),
             url
         };

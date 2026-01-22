@@ -119,12 +119,24 @@ export class AuthHandler {
 
             await emailLocator.waitFor({ state: 'visible', timeout: 10000 });
 
-            // Fill credentials
+            // Validate and fill credentials
+            if (!await emailLocator.isEnabled()) {
+                throw new Error('Email input is disabled');
+            }
             await emailLocator.fill(this.config.username!);
+
+            await passwordLocator.waitFor({ state: 'visible', timeout: 10000 });
+            if (!await passwordLocator.isEnabled()) {
+                throw new Error('Password input is disabled');
+            }
             await passwordLocator.fill(this.config.password!);
 
-            // Submit
+            // Submit with validation
             const submitBtn = page.locator('button[type="submit"], input[type="submit"], button:has-text("Log in"), button:has-text("Sign in"), button:has-text("로그인")').first();
+            await submitBtn.waitFor({ state: 'visible', timeout: 10000 });
+            if (!await submitBtn.isEnabled()) {
+                throw new Error('Submit button is disabled');
+            }
             await submitBtn.click();
 
             // Wait for login to complete

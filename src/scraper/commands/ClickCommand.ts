@@ -1,6 +1,7 @@
 import { Command, CommandContext, CommandTarget, CommandOptions } from './Command.js';
 import { BrowserPage } from '../adapters/BrowserPage.js';
 import { ActionRecord } from '../../types/index.js';
+import { THRESHOLDS } from '../config/constants.js';
 
 /**
  * ClickCommand encapsulates a click action on a target element.
@@ -54,7 +55,7 @@ export class ClickCommand implements Command {
 
         // Set current action for Network correlation
         if (networkManager && typeof networkManager.setCurrentAction === 'function') {
-            networkManager.setCurrentAction(`Clicked: ${this.label.substring(0, 50)}`);
+            networkManager.setCurrentAction(`Clicked: ${this.label.substring(0, THRESHOLDS.VALUE_MAX_LENGTH)}`);
         }
 
         // Add to action chain
@@ -101,7 +102,7 @@ export class ClickCommand implements Command {
         return {
             type: 'click',
             selector: this.selector,
-            label: this.label.substring(0, 30),
+            label: this.label.substring(0, THRESHOLDS.LABEL_MAX_LENGTH),
             timestamp: new Date().toISOString(),
             url
         };

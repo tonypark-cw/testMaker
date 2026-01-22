@@ -84,8 +84,8 @@ async function start() {
     setInterval(() => {
         if (fs.existsSync(supervisorPidPath)) {
             try {
-                const pid = parseInt(fs.readFileSync(supervisorPidPath, 'utf-8').trim());
-                if (pid) process.kill(pid, 0);
+                const pid = parseInt(fs.readFileSync(supervisorPidPath, 'utf-8').trim(), 10);
+                if (!isNaN(pid) && pid > 0) process.kill(pid, 0);
             } catch (e) {
                 console.warn('[Worker] ⚠️ Supervisor died. Resuscitating...');
                 const child = spawn('node', [tsxPath, 'src/core/supervisor.ts'], {

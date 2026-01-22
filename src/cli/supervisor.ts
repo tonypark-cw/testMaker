@@ -170,8 +170,8 @@ export class Supervisor {
         // 1. Check Worker Health
         if (fs.existsSync(this.workerPidPath)) {
             try {
-                const pid = parseInt(fs.readFileSync(this.workerPidPath, 'utf-8').trim());
-                if (pid) {
+                const pid = parseInt(fs.readFileSync(this.workerPidPath, 'utf-8').trim(), 10);
+                if (!isNaN(pid) && pid > 0) {
                     process.kill(pid, 0); // Check if alive
                     console.log(`[Supervisor] 👷 Worker (PID: ${pid}) is active.`);
                 }

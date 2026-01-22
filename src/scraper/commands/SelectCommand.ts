@@ -1,6 +1,7 @@
 import { Command, CommandContext, CommandTarget, CommandOptions } from './Command.js';
 import { BrowserPage } from '../adapters/BrowserPage.js';
 import { ActionRecord } from '../../types/index.js';
+import { THRESHOLDS, TIMING } from '../config/constants.js';
 
 /**
  * Options specific to SelectCommand.
@@ -107,7 +108,7 @@ export class SelectCommand implements Command {
     private async fallbackSelect(page: BrowserPage): Promise<void> {
         try {
             await this.target.click();
-            await page.waitForTimeout(200);
+            await page.waitForTimeout(TIMING.DROPDOWN_OPEN_DELAY);
 
             if (this.selectIndex !== undefined && this.selectIndex >= 0) {
                 // Press ArrowDown (selectIndex + 1) times to reach the target option
@@ -135,8 +136,8 @@ export class SelectCommand implements Command {
         return {
             type: 'select',
             selector: this.selector,
-            label: this.label.substring(0, 30),
-            value: value.substring(0, 50),
+            label: this.label.substring(0, THRESHOLDS.LABEL_MAX_LENGTH),
+            value: value.substring(0, THRESHOLDS.VALUE_MAX_LENGTH),
             timestamp: new Date().toISOString(),
             url
         };

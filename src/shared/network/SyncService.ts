@@ -11,7 +11,17 @@ export class SyncService {
     private prisma: PrismaClient;
 
     constructor() {
-        this.prisma = new PrismaClient();
+        if (!process.env.DATABASE_URL) {
+            console.warn('[SyncService] ⚠️ DATABASE_URL is not set. Sync will perform a dry-run or fail gracefully.');
+        }
+        this.prisma = new PrismaClient({
+            datasources: {
+                db: {
+                    url: process.env.DATABASE_URL
+                }
+            },
+            log: ['warn', 'error']
+        });
     }
 
     /**

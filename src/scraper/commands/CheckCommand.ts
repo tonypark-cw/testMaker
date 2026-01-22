@@ -1,5 +1,6 @@
 import { Command, CommandContext, CommandTarget, CommandOptions } from './Command.js';
 import { ActionRecord } from '../../types/index.js';
+import { THRESHOLDS } from '../config/constants.js';
 
 /**
  * Options specific to CheckCommand.
@@ -111,7 +112,7 @@ export class CheckCommand implements Command {
         return {
             type: 'check',
             selector: this.selector,
-            label: this.label.substring(0, 30),
+            label: this.label.substring(0, THRESHOLDS.LABEL_MAX_LENGTH),
             value: this.shouldCheck ? 'checked' : 'unchecked',
             timestamp: new Date().toISOString(),
             url

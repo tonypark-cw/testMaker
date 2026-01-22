@@ -16,7 +16,7 @@
                 "src/*"
             ],
             "@types/*": [
-                "types/*"
+                "src/types/*"
             ]
         },
         "types": [
@@ -29,9 +29,7 @@
     },
     "include": [
         "playwright.config.ts",
-        "src/**/*.ts",
-        "scripts/**/*.ts",
-        "types/**/*.ts"
+        "src/**/*.ts"
     ],
     "exclude": [
         "node_modules",

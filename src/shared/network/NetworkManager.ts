@@ -66,15 +66,17 @@ export class NetworkManager {
                     if (this.cachedToken) {
                         // [FIX] Prevent duplicate headers by checking case-insensitively
                         const authKey = Object.keys(headers).find(k => k.toLowerCase() === 'authorization') || 'Authorization';
+                        const companyKey = Object.keys(headers).find(k => k.toLowerCase() === 'company-id') || 'company-id';
 
                         // Only inject if not already present or if we want to force-override (currently force-overriding to ensure validity)
                         headers[authKey] = `Bearer ${this.cachedToken}`;
+                        headers[companyKey] = companyId;
                     }
-                } catch (e) { /* Token may not be available yet */ }
+                } catch (_e) { /* Token may not be available yet */ }
 
                 try {
                     await route.continue({ headers });
-                } catch (e) { /* Continue fails if already handled */ }
+                } catch (_e) { /* Continue fails if already handled */ }
             } else {
                 try {
                     await route.continue();

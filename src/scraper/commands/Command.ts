@@ -1,4 +1,4 @@
-import { ActionRecord } from '../../../types/index.js';
+import { ActionRecord } from '../../types/index.js';
 import { NetworkManager } from '../../shared/network/NetworkManager.js';
 import { BrowserPage } from '../adapters/BrowserPage.js';
 import { BrowserElement } from '../adapters/BrowserElement.js';

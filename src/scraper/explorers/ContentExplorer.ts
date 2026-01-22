@@ -1,4 +1,4 @@
-import { ActionRecord, ModalDiscovery } from '../../../types/index.js';
+import { ActionRecord, ModalDiscovery } from '../../types/index.js';
 import { UISettler } from '../lib/UISettler.js';
 import { CommandExecutor, ClickCommand } from '../commands/index.js';
 import { TIMING } from '../config/constants.js';

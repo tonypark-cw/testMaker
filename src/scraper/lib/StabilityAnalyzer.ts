@@ -1,4 +1,4 @@
-import { ActionRecord, TestableElement, GoldenPathInfo } from '../../../types/index.js';
+import { ActionRecord, TestableElement, GoldenPathInfo } from '../../types/index.js';
 import { ScoringProcessor } from './ScoringProcessor.js';
 import { BrowserPage } from '../adapters/BrowserPage.js';
 

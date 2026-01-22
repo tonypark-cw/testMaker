@@ -1,6 +1,6 @@
 import { Command, CommandContext, CommandTarget, CommandOptions } from './Command.js';
 import { BrowserPage } from '../adapters/BrowserPage.js';
-import { ActionRecord } from '../../../types/index.js';
+import { ActionRecord } from '../../types/index.js';
 
 /**
  * ClickCommand encapsulates a click action on a target element.
@@ -60,16 +60,11 @@ export class ClickCommand implements Command {
         // Add to action chain
         actionChain.push(this.toRecord(this.executedUrl));
 
-        // Execute click with coordinate-based strategy
         try {
             const box = await this.target.boundingBox();
             if (box) {
-                const page = ctx.page;
-                // Since BrowserPage evaluate doesn't have a direct mouse access in the interface yet 
-                // we'll rely on the target.click() which is part of our abstraction.
-                // However, our implementation for coordinate click was playwright-specific.
-                // For now, BrowserElement.click() will handle this in PlaywrightElement.
-                await this.target.click({ force: false });
+                // Execute coordinate-based click to bypass SPA event filtering
+                await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
             } else {
                 await this.fallbackClick();
             }

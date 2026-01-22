@@ -1,4 +1,4 @@
-import { ActionRecord } from '../../../types/index.js';
+import { ActionRecord } from '../../types/index.js';
 import { EventBus } from '../../shared/events/EventBus.js';
 import { RLStateManager } from '../rl/RLStateManager.js';
 

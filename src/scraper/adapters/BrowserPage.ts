@@ -34,4 +34,7 @@ export interface BrowserPage {
     keyboardPress(key: string, options?: { delay?: number }): Promise<void>;
     keyboardType(text: string, options?: { delay?: number }): Promise<void>;
     isVisible(selector: string): Promise<boolean>;
+    mouse: {
+        click(x: number, y: number, options?: { delay?: number; button?: 'left' | 'right' | 'middle'; clickCount?: number }): Promise<void>;
+    };
 }

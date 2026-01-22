@@ -2,7 +2,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import sharp from 'sharp';
-import { ActionRecord, ModalDiscovery, TestableElement } from '../../../types/index.js';
+import { ActionRecord, ModalDiscovery, TestableElement } from '../../types/index.js';
 import { CommandExecutor } from '../commands/CommandExecutor.js';
 import { ClickCommand } from '../commands/ClickCommand.js';
 import { NetworkManager } from '../../shared/network/NetworkManager.js';

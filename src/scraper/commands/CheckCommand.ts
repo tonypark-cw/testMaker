@@ -1,5 +1,5 @@
 import { Command, CommandContext, CommandTarget, CommandOptions } from './Command.js';
-import { ActionRecord } from '../../../types/index.js';
+import { ActionRecord } from '../../types/index.js';
 
 /**
  * Options specific to CheckCommand.

@@ -72,7 +72,7 @@ export class ScreenshotCache {
                 this.readyCallbacks.forEach(cb => cb());
                 this.readyCallbacks = [];
             })
-            .on('error', (error: Error) => {
+            .on('error', (error: unknown) => {
                 console.error('[ScreenshotCache] Watcher error:', error);
             });
     }

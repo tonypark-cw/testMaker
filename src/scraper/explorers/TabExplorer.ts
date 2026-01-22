@@ -1,6 +1,6 @@
 import sharp from 'sharp';
 import { CommandExecutor, ClickCommand } from '../commands/index.js';
-import { ActionRecord } from '../../../types/index.js';
+import { ActionRecord } from '../../types/index.js';
 import { NetworkManager } from '../../shared/network/NetworkManager.js';
 import { TIMING } from '../config/constants.js';
 import { BrowserPage } from '../adapters/BrowserPage.js';

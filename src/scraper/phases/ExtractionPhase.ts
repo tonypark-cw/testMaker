@@ -1,4 +1,4 @@
-import { TestableElement } from '../../../types/index.js';
+import { TestableElement } from '../../types/index.js';
 import { BrowserPage } from '../adapters/BrowserPage.js';
 import { IExplorationPhase, PhaseResult } from './IExplorationPhase.js';
 import { ExplorationContext } from './ExplorationContext.js';

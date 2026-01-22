@@ -1,6 +1,5 @@
 import { Page, BrowserContext } from 'playwright';
 import * as path from 'path';
-import * as fs from 'fs';
 import { ScraperConfig } from '../types.js';
 import { NetworkManager } from '../network/NetworkManager.js';
 import { RecoveryManager } from '../network/RecoveryManager.js';
@@ -171,7 +170,7 @@ export class AuthManager {
                         }
 
                         await page.waitForTimeout(1000);
-                        const verified = await this.verifyLogin(page, context, passwordLocator);
+                        const verified = await this.verifyLogin(page, context);
                         return verified;
                     } else {
                         console.log('[AuthManager] Submit button not found.');
@@ -257,7 +256,7 @@ export class AuthManager {
     /**
      * Verify if login was successful
      */
-    private async verifyLogin(page: Page, context: BrowserContext, passwordLocator: any): Promise<boolean> {
+    private async verifyLogin(page: Page, context: BrowserContext): Promise<boolean> {
         // Ensure we have valid tokens (triggers refresh if we only have a refresh_token)
         try {
             const token = await this.getAccessToken();
@@ -345,7 +344,7 @@ export class AuthManager {
                         sessionStorage.setItem('refreshToken', refresh);
                     }, { access: tokens.accessToken, refresh: tokens.refreshToken });
                     console.log('[AuthManager] ✓ localStorage restored');
-                } catch (e) {
+                } catch {
                     console.log('[AuthManager] ℹ️ localStorage not available on this page (cookies will be used)');
                 }
             }
@@ -371,8 +370,8 @@ export class AuthManager {
             }
 
             return false;
-        } catch (e) {
-            console.error('[AuthManager] Failed to capture session state:', e);
+        } catch (_e) {
+            console.error('[AuthManager] Failed to capture session state:', _e);
             return false;
         }
     }
@@ -401,7 +400,7 @@ export class AuthManager {
                                 const refresh = val.refreshToken || val.refresh_token || (val.state && val.state.refreshToken);
                                 if (access && refresh) return { access, refresh };
                             }
-                        } catch (e) { /* not JSON */ }
+                        } catch { /* not JSON */ }
                     }
                     return null;
                 };

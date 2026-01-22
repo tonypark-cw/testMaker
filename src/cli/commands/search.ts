@@ -2,6 +2,7 @@ import * as path from 'path';
 import { spawnSync } from 'child_process';
 import { Runner } from '../../scraper/runner.js';
 import { ScraperConfig } from '../../shared/types.js';
+import { SyncService } from '../../shared/network/SyncService.js';
 
 export async function searchAction(options: any) {
     const url = options.url || process.env.TESTMAKER_URL;
@@ -80,7 +81,18 @@ export async function searchAction(options: any) {
 
     process.off('SIGINT', abortHandler);
 
-    // [Step 2] Auto-run Consistency Validator
+    // [Step 2] Auto-Sync to Database
+    try {
+        console.log('\n[TestMaker] 🔄 Synchronizing results to database...');
+        const syncService = new SyncService();
+        // Sync the environment-specific output directory
+        const jsonDir = path.join(baseOutputDir, 'json', initialDomain);
+        await syncService.syncDirectory(jsonDir, env, url);
+    } catch (e) {
+        console.error('[TestMaker] ❌ Auto-sync failed (Check DATABASE_URL in .env):', e);
+    }
+
+    // [Step 3] Auto-run Consistency Validator
     try {
         console.log('\n[TestMaker] Generating Consistency Report...');
         const stdioMode = options.quiet ? 'ignore' : 'inherit';

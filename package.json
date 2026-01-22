@@ -20,7 +20,9 @@
     "regression": "tsx src/regression/cli.ts run",
     "record": "tsx src/recorder/cli.ts",
     "analyze:session": "tsx src/recorder/analyze-cli.ts",
-    "benchmark": "tsx src/benchmark/compare-cli.ts"
+    "benchmark": "tsx src/benchmark/compare-cli.ts",
+    "calculate-coverage": "tsx src/scripts/calculate_coverage.ts",
+    "db:sync": "tsx src/scripts/sync.ts"
   },
   "keywords": [],
   "author": "",
@@ -47,9 +49,11 @@
     "vitest": "^4.0.16"
   },
   "dependencies": {
+    "@prisma/client": "^7.3.0",
     "commander": "^14.0.2",
     "dotenv": "^17.2.3",
     "handlebars": "^4.7.8",
+    "prisma": "^7.3.0",
     "sharp": "^0.34.5"
   }
 }

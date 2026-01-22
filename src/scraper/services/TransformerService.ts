@@ -1,4 +1,4 @@
-import { TestableElement, TestScenario, TestAction, ScenarioCategory, SCENARIO_HINTS, ActionType } from '../../../types/index.js';
+import { TestableElement, TestScenario, TestAction, ScenarioCategory, SCENARIO_HINTS, ActionType } from '../../types/index.js';
 
 export class TransformerService {
     transform(elements: TestableElement[]): TestScenario[] {

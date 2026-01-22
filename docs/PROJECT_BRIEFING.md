@@ -13,7 +13,7 @@ Runner (or Worker)
 ├── BrowserContext (Single Session)
 │   ├── Tab 1-3 (Scraper) - 병렬 탐색
 ├── Analyzer / Generator
-└── Output (webp/json/trace)
+└── output/ (recordings, test-results, reports)
 
 Distributed Logging
 ├── Terminal 1: npm run dashboard:server (UI + Job Queue)
@@ -27,12 +27,15 @@ Distributed Logging
 | CLI | src/cli/index.ts | 명령어 파싱 |
 | Supervisor | src/cli/supervisor.ts | 프로세스 감시, 자동 재시작 |
 | Runner | src/scraper/runner.ts | 브라우저 관리, 전역 429 제어, 탭 분배 |
-| SessionManager | src/shared/auth/SessionManager.ts | 토큰 관리 (Singleton), 자동 갱신, 백오프 |
+| AuthManager | src/shared/auth/AuthManager.ts | [CONSOLIDATED] 로그인, 토큰 관리, 자동 갱신 |
 | Scraper | src/scraper/index.ts | 8 Phase 탐색 엔진 |
 | Dashboard | src/dashboard/server.ts | 실시간 모니터링 UI (Adaptive Watcher) |
 | NetworkManager | src/shared/network/NetworkManager.ts | CORS-safe 헤더 주입 |
-| RecoveryManager | src/shared/network/RecoveryManager.ts | 에러 임계값 복구 |
+| RecoveryManager | src/shared/network/RecoveryManager.ts | 에러 임력값 복구 |
 | Recorder | src/recorder/index.ts | 사용자 행동 녹화 및 학습 |
+| Generator | src/scraper/services/GeneratorService.ts | 데이터 기반 리포트/코드 생성 |
+| SyncService | src/shared/network/SyncService.ts | [NEW] 로컬 JSON -> 원격 DB 배치 Upsert |
+| Database | prisma/schema.prisma | [NEW] DB 스키마 정의 (Execution, Page, Capture) |
 
 > 상세: [architecture/scraper-phases.md](./architecture/scraper-phases.md)
 
@@ -69,6 +72,8 @@ Distributed Logging
 | State Isolation (Context) | ✅ | 탐색 세션별 컨텍스트 격리로 병합 안정성 확보 |
 | Event-Driven Architecture | ✅ | Pub/Sub 기반 비결합 시스템 (EventBus) |
 | Command Validation | ✅ | 액션 실행 후 UI 상태 검증 및 스마트 재시도 |
+| DB Integration (MariaDB) | ✅ | Prisma 기반 배치 동기화 (Phase 6) |
+| Template Error Fix | ✅ | Handlebars 절대 경로 에러 수정 |
 
 ---
 
@@ -89,6 +94,7 @@ npm run search -- --url "https://stage.ianai.co" --concurrency 3 --headless
 | `TARGET_URL` | 분석 대상 URL |
 | `BLOCK_REFRESH_TOKEN` | 토큰 갱신 차단 (임시) - *Deprecated* |
 | `EXTERNAL_WORKER` | 외부 워커 모드 (대시보드) |
+| `DATABASE_URL` | MariaDB/MySQL 접속 URL (Phase 6) |
 
 ### CLI Options
 
@@ -115,7 +121,7 @@ npm run search -- --url "https://stage.ianai.co" --concurrency 3 --headless
 
 ## Code Health
 
-**Last Verified**: 2026-01-21
+**Last Verified**: 2026-01-22
 
 | Component | Status |
 |-----------|--------|
@@ -132,20 +138,28 @@ npm run search -- --url "https://stage.ianai.co" --concurrency 3 --headless
 
 ---
 
-## Recent Updates Summary (2026-01-21)
+**Project Overhaul (2026-01-22)**:
+```
+src/
+├── cli/        - CLI (index.ts, supervisor.ts)
+├── scraper/    - 스크래퍼 (index.ts, phases/, commands/)
+├── shared/     - 공유 모듈 (auth/, network/, events/, SyncService.ts)
+├── types/      - [MOVED] 전역 타입 정의
+├── templates/  - [MOVED] 리포트 생성 템플릿
+├── scripts/    - [MOVED] 유틸리티 스크립트
+└── tests/      - [MOVED] 모든 유닛/통합 테스트
+prisma/         - DB 스키마 및 마이그레이션
+```
 
-**src/core/ → 모듈별 분리 및 고도화**:
-```
-src/cli/        - CLI (index.ts, inspector.ts, supervisor.ts)
-src/recorder/   - 레코더 (index.ts, tracker/)
-src/scraper/    - 스크래퍼
-    ├── index.ts        - 오케스트레이터 (Scraper)
-    ├── phases/         - Strategy Pattern (Navigation, Capture 등)
-    ├── explorers/      - UI 탐색 전략
-    ├── commands/       - Command Pattern + Validation
-    └── ...
-src/shared/     - 공유 모듈 (auth/, network/, events/, types.ts)
-```
+**Structural & Auth Refactoring (Phase 5)**:
+- **Consolidated Auth**: `SessionManager` 제거 후 `AuthManager`로 인증 관리 일원화.
+- **Architecture Wrapping**: `types`, `templates`, `scripts`, `tests`를 `src/` 하위로 묶어 루트 정리.
+- **Output Consolidation**: 모든 실행 결과물(screenshots, recordings, reports)을 `output/` 하위로 격리.
+
+**DB Integration (Phase 6)**:
+- **Offline-First Strategy**: 페이지별 로컬 JSON 아카이브 + 배치 동기화.
+- **Prisma implementation**: MariaDB/MySQL 연동 및 Upsert 로직 (Unique key: URL+Hash).
+- **Standalone Tool**: `npm run db:sync` 지원.
 
 **Architectural Evolution (Phase 3)**:
 - **Strategy Pattern**: `Scraper` 로직을 독립적인 `IExplorationPhase`들로 분해.

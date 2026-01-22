@@ -1,5 +1,5 @@
 import { BrowserPage } from '../adapters/BrowserPage.js';
-import { ActionRecord, ModalDiscovery, TestableElement } from '../../../types/index.js';
+import { ActionRecord, ModalDiscovery, TestableElement } from '../../types/index.js';
 import { CommandExecutor } from '../commands/CommandExecutor.js';
 
 export interface ExplorationState {

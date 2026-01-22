@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import { Scraper } from './index.js';
 import { TransformerService as Transformer } from './services/TransformerService.js';
 import { GeneratorService as Generator } from './services/GeneratorService.js';
-import { SearchResult } from '../../types/index.js';
+import { ActionRecord, ModalDiscovery, SearchResult } from '../types/index.js';
 import { ScrapeJob, ScraperConfig } from '../shared/types.js';
 import { RecoveryManager } from '../shared/network/RecoveryManager.js';
 import { NetworkManager } from '../shared/network/NetworkManager.js';
@@ -13,6 +13,7 @@ import { QueueManager } from './queue/QueueManager.js';
 import { PlaywrightPage } from './adapters/playwright/PlaywrightPage.js';
 import { BrowserPage } from './adapters/BrowserPage.js';
 import { RLStateManager } from './rl/RLStateManager.js';
+import { ScoringProcessor } from '../scraper/lib/ScoringProcessor.js';
 import { RLSubscriber } from './subscribers/RLSubscriber.js';
 
 export class Runner {
@@ -299,8 +300,8 @@ export class Runner {
             this.authManager.setTokens(tokens.access, tokens.refresh, tokens.expiresIn);
             this.log(`[Runner] Auth state initialized (expires in ${tokens.expiresIn}s).`);
 
-        } catch (e) {
-            console.error('[Runner] Failed to initialize Auth Tokens:', e);
+        } catch (_e) {
+            console.error('[Runner] Failed to initialize Auth Tokens:', _e);
         }
     }
 
@@ -438,7 +439,7 @@ export class Runner {
                 page = await this.context!.newPage();
 
                 // Inject tokens IMMEDIATELY after page creation, before any navigation
-                await page.addInitScript((tokens) => {
+                await page.addInitScript((tokens: { access: string, refresh: string }) => {
                     localStorage.setItem('accessToken', tokens.access);
                     localStorage.setItem('refreshToken', tokens.refresh);
                     try {

@@ -1,0 +1,46 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model Execution {
+  id          String    @id @default(uuid())
+  environment String
+  status      String    @default("running")
+  startTime   DateTime  @default(now())
+  baseUrl     String
+  captures    Capture[]
+}
+
+model Page {
+  url      String    @id
+  domain   String
+  captures Capture[]
+}
+
+model Capture {
+  id             String    @id @default(uuid())
+  executionId    String
+  execution      Execution @relation(fields: [executionId], references: [id])
+  pageUrl        String
+  page           Page      @relation(fields: [pageUrl], references: [url])
+  hash           String
+  screenshotPath String?
+  elementsData   Json?
+  createdAt      DateTime  @default(now())
+  anomalies      Anomaly[]
+
+  @@unique([pageUrl, hash])
+}
+
+model Anomaly {
+  id        String  @id @default(uuid())
+  captureId String
+  capture   Capture @relation(fields: [captureId], references: [id])
+  type      String
+  severity  Float
+  details   Json
+}

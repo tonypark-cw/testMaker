@@ -3,7 +3,7 @@ import {
     GoldenPathInfo,
     ActionRecord,
     ModalDiscovery
-} from '../../types/index.js';
+} from '../types/index.js';
 
 export interface ScrapeJob {
     /** Target URL to scrape */

@@ -1,4 +1,4 @@
-import { ActionRecord, ModalDiscovery } from '../../../types/index.js';
+import { ActionRecord, ModalDiscovery } from '../../types/index.js';
 import { NavExplorer } from '../explorers/NavExplorer.js';
 import { TabExplorer } from '../explorers/TabExplorer.js';
 import { FilterExplorer } from '../explorers/FilterExplorer.js';

@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import Handlebars from 'handlebars';
-import { SearchResult, GeneratorOptions } from '../../../types/index.js';
+import { SearchResult, GeneratorOptions } from '../../types/index.js';
 
 export class GeneratorService {
     constructor() {
@@ -37,7 +37,11 @@ export class GeneratorService {
             fs.mkdirSync(targetDir, { recursive: true });
         }
 
-        const templatePath = path.join(process.cwd(), 'templates/tc-markdown.hbs');
+        const rootDir = process.cwd();
+        const templatePath = fs.existsSync(path.join(rootDir, 'src/templates/tc-markdown.hbs'))
+            ? path.join(rootDir, 'src/templates/tc-markdown.hbs')
+            : path.join(rootDir, 'templates/tc-markdown.hbs');
+
         const templateSource = fs.readFileSync(templatePath, 'utf-8');
         const template = Handlebars.compile(templateSource);
 
@@ -56,7 +60,11 @@ export class GeneratorService {
             fs.mkdirSync(targetDir, { recursive: true });
         }
 
-        const templatePath = path.join(process.cwd(), 'templates/playwright.hbs');
+        const rootDir = process.cwd();
+        const templatePath = fs.existsSync(path.join(rootDir, 'src/templates/playwright.hbs'))
+            ? path.join(rootDir, 'src/templates/playwright.hbs')
+            : path.join(rootDir, 'templates/playwright.hbs');
+
         const templateSource = fs.readFileSync(templatePath, 'utf-8');
         const template = Handlebars.compile(templateSource);
 

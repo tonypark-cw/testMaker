@@ -5,3 +5,5 @@ output
 *.bak
 *.log
 *.plist
+
+/generated/prisma

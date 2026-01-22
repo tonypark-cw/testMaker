@@ -50,7 +50,7 @@ export class PlaywrightPage implements BrowserPage {
         await this.page.addInitScript(fn as any, arg);
     }
 
-    async waitForLoadState(state?: 'load' | 'domcontentloaded' | 'networkidle', options?: { timeout?: number }): Promise<void> {
+    async waitForLoadState(state: 'load' | 'domcontentloaded' | 'networkidle', options?: { timeout?: number }): Promise<void> {
         await this.page.waitForLoadState(state, options);
     }
 
@@ -68,5 +68,13 @@ export class PlaywrightPage implements BrowserPage {
 
     async isVisible(selector: string): Promise<boolean> {
         return await this.page.isVisible(selector);
+    }
+
+    get mouse() {
+        return {
+            click: async (x: number, y: number, options?: { delay?: number; button?: 'left' | 'right' | 'middle'; clickCount?: number }) => {
+                await this.page.mouse.click(x, y, options);
+            }
+        };
     }
 }

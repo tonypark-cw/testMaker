@@ -80,6 +80,7 @@ TestMaker는 웹 페이지를 자동으로 크롤링하여:
 | **Hexagonal Architecture** | Playwright 의존성 분리를 통한 테스트 용이성 (WIP) |
 | **Dashboard** | 웹 기반 분석 결과 시각화 및 실행 인터페이스 |
 | **RL Scoring** | AI 기반 페이지 신뢰도 및 탐색 안정성 점수 검증 |
+| **DB Integration** | [PHASE 6] MariaDB/MySQL 연동 및 오프라인-퍼스트 결과 관리 |
 | **Modal Discovery** | 모달 내부 요소 자동 탐지 및 컨텍스트 스캔 |
 | **Row-Click Discovery** | 데이터 테이블 행 클릭을 통한 상세 페이지 BFS 탐색 |
 
@@ -238,8 +239,9 @@ npm run analyze -- --url https://example.com --force
 | `--username <user>` | 로그인 사용자명 | `EMAIL` (env) |
 | `--password <pass>` | 로그인 비밀번호 | `PASSWORD` (env) |
 | `--concurrency <n>` | 병합 탭 수 | `1` |
-| `--force` | 캐시 무시 | `false` |
 | `--headless/--no-headless` | 헤드리스 모드 | `true` |
+| `--db-sync` | 실행 후 자동 DB 동기화 | `true` |
+| `--force` | 캐시 무시 | `false` |
 
 ### 인증이 필요한 사이트
 
@@ -257,29 +259,15 @@ npm run analyze -- --url https://app.example.com/dashboard --recursive
 ## 출력 구조
 
 ```
-output/
-├── json/                          # 분석 결과 JSON
-│   └── {domain}/
-│       └── {domain}-{path}.json   # 페이지별 분석 데이터
-│
-├── markdown/                      # TC 문서
-│   └── {domain}/
-│       └── {domain}-{path}.md     # 테스트 케이스 문서
-│
-├── playwright/                    # Playwright 테스트 코드
-│   └── {domain}/
-│       └── {domain}-{path}.spec.ts
-│
-├── screenshots/                   # 페이지 스크린샷
-│   └── {domain}/
-│       └── {path}.webp
-│
-├── json/                          # 분석 결과 JSON (Domain/Hash 기반)
-├── markdown/                      # 테스트 케이스 문서 (Markdown)
-├── playwright/                    # Playwright 실행 코드 (.spec.ts)
-├── screenshots/                   # 페이지별 WebP 스크린샷
-├── temp-auth.json                 # 인증 세션 캐시
-└── runner.log                     # 실행 로그
+output/                          # 모든 실행 결과물 (Artifacts)
+├── recordings/                 # 분석 시 캡처된 녹화 파일
+├── tests/                      # Playwright 테스트 결과
+│   ├── playwright-report/      # HTML 리포트
+│   └── test-results/           # 실행 로그 및 트레이스
+├── json/                       # 분석 결과 데이터 (JSON/Domain 기반)
+├── markdown/                   # 사람이 읽는 테스트 케이스 (Markdown)
+├── playwright/                 # 자동 생성된 .spec.ts 코드
+└── screenshots/                # 분석 시 캡처된 스크린샷 (WebP)
 ```
 
 ### JSON 출력 예시
@@ -403,6 +391,62 @@ test.afterEach(async ({ page }, testInfo) => {
 
 ---
 
+## Database Integration (Phase 6)
+
+TestMaker는 오프라인-퍼스트 전략을 사용하여 분석 데이터의 안정성을 보장하고 중앙 집중식 관리를 지원합니다.
+
+### 아키텍처: Per-Page Local Archive & Batch Upsert
+1. **로컬 저장**: 각 페이지 분석 직후 `output/json`에 즉각 저장 (네트워크 오류 대응).
+2. **배치 동기화**: `search` 명령어 종료 시 `SyncService`가 로컬 파일을 읽어 원격 DB로 업로드.
+3. **중복 관리**: `URL` + `Content Hash`를 고유 키로 사용하여 기존 데이터 자동 업데이트(`upsert`).
+
+### 사용 방법
+
+```bash
+# 환경 변수 설정 (.env)
+DATABASE_URL="mysql://user:password@host:3306/db_name"
+
+# 분석 후 자동 동기화 (기본값)
+npm run search -- --url https://example.com
+
+# 수동 동기화 실행
+npm run db:sync -- --env dev --url https://example.com
+```
+
+### 지원 데이터베이스
+- **MariaDB / MySQL** (Prisma `mysql` provider)
+- 추천 무료 호스팅: Supabase(Postgres 용), Neon(Postgres 용), **Aiven(MySQL/MariaDB)**, PlanetScale.
+
+---
+
+## Database Integration (Phase 6)
+
+TestMaker는 오프라인-퍼스트 전략을 사용하여 분석 데이터의 안정성을 보장하고 중앙 집중식 관리를 지원합니다.
+
+### 아키텍처: Per-Page Local Archive & Batch Upsert
+1. **로컬 저장**: 각 페이지 분석 직후 `output/json`에 즉각 저장 (네트워크 오류 대응).
+2. **배치 동기화**: `search` 명령어 종료 시 `SyncService`가 로컬 파일을 읽어 원격 DB로 업로드.
+3. **중복 관리**: `URL` + `Content Hash`를 고유 키로 사용하여 기존 데이터 자동 업데이트(`upsert`).
+
+### 사용 방법
+
+```bash
+# 환경 변수 설정 (.env)
+DATABASE_URL="mysql://user:password@host:3306/db_name"
+
+# 분석 후 자동 동기화 (기본값)
+npm run search -- --url https://example.com
+
+# 수동 동기화 실행
+npm run db:sync -- --env dev --url https://example.com
+```
+
+### 지원 데이터베이스
+- **MariaDB / MySQL** (Prisma `mysql` provider)
+- 추천 무료 호스팅: Supabase(Postgres 용), Neon(Postgres 용), **Aiven(MySQL/MariaDB)**, PlanetScale.
+
+---
+
 ## 환경 변수
 
 `.env` 파일 또는 환경 변수로 설정:
@@ -424,6 +468,9 @@ CLEAR_LOGIN_FIELDS=false
 # Dashboard 인증
 DASHBOARD_USER=admin
 DASHBOARD_PASS=secure-password
+
+# Database (Phase 6)
+DATABASE_URL=mysql://user:password@host:3306/db_name
 ```
 
 ---
@@ -432,44 +479,22 @@ DASHBOARD_PASS=secure-password
 
 ```
 testMaker/
-├── src/
-│   ├── cli/                 # CLI 진입점 및 환경 설정
-│   │
-│   ├── scraper/             # 핵심 분석 엔진 (Advanced Architecture)
-│   │   ├── index.ts         # Orchestrator (Scraper)
-│   │   ├── runner.ts        # Worker 관리 및 제어
-│   │   ├── phases/          # Strategy Pattern 페이즈 (Navigation, Capture 등)
-│   │   ├── commands/        # Command Pattern (Validation & Retry)
-│   │   ├── adapters/        # Hexagonal Adapters (Playwright, etc)
-│   │   ├── explorers/       # UI 탐색 전략 (Nav, Action, etc)
-│   │   ├── queue/           # 작업 큐 관리 (BFS)
-│   │   ├── rl/              # 강화학습 상태 및 점수
-│   │   └── lib/             # 핵심 라이브러리 (UISettler, Analyzer 등)
-│   │
-│   ├── dashboard/           # 결과 조회 웹 UI
-│   │
-│   ├── shared/              # 공용 모듈 (Decoupled)
-│   │   ├── auth/            # 인증 관리 (AuthManager)
-│   │   ├── events/          # Pub/Sub Event Bus
-│   │   ├── network/         # 네트워크 관리
-│   │   └── types.ts         # 공용 타입 정의
-│   │
-│   └── tools/               # 기타 유틸리티 도구
+├── src/                     # 모든 소스 코드 및 개발 데이터
+│   ├── cli/                 # CLI 진입점 프로젝트 실행 제어
+│   ├── scraper/             # 핵심 분석 엔진 (Orchestrator, Phases)
+│   ├── shared/              # 공용 모듈 (Auth, Network, SyncService)
+│   ├── dashboard/           # 결과 시각화 웹 UI
+│   ├── types/               # [NEW] 공용 타입 정의 상위 통합
+│   ├── templates/           # [NEW] Handlebars 리포트 템플릿
+│   ├── scripts/             # [NEW] 유틸리티 및 오프라인 분석 스크립트
+│   └── tests/               # [NEW] 모든 유닛 및 통합 테스트 코드
 │
-├── scripts/                 # 기동 및 코드 생성 스크립트 (Root)
-│   ├── analyzer.ts          # 요소 그룹화 및 시나리오 추출
-│   ├── generator.ts         # 최종 Artifact (MD, Playwright) 생성
-│   └── heal.ts              # 에러 분석 및 복구 도구
-│
-├── docs/                    # 프로젝트 문서 및 진행 로그
-│   ├── progress_log.md      # 개발 진행 이력
-│   └── PROJECT_BRIEFING.md  # 아키텍처 및 상세 명세
-├── types/                   # 공통 인터페이스 정의
-├── templates/               # 코드 생성용 Handlebars 템플릿
-├── output/                  # 모든 분석 결과물 저장소
-├── tests/                   # 생성된 테스트 코드 및 수동 테스트 세트
+├── prisma/                  # [NEW] DB 스키마 및 마이그레이션
+├── output/                  # 모든 분석 결과 및 실행 아티팩트
+├── docs/                    # 프로젝트 문서
 ├── package.json
 ├── playwright.config.ts
+├── prisma.config.ts         # [NEW] Prisma 7 설정 파일
 └── tsconfig.json
 ```
 

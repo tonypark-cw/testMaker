@@ -25,6 +25,10 @@ export interface InputField {
     label: string;
     placeholder?: string;
     type: string;
+    required?: boolean;
+    quiet?: boolean;
+    resume?: boolean;
+    recursive?: boolean;
 }
 
 export class ContentExtractor {

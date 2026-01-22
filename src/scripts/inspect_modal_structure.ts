@@ -33,11 +33,23 @@ dotenv.config();
             try {
                 // Try placeholder selector
                 await page.waitForSelector('[placeholder="Your email"]', { timeout: 10000 });
-                await page.fill('[placeholder="Your email"]', email);
-                await page.fill('[placeholder="Your password"]', password);
-                await page.click('button[type="submit"]');
-                console.log('[Inspector] Submitted login. Waiting for navigation...');
-                await page.waitForNavigation({ timeout: 15000 });
+                const emailInput = page.locator('[placeholder="Your email"]').first();
+                const passInput = page.locator('[placeholder="Your password"]').first();
+                const submitBtn = page.locator('button[type="submit"]').first();
+
+                if (await emailInput.isEnabled()) {
+                    await emailInput.fill(email);
+                }
+                if (await passInput.isEnabled()) {
+                    await passInput.fill(password);
+                }
+                if (await submitBtn.isVisible() && await submitBtn.isEnabled()) {
+                    await submitBtn.click();
+                    console.log('[Inspector] Submitted login. Waiting for navigation...');
+                    await page.waitForNavigation({ timeout: 15000 });
+                } else {
+                    console.log('[Inspector] Submit button is not available or disabled');
+                }
             } catch (e) {
                 console.log(`[Inspector] Login failed or form not found: ${e}`);
             }
@@ -71,12 +83,14 @@ dotenv.config();
         const addBtn = page.locator('button:has-text("Add New")').first();
         // const addBtn = page.getByRole('button', { name: 'Add New' }).first();
 
-        if (await addBtn.isVisible()) {
+        if (await addBtn.isVisible() && await addBtn.isEnabled()) {
             await addBtn.hover();
             await page.waitForTimeout(500);
             await addBtn.click();
             console.log('[Inspector] Clicked "Add New". Waiting for modal...');
             await page.waitForTimeout(3000); // Wait for animation
+        } else if (await addBtn.isVisible() && !await addBtn.isEnabled()) {
+            console.error('[Inspector] "Add New" button is visible but disabled!');
         } else {
             console.error('[Inspector] "Add New" button not found with :has-text("Add New")!');
             // fallback dump to debug why

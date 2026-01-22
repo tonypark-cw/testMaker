@@ -1,14 +1,17 @@
 import { test, expect } from '@playwright/test';
+import * as dotenv from 'dotenv';
+
+dotenv.config();
 
 /**
  * ianaiERP Golden Path: Main Navigation & Drawer Flow
  */
 
 test.describe('ianaiERP Golden Path', () => {
-    // Basic Auth embedded in URL for maximum stability
-    const AUTH_URL = 'https://ianai:vofflsemfha12321@stage.ianai.co';
-    const LOGIN_EMAIL = 'chanwoo3@ianai.co';
-    const LOGIN_PASS = 'InitialPassword1!';
+    // Credentials from environment variables (fallback to defaults for CI)
+    const AUTH_URL = process.env.STAGE_AUTH_URL || 'https://stage.ianai.co';
+    const LOGIN_EMAIL = process.env.STAGE_EMAIL || '';
+    const LOGIN_PASS = process.env.STAGE_PASSWORD || '';
 
     test.beforeEach(async ({ page }) => {
         console.log('[Setup] Navigating to app...');
@@ -38,7 +41,13 @@ test.describe('ianaiERP Golden Path', () => {
             await page.fill('input[type="password"]', LOGIN_PASS);
 
             console.log('[Setup] Submitting login...');
-            await page.click('button:has-text("Log in")');
+            const loginBtn = page.locator('button:has-text("Log in")');
+            await loginBtn.waitFor({ state: 'visible', timeout: 10000 });
+            if (await loginBtn.isEnabled()) {
+                await loginBtn.click();
+            } else {
+                throw new Error('Login button is disabled');
+            }
 
             // Redirection
             await page.waitForURL(/.*\/app\/home/, { timeout: 60000 });
@@ -67,7 +76,16 @@ test.describe('ianaiERP Golden Path', () => {
         await page.waitForSelector('table tbody tr', { timeout: 45000 });
         const firstRow = page.locator('table tbody tr').first();
         await expect(firstRow).toBeVisible();
-        await firstRow.click();
+        // Validate row is enabled and has content before clicking
+        const rowText = await firstRow.innerText().catch(() => '');
+        if (rowText.trim().length === 0) {
+            throw new Error('First row is empty, cannot click');
+        }
+        if (await firstRow.isEnabled()) {
+            await firstRow.click();
+        } else {
+            throw new Error('First row is disabled');
+        }
 
         // Drawer
         console.log('[Test] Verifying Item Drawer modal...');

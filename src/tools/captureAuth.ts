@@ -39,7 +39,7 @@ async function captureAuth() {
                     const body = await response.json();
                     console.log('  Login Response Body:', JSON.stringify(body, null, 2));
                 } catch {
-                    /* ignored */
+                    // Silently ignore: response may not be JSON or already consumed
                 }
             }
         }
@@ -54,9 +54,32 @@ async function captureAuth() {
     // Auto-login if credentials exist
     if (process.env.EMAIL && process.env.PASSWORD) {
         console.log('[CaptureAuth] Attempting auto-login...');
-        await page.fill('input[type="email"], input[placeholder*="email"]', process.env.EMAIL);
-        await page.fill('input[type="password"], input[placeholder*="password"]', process.env.PASSWORD);
-        await page.click('button[type="submit"], button:has-text("Log in")');
+
+        const emailInput = page.locator('input[type="email"], input[placeholder*="email"]').first();
+        const passInput = page.locator('input[type="password"], input[placeholder*="password"]').first();
+        const submitBtn = page.locator('button[type="submit"], button:has-text("Log in")').first();
+
+        // Wait for form elements to be visible and enabled
+        await emailInput.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
+        await passInput.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
+
+        if (await emailInput.isVisible() && await emailInput.isEnabled()) {
+            await emailInput.fill(process.env.EMAIL);
+        } else {
+            console.warn('[CaptureAuth] Email input not available');
+        }
+
+        if (await passInput.isVisible() && await passInput.isEnabled()) {
+            await passInput.fill(process.env.PASSWORD);
+        } else {
+            console.warn('[CaptureAuth] Password input not available');
+        }
+
+        if (await submitBtn.isVisible() && await submitBtn.isEnabled()) {
+            await submitBtn.click();
+        } else {
+            console.warn('[CaptureAuth] Submit button not available or disabled');
+        }
     }
 
     // Keep it open for analysis

@@ -9,8 +9,14 @@ test('Golden Path: https://stage.ianai.co/app', async ({ page }) => {
     // Navigate
     await page.goto('https://stage.ianai.co/app');
 
-    // Click Login
-    await page.locator('.button#login-btn').first().click();
+    // Click Login with validation
+    const loginBtn = page.locator('.button#login-btn').first();
+    await loginBtn.waitFor({ state: 'visible', timeout: 10000 });
+    if (await loginBtn.isEnabled()) {
+        await loginBtn.click();
+    } else {
+        throw new Error('Login button is not enabled');
+    }
 
     // Validation
     await expect(page).toHaveURL('https://stage.ianai.co/app');

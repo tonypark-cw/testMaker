@@ -30,7 +30,13 @@ export async function searchAction(options: any) {
     const limit = parseInt(options.limit, 10) || 50;
     const maxDepth = parseInt(options.depth, 10) || 1;
     const concurrency = parseInt(options.concurrency, 10) || 1;
-    const epochs = parseInt(options.epochs, 10) || 1;
+
+    // Parse epochs with boundary validation (avoid duplicate parseInt calls)
+    const parsedEpochs = parseInt(options.epochs, 10);
+    const epochs = Math.max(1, isNaN(parsedEpochs) ? 1 : parsedEpochs);
+    if (!isNaN(parsedEpochs) && parsedEpochs < 1) {
+        console.warn('[TestMaker] Warning: epochs must be at least 1, using 1');
+    }
 
     console.log(`\n[TestMaker] Target: ${url}`);
     console.log(`[TestMaker] Mode: Sequential Crawl (Depth: ${maxDepth}, Limit: ${limit}, Epochs: ${epochs})`);

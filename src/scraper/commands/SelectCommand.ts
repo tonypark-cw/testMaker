@@ -53,7 +53,7 @@ export class SelectCommand implements Command {
                 const id = await this.target.getAttribute('id');
                 (this as { label: string }).label = ariaLabel || name || id || 'select';
             } catch {
-                /* ignore */
+                // Silently ignore: label extraction is optional, fallback to 'select'
             }
         }
 
@@ -65,7 +65,7 @@ export class SelectCommand implements Command {
                 const cls = await this.target.getAttribute('class');
                 this.selector = id ? `#${id}` : name ? `[name="${name}"]` : cls || 'unknown';
             } catch {
-                /* ignore */
+                // Silently ignore: selector extraction is optional, fallback to 'unknown'
             }
         }
 
@@ -101,22 +101,28 @@ export class SelectCommand implements Command {
 
     /**
      * Fallback select strategy using keyboard navigation.
+     * Note: selectIndex=0 means first option (1 ArrowDown press needed)
+     *       selectIndex=1 means second option (2 ArrowDown presses needed)
      */
     private async fallbackSelect(page: BrowserPage): Promise<void> {
         try {
             await this.target.click();
             await page.waitForTimeout(200);
 
-            if (this.selectIndex !== undefined) {
-                for (let i = 0; i <= this.selectIndex; i++) {
+            if (this.selectIndex !== undefined && this.selectIndex >= 0) {
+                // Press ArrowDown (selectIndex + 1) times to reach the target option
+                // e.g., index=0 -> 1 press, index=1 -> 2 presses
+                const pressCount = this.selectIndex + 1;
+                for (let i = 0; i < pressCount; i++) {
                     await page.keyboardPress('ArrowDown');
                 }
             } else {
+                // Default: select first option
                 await page.keyboardPress('ArrowDown');
             }
             await page.keyboardPress('Enter');
         } catch {
-            /* ignore */
+            // Silently ignore: fallback selection may fail if element is not interactable
         }
     }
 

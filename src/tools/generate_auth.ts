@@ -37,10 +37,23 @@ async function generateAuth() {
             const passSel = 'input[type="password"], input[name="password"]';
 
             await page.waitForSelector(emailSel, { state: 'visible', timeout: 10000 });
+            const emailInput = page.locator(emailSel).first();
+            if (!await emailInput.isEnabled()) {
+                throw new Error('Email input is disabled');
+            }
             await page.fill(emailSel, LOGIN_EMAIL);
 
             await page.waitForSelector(passSel, { state: 'visible', timeout: 10000 });
+            const passInput = page.locator(passSel).first();
+            if (!await passInput.isEnabled()) {
+                throw new Error('Password input is disabled');
+            }
             await page.fill(passSel, LOGIN_PASS);
+
+            // Validate login button is enabled before clicking
+            if (!await loginBtn.isEnabled()) {
+                throw new Error('Login button is disabled');
+            }
             await loginBtn.click();
 
             console.log('[Auth] Waiting for dashboard redirection...');

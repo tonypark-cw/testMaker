@@ -366,8 +366,8 @@ function findExistingScreenshot(url: string, outputDir: string): string | null {
                     findScreenshotDirs(fullPath, depth + 1);
                 }
             }
-        } catch (err) {
-            // Skip directories we can't read
+        } catch {
+            /* Ignored: directories we can't read */
         }
     }
 

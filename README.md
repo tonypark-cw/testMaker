@@ -69,20 +69,19 @@ TestMaker는 웹 페이지를 자동으로 크롤링하여:
 | **Screenshot Capture** | 각 페이지 스크린샷 자동 저장 (WebP 최적화) |
 | **Authentication** | 로그인 상태 유지 및 인증 지원 |
 
-### Advanced Architecture (Phase 3 Complete)
+### Advanced Architecture (Phase 4 Complete)
 
 | 기능 | 설명 |
 |------|------|
 | **Exploration Orchestrator** | Strategy Pattern을 통한 유연한 탐색 페이즈 제어 |
+| **Type Safety** | Strict Typing & `any` elimination in core logic (2026-01-22) |
 | **Exploration Context** | 세션별 상태 격리로 멀티탭 환경 경쟁 조건 완전 해결 |
 | **Event-Driven Bus** | Pub/Sub 기반 비결합 시스템으로 확장성 확보 |
+| **Recorder & Learning** | 사용자 행동 학습을 위한 레코더 및 이벤트 트래커 (Strictly Typed) |
 | **Command Validation** | UI 액션 실행 후 상태 검증 및 스마트 재시도 로직 강화 |
-| **Hexagonal Architecture** | Playwright 의존성 분리를 통한 테스트 용이성 (WIP) |
-| **Dashboard** | 웹 기반 분석 결과 시각화 및 실행 인터페이스 |
-| **RL Scoring** | AI 기반 페이지 신뢰도 및 탐색 안정성 점수 검증 |
+| **Hexagonal Architecture** | Playwright 의존성 분리를 통한 테스트 용이성 |
+| **Dashboard** | 웹 기반 분석 결과 시각화 및 실행 인터페이스 (Adaptive Watcher) |
 | **DB Integration** | [PHASE 6] MariaDB/MySQL 연동 및 오프라인-퍼스트 결과 관리 |
-| **Modal Discovery** | 모달 내부 요소 자동 탐지 및 컨텍스트 스캔 |
-| **Row-Click Discovery** | 데이터 테이블 행 클릭을 통한 상세 페이지 BFS 탐색 |
 
 ---
 
@@ -94,28 +93,22 @@ TestMaker는 웹 페이지를 자동으로 크롤링하여:
 flowchart LR
     subgraph Stage1["Stage 1: Scraper"]
         A[URL Input] --> B[Page Load]
-        B --> C[Element Extraction]
-        C --> D[Screenshot Capture]
-        D --> E[Link Discovery]
+        B --> C[Discovery Phase]
     end
 
     subgraph Stage2["Stage 2: Analyzer"]
-        F[Element Grouping]
-        G[Scenario Detection]
-        H[Priority Assignment]
-        F --> G --> H
+        D[Type Analysis]
+        E[Pattern Recognition]
+        F[Anomaly Detection]
+        C --> D --> E --> F
     end
 
     subgraph Stage3["Stage 3: Generator"]
-        I[JSON Output]
-        J[Markdown TC]
-        K[Playwright Code]
+        G[JSON Output]
+        H[Markdown TC]
+        I[Playwright Code]
+        E --> G & H & I
     end
-
-    E --> F
-    H --> I
-    H --> J
-    H --> K
 ```
 
 ### 탐색 전략
@@ -156,28 +149,27 @@ graph TB
 
     subgraph Core["Core Modules"]
         B[Scraper]
-        C[Analyzer]
-        D[Generator]
+        C[Recorder]
+        D[Regression]
     end
 
     subgraph Support["Support Systems"]
         E[Dashboard Server]
-        F[RL Scorer]
-        G[Auth Capture Tool]
+        F[AuthManager (Unified)]
+        G[NetworkManager]
     end
 
     subgraph Output["Output Artifacts"]
-        H[(JSON)]
-        I[(Markdown)]
-        J[(Playwright)]
-        K[(Screenshots)]
+        H[(Baselines)]
+        I[(Recordings)]
+        J[(Reports)]
     end
 
-    A --> B --> C --> D
-    D --> H & I & J & K
+    A --> B & C & D
+    B --> I & J
+    C --> I
+    D --> H
     E --> A
-    F --> J
-    G --> J
 ```
 
 ---
@@ -202,11 +194,16 @@ npm install
 npx playwright install chromium
 ```
 
+### Git Hooks
+
+이 프로젝트는 commitlint를 사용하여 커밋 메시지 컨벤션을 강제합니다.
+자세한 내용은 `docs/COMMIT_MESSAGE_CONVENTION.md`를 참조하세요.
+
 ---
 
 ## 사용법
 
-### 기본 사용
+### 기본 분석
 
 ```bash
 # 단일 페이지 분석
@@ -217,31 +214,39 @@ npm run analyze -- --url https://example.com --recursive --depth 3
 
 # 최대 페이지 수 제한
 npm run analyze -- --url https://example.com --recursive --limit 50
-
-# 브라우저 표시 모드 (디버깅)
-npm run analyze -- --url https://example.com --no-headless
-
-# 캐시 무시하고 재분석
-npm run analyze -- --url https://example.com --force
 ```
 
-### CLI 옵션
+### Recorder (사용자 행동 학습)
 
-| 옵션 | 설명 | 기본값 |
-|------|------|--------|
-| `--url <url>` | 분석할 URL | `TESTMAKER_URL` 환경변수 |
-| `--output-dir <path>` | 출력 디렉토리 | `./output` |
-| `--depth <n>` | 최대 탐색 깊이 | `1` |
-| `--limit <n>` | 최대 페이지 수 | `50` |
-| `--format <type>` | 출력 형식 (markdown/playwright/both) | `both` |
-| `--screenshots` | 스크린샷 포함 | `true` |
-| `--auth-file <path>` | 인증 상태 파일 | `output/auth.json` |
-| `--username <user>` | 로그인 사용자명 | `EMAIL` (env) |
-| `--password <pass>` | 로그인 비밀번호 | `PASSWORD` (env) |
-| `--concurrency <n>` | 병합 탭 수 | `1` |
-| `--headless/--no-headless` | 헤드리스 모드 | `true` |
-| `--db-sync` | 실행 후 자동 DB 동기화 | `true` |
-| `--force` | 캐시 무시 | `false` |
+```bash
+# 레코더 실행
+npm run record -- --url https://example.com
+```
+
+### Regression Testing (회귀 테스트)
+
+UI 변경 사항을 자동으로 감지하고 검증하는 회귀 테스트 시스템입니다.
+
+**주요 기능**:
+
+| 단계 | 기능 | 설명 |
+|------|------|------|
+| **Phase 1** | Visual Regression | `pixelmatch` 기반 픽셀 단위 비교 |
+| **Phase 2** | Content Verification | 테이블, 버튼, 입력 필드 구조 검증 |
+| **Phase 3** | Anomaly Detection | 중요 요소 변경 자동 감지 (점수 기반) |
+
+**사용법**:
+
+```bash
+# 베이스라인 생성 (최초 1회)
+npm run regression:baseline -- --url https://example.com
+
+# 회귀 테스트 실행 (전체)
+npm run regression:test -- --url https://example.com
+
+# Anomaly Detection 점수
+# 70+ (CRITICAL), 40-69 (WARNING), 0-39 (INFO)
+```
 
 ### 인증이 필요한 사이트
 

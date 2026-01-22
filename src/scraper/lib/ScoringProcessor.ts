@@ -2,6 +2,8 @@ import { BrowserPage } from '../adapters/BrowserPage.js';
 import sharp from 'sharp';
 import * as fs from 'fs';
 
+import { ActionRecord } from '../../types/index.js';
+
 export interface ScoringResult {
     score: number;
     reasons: string[];
@@ -33,7 +35,7 @@ export class ScoringProcessor {
         pageTitle: string;
         screenshotPath?: string;
         functionalPath?: string;
-        actionChain?: any[];
+        actionChain?: ActionRecord[];
         totalElements?: number;
     }): Promise<ScoringResult> {
         const reasons: string[] = [];

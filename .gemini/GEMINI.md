@@ -123,6 +123,37 @@ npm run lint -- --fix  # 자동 수정 가능한 오류 수정
 
 ---
 
+Last Updated: 2026-01-22
+
+---
+
+## 🛑 MANDATORY: READ DOCS FIRST
+Before starting ANY task, you **MUST** read relevant files in:
+- `.agent/workflows/` (Choose appropriate agent/skill)
+- `docs/PROJECT_BRIEFING.md` (Check current status)
+
+Ignorance of existing workflows is NOT an excuse.
+
+---
+
+## 🛡️ Strict Refactoring & Cleanliness Rules
+**Do not accumulate technical debt. Fix it immediately.**
+
+1.  **No Unused Code**:
+    *   Imports, variables, functions, and modules MUST be used or removed.
+    *   Use `npm run lint` proactively to catch `no-unused-vars`.
+2.  **Strict Type Safety**:
+    *   `any` is **FORBIDDEN** in core logic (`scraper`, `recorder`, `dashboard`).
+    *   Use `unknown` + Type Guards if type is uncertain.
+    *   Define interfaces in `src/types/index.ts`.
+3.  **No Legacy Imports**:
+    *   Do NOT import from `src/shared/types.ts` (Deprecated). Use `src/types/index.ts`.
+4.  **Formatting**:
+    *   Imports must be sorted and cleaned.
+    *   Use single quotes `'` for strings.
+
+---
+
 ## 자동 위임 규칙
 
 | 작업 유형 | 위임 대상 |
@@ -132,7 +163,3 @@ npm run lint -- --fix  # 자동 수정 가능한 오류 수정
 | 코드 구현/통합 | `implementation` |
 | 테스트 작성/검증 | `testing` |
 | 복잡한 멀티 작업 | `auto-delegate` |
-
----
-
-Last Updated: 2026-01-16

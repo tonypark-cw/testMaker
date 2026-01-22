@@ -5,10 +5,21 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { getFileHash, getWebUrlForScreenshot } from './helpers.js';
+import { getFileHash, getWebUrlForScreenshot, ScreenshotMetadata } from './helpers.js';
+
+interface CachedScreenshot {
+    url: string;
+    hash: string;
+    time: number;
+    webUrl: string;
+    metadata: ScreenshotMetadata | null;
+    confidence: number | null;
+    isStable: boolean | null;
+    goldenPathReasons: string[];
+}
 
 export class FileSystemWatcher {
-    private cache = new Map<string, any>();
+    private cache = new Map<string, CachedScreenshot>();
     private watchedDir: string;
     private nativeWatcher: fs.FSWatcher | null = null;
     private pollingInterval: ReturnType<typeof setInterval> | null = null;
@@ -24,96 +35,45 @@ export class FileSystemWatcher {
     }
 
     private initialScan() {
-        console.time('[Watcher] Initial Scan');
-        this.scanAll();
-        console.timeEnd('[Watcher] Initial Scan');
-        console.log(`[Watcher] Indexed ${this.cache.size} files.`);
-    }
-
-    private scanAll() {
-        const traverse = (currentDir: string) => {
-            try {
-                const items = fs.readdirSync(currentDir);
-                items.forEach(item => {
-                    const fullPath = path.join(currentDir, item);
-                    try {
-                        const stat = fs.statSync(fullPath);
-                        if (stat.isDirectory()) {
-                            traverse(fullPath);
-                        } else if (item.endsWith('.webp') || item.endsWith('.png')) {
-                            this.updateCache(fullPath, stat);
-                        }
-                    } catch {
-                        /* ignored */
-                    }
-                });
-            } catch {
-                /* ignored */
-            }
-        };
-        traverse(this.watchedDir);
-    }
-
-    private startStrategy() {
-        const platform = process.platform;
-        const isNativeRecursiveSupported = platform === 'win32' || platform === 'darwin';
-
-        if (isNativeRecursiveSupported) {
-            this.tryNativeWatch();
-        } else {
-            console.log(`[Watcher] Platform '${platform}' may not support recursive watch. Defaulting to Polling.`);
-            this.startPolling();
-        }
-    }
-
-    private tryNativeWatch() {
-        try {
-            console.log('[Watcher] Attempting to start Native Recursive Watcher (High Performance)...');
-            this.nativeWatcher = fs.watch(this.watchedDir, { recursive: true }, (eventType, filename) => {
-                if (!filename) return;
-                if (filename.endsWith('.webp') || filename.endsWith('.png') || filename.endsWith('.json')) {
-                    const fullPath = path.join(this.watchedDir, filename);
-                    this.handleChange(fullPath);
-                }
-            });
-
-            this.nativeWatcher.on('error', (e) => {
-                console.error('[Watcher] Native watcher error:', e);
-                console.log('[Watcher] Falling back to Polling strategy...');
-                if (this.nativeWatcher) this.nativeWatcher.close();
-                this.startPolling();
-            });
-
-            console.log('[Watcher] 🚀 Native Watcher Active (Win/Mac Mode)');
-        } catch (e) {
-            console.error('[Watcher] Failed to start native watcher:', e);
-            this.startPolling();
-        }
-    }
-
-    private startPolling() {
-        console.log('[Watcher] 🐢 Polling Strategy Active (Compatibility Mode - 2s interval)');
-        if (this.pollingInterval) clearInterval(this.pollingInterval);
-
-        this.pollingInterval = setInterval(() => {
-            this.scanAll();
-        }, 2000);
-    }
-
-    private handleChange(fullPath: string) {
-        try {
-            if (fs.existsSync(fullPath)) {
-                if (!fullPath.endsWith('.json')) {
+        const scan = (dir: string) => {
+            if (!fs.existsSync(dir)) return;
+            const entries = fs.readdirSync(dir, { withFileTypes: true });
+            for (const entry of entries) {
+                const fullPath = path.join(dir, entry.name);
+                if (entry.isDirectory()) {
+                    scan(fullPath);
+                } else if (entry.isFile() && entry.name.endsWith('.webp')) {
                     const stat = fs.statSync(fullPath);
                     this.updateCache(fullPath, stat);
                 }
-            } else {
-                this.removeFromCache(fullPath);
             }
+        };
+        scan(this.watchedDir);
+        console.log(`[Watcher] Initial scan complete. ${this.cache.size} screenshots indexed.`);
+    }
+
+    private startStrategy() {
+        try {
+            this.nativeWatcher = fs.watch(this.watchedDir, { recursive: true }, (eventType, filename) => {
+                if (filename && filename.endsWith('.webp')) {
+                    const fullPath = path.join(this.watchedDir, filename);
+                    if (fs.existsSync(fullPath)) {
+                        const stat = fs.statSync(fullPath);
+                        this.updateCache(fullPath, stat);
+                    } else {
+                        this.removeFromCache(fullPath);
+                    }
+                }
+            });
+            console.log('[Watcher] Using native fs.watch (recursive mode)');
         } catch {
-            this.removeFromCache(fullPath);
+            console.warn('[Watcher] Native watch failed, falling back to polling');
+            this.pollingInterval = setInterval(() => {
+                this.initialScan();
+            }, 5000);
         }
     }
+
 
     private updateCache(fullPath: string, stat: fs.Stats) {
         const relativePath = '/' + path.relative(process.cwd(), fullPath).replace(/\\/g, '/');
@@ -124,7 +84,7 @@ export class FileSystemWatcher {
             this.latestChangeTime = stat.mtimeMs;
         }
 
-        const data = {
+        const data: CachedScreenshot = {
             url: relativePath,
             hash: hash,
             time: stat.mtimeMs,
@@ -142,9 +102,9 @@ export class FileSystemWatcher {
         this.cache.delete(relativePath);
     }
 
-    public getScreenshots(environment: string): any[] {
+    public getScreenshots(environment: string): CachedScreenshot[] {
         const filterPrefix = `/output/${environment}`;
-        const results: any[] = [];
+        const results: CachedScreenshot[] = [];
 
         for (const [key, value] of this.cache.entries()) {
             if (key.startsWith(filterPrefix)) {

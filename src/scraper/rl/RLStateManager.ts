@@ -27,8 +27,8 @@ export class RLStateManager {
         if (fs.existsSync(this.historyFile)) {
             try {
                 this.history = JSON.parse(fs.readFileSync(this.historyFile, 'utf-8'));
-            } catch (e) {
-                this.history = [];
+            } catch {
+            /* Ignored */  this.history = [];
             }
         }
     }

@@ -1,10 +1,11 @@
 import * as path from 'path';
-import { spawnSync } from 'child_process';
+import { spawnSync, StdioOptions } from 'child_process';
 import { Runner } from '../../scraper/runner.js';
 import { ScraperConfig } from '../../types/scraper.js';
 import { SyncService } from '../../shared/network/SyncService.js';
+import { SearchOptions } from '../types.js';
 
-export async function searchAction(options: any) {
+export async function searchAction(options: SearchOptions) {
     const url = options.url || process.env.TESTMAKER_URL;
     if (!url) {
         console.error('Error: URL is required.');
@@ -27,12 +28,12 @@ export async function searchAction(options: any) {
     const initialDomain = new URL(url).hostname.replace(/\./g, '-');
     const screenshotsDir = path.join(baseOutputDir, 'screenshots', initialDomain);
 
-    const limit = parseInt(options.limit, 10) || 50;
-    const maxDepth = parseInt(options.depth, 10) || 1;
-    const concurrency = parseInt(options.concurrency, 10) || 1;
+    const limit = parseInt(options.limit || '50', 10);
+    const maxDepth = parseInt(options.depth || '1', 10);
+    const concurrency = parseInt(options.concurrency || '1', 10);
 
     // Parse epochs with boundary validation (avoid duplicate parseInt calls)
-    const parsedEpochs = parseInt(options.epochs, 10);
+    const parsedEpochs = parseInt(options.epochs || '1', 10);
     const epochs = Math.max(1, isNaN(parsedEpochs) ? 1 : parsedEpochs);
     if (!isNaN(parsedEpochs) && parsedEpochs < 1) {
         console.warn('[TestMaker] Warning: epochs must be at least 1, using 1');
@@ -45,8 +46,8 @@ export async function searchAction(options: any) {
         url,
         depth: maxDepth,
         limit,
-        headless: options.headless,
-        force: options.force,
+        headless: options.headless ?? true,
+        force: options.force ?? false,
         username: username,
         password: password,
         quiet: options.quiet,
@@ -101,10 +102,10 @@ export async function searchAction(options: any) {
     // [Step 3] Auto-run Consistency Validator
     try {
         console.log('\n[TestMaker] Generating Consistency Report...');
-        const stdioMode = options.quiet ? 'ignore' : 'inherit';
+        const stdioMode: StdioOptions = options.quiet ? 'ignore' : 'inherit';
         const tsxPath = path.join(process.cwd(), 'node_modules', 'tsx', 'dist', 'cli.mjs');
         spawnSync('node', [tsxPath, 'src/scripts/validator.ts', '--env', env], {
-            stdio: stdioMode as any,
+            stdio: stdioMode,
             windowsHide: true,
             shell: false
         });

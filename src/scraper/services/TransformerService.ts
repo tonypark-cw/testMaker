@@ -60,7 +60,7 @@ export class TransformerService {
             category,
             description: `${category} scenario involving ${group.length} elements.`,
             actions,
-            priority: this.guessPriority(category, group)
+            priority: this.guessPriority(category)
         };
     }
 
@@ -130,7 +130,7 @@ export class TransformerService {
         return `${category.replace('-', ' ')}: ${labels || 'Section ' + index}`;
     }
 
-    private guessPriority(category: ScenarioCategory, group: TestableElement[]): 1 | 2 | 3 {
+    private guessPriority(category: ScenarioCategory): 1 | 2 | 3 {
         if (category === 'authentication' || category === 'form-submission') return 1;
         if (category === 'navigation' || category === 'search') return 2;
         return 3;

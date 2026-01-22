@@ -23,7 +23,8 @@ describe('NetworkManager', () => {
         };
 
         mockContext = {
-            route: vi.fn()
+            route: vi.fn(),
+            on: vi.fn()
         };
 
         mockGetAccessToken = vi.fn().mockResolvedValue('test-access-token');
@@ -104,6 +105,70 @@ describe('NetworkManager', () => {
                     'company-id': 'company-789'
                 })
             }));
+        });
+    });
+
+    describe('setupTransactionCapturer()', () => {
+        it('should capture valid API requests', async () => {
+            const onCapture = vi.fn();
+            networkManager.setupTransactionCapturer(mockContext, onCapture);
+
+            const startRequestHandler = mockContext.on.mock.calls.find((c: any) => c[0] === 'request')[1];
+
+            const mockApiRequest = {
+                url: () => 'https://api.ianai.co/v2/customer/019b34cf-d42a-7501-97e2-efc8dcb98a88',
+                method: () => 'POST',
+                postDataJSON: () => ({ name: 'Test Customer' })
+            };
+
+            await startRequestHandler(mockApiRequest);
+
+            expect(onCapture).toHaveBeenCalledWith(
+                'req',
+                'customer',
+                '019b34cf-d42a-7501-97e2-efc8dcb98a88',
+                { name: 'Test Customer' },
+                null
+            );
+        });
+
+        it('should capture valid API responses', async () => {
+            const onCapture = vi.fn();
+            networkManager.setupTransactionCapturer(mockContext, onCapture);
+
+            const responseHandler = mockContext.on.mock.calls.find((c: any) => c[0] === 'response')[1];
+
+            const mockResponse = {
+                url: () => 'https://api.ianai.co/v2/invoice/019b34cf-d42a-7501-97e2-efc8dcb98a88',
+                status: () => 200,
+                headers: () => ({ 'content-type': 'application/json' }),
+                json: async () => ({ id: 'inv-123', total: 100 })
+            };
+
+            await responseHandler(mockResponse);
+
+            expect(onCapture).toHaveBeenCalledWith(
+                'res',
+                'invoice',
+                '019b34cf-d42a-7501-97e2-efc8dcb98a88',
+                { id: 'inv-123', total: 100 },
+                null
+            );
+        });
+
+        it('should ignore auditlog requests', async () => {
+            const onCapture = vi.fn();
+            networkManager.setupTransactionCapturer(mockContext, onCapture);
+            const startRequestHandler = mockContext.on.mock.calls.find((c: any) => c[0] === 'request')[1];
+
+            const mockAuditRequest = {
+                url: () => 'https://api.ianai.co/v2/auditlog/history/1234',
+                method: () => 'POST',
+                postDataJSON: () => ({})
+            };
+
+            await startRequestHandler(mockAuditRequest);
+            expect(onCapture).not.toHaveBeenCalled();
         });
     });
 });

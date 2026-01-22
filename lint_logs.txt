@@ -1,0 +1,241 @@
+
+/Users/doongle/testMaker/src/cli/inspector.ts
+  8:7  warning  '__dirname' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/doongle/testMaker/src/cli/supervisor.ts
+   98:22  warning  'e' is defined but never used  @typescript-eslint/no-unused-vars
+  183:22  warning  'e' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/doongle/testMaker/src/cli/types.ts
+  41:11  error  'NodeJS' is not defined  no-undef
+
+/Users/doongle/testMaker/src/dashboard/ScreenshotCache.ts
+   47:18  warning  'e' is defined but never used  @typescript-eslint/no-unused-vars
+  132:18  warning  'e' is defined but never used  @typescript-eslint/no-unused-vars
+  193:26  warning  'e' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/doongle/testMaker/src/dashboard/server.ts
+   20:5   warning  'TAGS_FILE' is defined but never used           @typescript-eslint/no-unused-vars
+   21:5   warning  'REASONS_FILE' is defined but never used        @typescript-eslint/no-unused-vars
+  119:19  warning  'execAsync' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  272:22  warning  'e' is defined but never used                   @typescript-eslint/no-unused-vars
+
+/Users/doongle/testMaker/src/dashboard/worker.ts
+   90:22  warning  'e' is defined but never used                   @typescript-eslint/no-unused-vars
+  145:17  warning  'pollCount' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/doongle/testMaker/src/recorder/index.ts
+  1:20  warning  'Page' is defined but never used         @typescript-eslint/no-unused-vars
+  1:42  warning  'Request' is defined but never used      @typescript-eslint/no-unused-vars
+  4:10  warning  'AuthManager' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/doongle/testMaker/src/regression/BaselineIntegrator.ts
+  11:10  warning  'ContentExtractor' is defined but never used  @typescript-eslint/no-unused-vars
+  90:22  warning  'err' is defined but never used               @typescript-eslint/no-unused-vars
+
+/Users/doongle/testMaker/src/regression/BaselineManager.ts
+  146:31  error  Strings must use singlequote  quotes
+
+/Users/doongle/testMaker/src/regression/BatchRunner.ts
+  10:28  warning  'VisualDiffResult' is defined but never used  @typescript-eslint/no-unused-vars
+  11:29  warning  'ContentDiff' is defined but never used       @typescript-eslint/no-unused-vars
+  13:27  warning  'AnomalyReport' is defined but never used     @typescript-eslint/no-unused-vars
+  14:23  warning  'AuthConfig' is defined but never used        @typescript-eslint/no-unused-vars
+
+/Users/doongle/testMaker/src/regression/cli.ts
+  369:18  warning  'err' is defined but never used  @typescript-eslint/no-unused-vars
+  403:14  warning  'err' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/doongle/testMaker/src/scraper/adapters/playwright/PlaywrightElement.ts
+   1:10  warning  'ElementHandle' is defined but never used  @typescript-eslint/no-unused-vars
+  53:49  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  59:9   error    Unreachable code                           no-unreachable
+
+/Users/doongle/testMaker/src/scraper/adapters/playwright/PlaywrightPage.ts
+  28:47  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  46:47  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  50:45  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/doongle/testMaker/src/scraper/commands/InputCommand.ts
+  134:20  warning  '_ctx' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/doongle/testMaker/src/scraper/explorers/FilterExplorer.ts
+  2:27  warning  'CommandContext' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/doongle/testMaker/src/scraper/lib/StabilityAnalyzer.ts
+  1:10  warning  'ActionRecord' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/doongle/testMaker/src/scraper/lib/UISettler.ts
+   11:18  warning  'THRESHOLDS' is defined but never used  @typescript-eslint/no-unused-vars
+  246:18  warning  'e' is defined but never used           @typescript-eslint/no-unused-vars
+
+/Users/doongle/testMaker/src/scraper/phases/DiscoveryPhase.ts
+  1:10  warning  'ActionRecord' is defined but never used    @typescript-eslint/no-unused-vars
+  1:24  warning  'ModalDiscovery' is defined but never used  @typescript-eslint/no-unused-vars
+  7:10  warning  'NetworkManager' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/doongle/testMaker/src/scraper/phases/ExplorationContext.ts
+  39:9  warning  'previousPath' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/doongle/testMaker/src/scraper/phases/ExtractionPhase.ts
+  2:10  warning  'BrowserPage' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/doongle/testMaker/src/scraper/phases/NavigationPhase.ts
+  27:53  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/doongle/testMaker/src/scraper/queue/QueueManager.ts
+  3:36  warning  'RunnerCheckpoint' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/doongle/testMaker/src/scraper/rl/RLStateManager.ts
+  30:22  warning  'e' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/doongle/testMaker/src/scraper/runner.ts
+    7:10  warning  'ActionRecord' is defined but never used  @typescript-eslint/no-unused-vars
+  232:18  warning  '_e' is defined but never used            @typescript-eslint/no-unused-vars
+
+/Users/doongle/testMaker/src/scraper/services/TransformerService.ts
+  133:55  warning  'group' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/doongle/testMaker/src/scripts/calculate_coverage.ts
+  62:18  warning  'e' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/doongle/testMaker/src/scripts/ensure-supervisor.ts
+  15:14  warning  'e' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/doongle/testMaker/src/scripts/golden_generator.ts
+   4:8   warning  'Handlebars' is defined but never used  @typescript-eslint/no-unused-vars
+  43:57  warning  '_' is defined but never used           @typescript-eslint/no-unused-vars
+  47:26  warning  '_' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/doongle/testMaker/src/scripts/inspect_modal_structure.ts
+  4:13  warning  'path' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/doongle/testMaker/src/scripts/validator.ts
+  20:11  warning  'PageData' is defined but never used      @typescript-eslint/no-unused-vars
+  54:20  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  55:37  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/doongle/testMaker/src/shared/events/EventBus.ts
+   1:23  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  22:26  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  31:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/doongle/testMaker/src/shared/network/NetworkManager.ts
+   76:26  warning  '_e' is defined but never used  @typescript-eslint/no-unused-vars
+   80:26  warning  '_e' is defined but never used  @typescript-eslint/no-unused-vars
+   84:26  warning  'e' is defined but never used   @typescript-eslint/no-unused-vars
+  194:30  warning  'e' is defined but never used   @typescript-eslint/no-unused-vars
+  219:30  warning  'e' is defined but never used   @typescript-eslint/no-unused-vars
+
+/Users/doongle/testMaker/src/shared/network/RecoveryManager.ts
+  26:22  warning  'e' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/doongle/testMaker/src/shared/utils/ErrorHandler.ts
+  129:37  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  129:55  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/doongle/testMaker/src/tests/integration/RegressionFlow.test.ts
+  175:50  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  203:50  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  218:50  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  238:50  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  262:63  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  277:31  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  278:31  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  344:63  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/doongle/testMaker/src/tests/unit/AnomalyDetector.test.ts
+  2:27  warning  'AnomalyReport' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/doongle/testMaker/src/tests/unit/BaselineManager.test.ts
+   18:10  warning  'BaselineData' is defined but never used  @typescript-eslint/no-unused-vars
+   89:61  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  100:61  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  293:61  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  306:63  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/doongle/testMaker/src/tests/unit/BoundaryConditions.test.ts
+  1:32  warning  'vi' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/doongle/testMaker/src/tests/unit/CommandExecutor.test.ts
+   22:10  warning  'QueueManager' is defined but never used   @typescript-eslint/no-unused-vars
+   23:10  warning  'ScraperConfig' is defined but never used  @typescript-eslint/no-unused-vars
+   35:31  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  137:31  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  145:56  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  155:56  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  163:56  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  171:56  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+
+/Users/doongle/testMaker/src/tests/unit/ContentComparator.test.ts
+  2:29  warning  'ContentDiff' is defined but never used     @typescript-eslint/no-unused-vars
+  3:23  warning  'TableStructure' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/doongle/testMaker/src/tests/unit/EventTracker.test.ts
+  11:18  error  Strings must use singlequote  quotes
+  12:25  error  Strings must use singlequote  quotes
+
+/Users/doongle/testMaker/src/tests/unit/NavigationPhase.test.ts
+   3:10  warning  'ExplorationContext' is defined but never used   @typescript-eslint/no-unused-vars
+   7:22  warning  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   8:19  warning  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  16:51  warning  'fn' is defined but never used                   @typescript-eslint/no-unused-vars
+  16:55  warning  'arg' is defined but never used                  @typescript-eslint/no-unused-vars
+  21:23  warning  'mockWindow' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/doongle/testMaker/src/tests/unit/NetworkManager.test.ts
+    6:22  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+    7:20  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+    8:22  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+    9:29  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   36:14  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   41:71  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   57:71  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   68:71  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   83:71  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   97:71  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  116:76  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  139:72  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  162:76  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/doongle/testMaker/src/tests/unit/QueueManager.test.ts
+   28:10  warning  'ActionRecord' is defined but never used  @typescript-eslint/no-unused-vars
+   50:76  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   76:89  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   87:89  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  261:87  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  262:63  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  283:75  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/doongle/testMaker/src/tests/unit/ScoringProcessor.test.ts
+  13:25  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  66:25  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  67:51  warning  'fn' is defined but never used            @typescript-eslint/no-unused-vars
+  67:55  warning  'args' is defined but never used          @typescript-eslint/no-unused-vars
+
+/Users/doongle/testMaker/src/tests/unit/SelectCommand.test.ts
+   30:31  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   40:61  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   54:61  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   66:61  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   80:61  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   99:61  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  117:61  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  135:61  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  153:61  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  170:61  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  188:61  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  205:61  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  221:61  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  233:61  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/doongle/testMaker/src/tests/unit/SyncService.test.ts
+   49:70  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  112:86  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/doongle/testMaker/src/tests/unit/VisualComparator.test.ts
+  72:65  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+✖ 141 problems (5 errors, 136 warnings)
+  3 errors and 0 warnings potentially fixable with the `--fix` option.
+

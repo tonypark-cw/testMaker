@@ -30,7 +30,7 @@ export class GeneratorService {
     }
 
     private async generateMarkdown(result: SearchResult, options: GeneratorOptions) {
-        const domain = (result.metadata as any).domain || new URL(result.url).hostname.replace(/\./g, '-');
+        const domain = result.metadata.domain || new URL(result.url).hostname.replace(/\./g, '-');
         const targetDir = path.join(options.outputDir, 'markdown', domain);
 
         if (!fs.existsSync(targetDir)) {
@@ -53,7 +53,7 @@ export class GeneratorService {
     }
 
     private async generatePlaywright(result: SearchResult, options: GeneratorOptions) {
-        const domain = (result.metadata as any).domain || new URL(result.url).hostname.replace(/\./g, '-');
+        const domain = result.metadata.domain || new URL(result.url).hostname.replace(/\./g, '-');
         const targetDir = path.join(options.outputDir, 'playwright', domain);
 
         if (!fs.existsSync(targetDir)) {
@@ -75,7 +75,7 @@ export class GeneratorService {
     }
 
     private async generateJson(result: SearchResult, options: GeneratorOptions) {
-        const domain = (result.metadata as any).domain || new URL(result.url).hostname.replace(/\./g, '-');
+        const domain = result.metadata.domain || new URL(result.url).hostname.replace(/\./g, '-');
         const targetDir = path.join(options.outputDir, 'json', domain);
 
         if (!fs.existsSync(targetDir)) {

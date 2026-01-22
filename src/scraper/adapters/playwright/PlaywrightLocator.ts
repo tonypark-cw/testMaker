@@ -7,8 +7,8 @@ export class PlaywrightLocator implements BrowserLocator {
     constructor(private playwrightLocator: Locator) { }
 
     async all(): Promise<BrowserElement[]> {
-        const elements = await (this.playwrightLocator as any).all();
-        return elements.map((e: any) => new PlaywrightElement(e));
+        const elements = await this.playwrightLocator.all();
+        return elements.map((e: Locator) => new PlaywrightElement(e));
     }
 
     async count(): Promise<number> {
@@ -24,15 +24,15 @@ export class PlaywrightLocator implements BrowserLocator {
     }
 
     locator(selector: string): BrowserLocator {
-        return new PlaywrightLocator((this.playwrightLocator as any).locator(selector));
+        return new PlaywrightLocator(this.playwrightLocator.locator(selector));
     }
 
-    async isVisible(): Promise<boolean> {
-        return await this.playwrightLocator.isVisible();
+    async isVisible(options?: { timeout?: number }): Promise<boolean> {
+        return await this.playwrightLocator.isVisible(options);
     }
 
-    async isEnabled(): Promise<boolean> {
-        return await this.playwrightLocator.isEnabled();
+    async isEnabled(options?: { timeout?: number }): Promise<boolean> {
+        return await this.playwrightLocator.isEnabled(options);
     }
 
     async innerText(): Promise<string> {
@@ -44,10 +44,10 @@ export class PlaywrightLocator implements BrowserLocator {
     }
 
     async click(): Promise<void> {
-        await (this.playwrightLocator as any).click();
+        await this.playwrightLocator.click();
     }
 
     async fill(value: string): Promise<void> {
-        await (this.playwrightLocator as any).fill(value);
+        await this.playwrightLocator.fill(value);
     }
 }

@@ -25,7 +25,7 @@ export class PlaywrightPage implements BrowserPage {
     }
 
     async evaluate<T, R>(fn: ((arg: T) => R) | string, arg?: T): Promise<R> {
-        return await this.page.evaluate(fn as any, arg);
+        return await this.page.evaluate(fn as any, arg); // Playwright evaluate type is complex
     }
 
     async screenshot(options?: ScreenshotOptions): Promise<Buffer> {
@@ -42,11 +42,11 @@ export class PlaywrightPage implements BrowserPage {
         }
     }
 
-    async waitForFunction(fn: string | ((...args: any[]) => boolean), options?: { timeout?: number, arg?: any }): Promise<void> {
+    async waitForFunction(fn: string | ((arg: unknown) => boolean | Promise<boolean>), options?: { timeout?: number, arg?: unknown }): Promise<void> {
         await this.page.waitForFunction(fn as any, options?.arg, { timeout: options?.timeout });
     }
 
-    async addInitScript(fn: ((arg: any) => void) | string, arg?: any): Promise<void> {
+    async addInitScript(fn: ((arg: unknown) => void) | string, arg?: unknown): Promise<void> {
         await this.page.addInitScript(fn as any, arg);
     }
 
@@ -59,7 +59,7 @@ export class PlaywrightPage implements BrowserPage {
     }
 
     async keyboardPress(key: string, options?: { delay?: number }): Promise<void> {
-        await this.page.keyboard.press(key as any, options);
+        await this.page.keyboard.press(key, options);
     }
 
     async keyboardType(text: string, options?: { delay?: number }): Promise<void> {

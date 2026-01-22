@@ -1,6 +1,15 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { BaselineData, BaselineIndex } from './types.js';
+import { PageContent } from './ContentExtractor.js';
+
+/** Metadata for baseline */
+export interface BaselineMetadata {
+    timestamp: string;
+    pageTitle: string;
+    elementCount: number;
+    hash?: string;
+}
 
 export class BaselineManager {
     private baselinesDir: string;
@@ -38,7 +47,7 @@ export class BaselineManager {
     /**
    * Save new baseline
    */
-    saveBaseline(url: string, screenshotPath: string, metadata: any, content?: any): BaselineData {
+    saveBaseline(url: string, screenshotPath: string, metadata: BaselineMetadata, content?: PageContent): BaselineData {
         const urlObj = new URL(url);
         const domain = urlObj.hostname;
         const domainDir = path.join(this.baselinesDir, domain);
@@ -85,7 +94,7 @@ export class BaselineManager {
     /**
      * Load baseline content for a URL
      */
-    loadBaselineContent(url: string): any | null {
+    loadBaselineContent(url: string): PageContent | null {
         const baseline = this.findBaseline(url);
         if (!baseline) return null;
 
@@ -121,7 +130,7 @@ export class BaselineManager {
         return urlObj.pathname.replace(/\//g, '-').replace(/^-|-$/g, '') || 'index';
     }
 
-    private updateIndex(domain: string, url: string, screenshotPath: string, metadata: any) {
+    private updateIndex(domain: string, url: string, screenshotPath: string, metadata: BaselineMetadata) {
         const domainDir = path.join(this.baselinesDir, domain);
         if (!fs.existsSync(domainDir)) {
             fs.mkdirSync(domainDir, { recursive: true });
@@ -134,7 +143,7 @@ export class BaselineManager {
             try {
                 index = JSON.parse(fs.readFileSync(indexPath, 'utf-8'));
             } catch (err) {
-                console.error(`[BaselineManager] Failed to parse existing index.json, creating new:`, err);
+                console.error('[BaselineManager] Failed to parse existing index.json, creating new:', err);
             }
         }
 

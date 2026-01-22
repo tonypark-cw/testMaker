@@ -1,5 +1,4 @@
-import { TestableElement } from '../../types/index.js';
-import { BrowserPage } from '../adapters/BrowserPage.js';
+import { TestableElement, ElementType } from '../../types/index.js';
 import { IExplorationPhase, PhaseResult } from './IExplorationPhase.js';
 import { ExplorationContext } from './ExplorationContext.js';
 
@@ -40,7 +39,7 @@ export class ExtractionPhase implements IExplorationPhase {
                             const elId = el.id || `auto-${elements.length}`;
                             const inputType = (el as HTMLInputElement).type || '';
 
-                            let elType = 'custom';
+                            let elType: ElementType = 'custom';
                             if (tag === 'button' || role === 'button') elType = 'button';
                             else if (tag === 'a') elType = 'link';
                             else if (tag === 'select') elType = 'select';
@@ -56,7 +55,7 @@ export class ExtractionPhase implements IExplorationPhase {
                                 id: elId,
                                 selector: el.id ? `#${el.id}` : el.getAttribute('data-testid') ? `[data-testid="${el.getAttribute('data-testid')}"]` : tag,
                                 tag,
-                                type: elType as any,
+                                type: elType,
                                 label,
                                 rect: { top: rect.top, left: rect.left, width: rect.width, height: rect.height },
                                 sectionIndex: 0,
@@ -81,8 +80,8 @@ export class ExtractionPhase implements IExplorationPhase {
             }
 
             // SPA Route Merging
-            if ((window as any).__discoveredRoutes) {
-                (window as any).__discoveredRoutes.forEach((r: string) => links.add(r));
+            if (window.__discoveredRoutes) {
+                window.__discoveredRoutes.forEach((r: string) => links.add(r));
             }
 
             return {

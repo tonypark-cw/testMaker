@@ -3,6 +3,7 @@ import * as http from 'http';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 import * as fs from 'fs';
+import { WorkerJob } from '../cli/types.js';
 
 dotenv.config();
 
@@ -18,7 +19,7 @@ const getAuthHeader = () => {
     return { 'Authorization': `Basic ${auth}` };
 };
 
-async function fetchJob(): Promise<any> {
+async function fetchJob(): Promise<WorkerJob | null> {
     return new Promise((resolve) => {
         const options = {
             headers: {
@@ -86,7 +87,7 @@ async function start() {
             try {
                 const pid = parseInt(fs.readFileSync(supervisorPidPath, 'utf-8').trim(), 10);
                 if (!isNaN(pid) && pid > 0) process.kill(pid, 0);
-            } catch (e) {
+            } catch {
                 console.warn('[Worker] ⚠️ Supervisor died. Resuscitating...');
                 const child = spawn('node', [tsxPath, 'src/core/supervisor.ts'], {
                     detached: true,
@@ -143,8 +144,9 @@ async function start() {
             } else {
                 pollCount++;
             }
-        } catch (e: any) {
-            console.error('[Worker] Error in loop:', e.message);
+        } catch (e) {
+            const error = e as Error;
+            console.error('[Worker] Error in loop:', error.message);
         }
         await new Promise(r => setTimeout(r, 2000));
     }

@@ -23,3 +23,5 @@ export {
     type Validator,
     type ValidationResult
 } from './JsonValidator.js';
+
+export * from './ObjectUtils.js';

@@ -8,7 +8,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { BaselineManager } from './BaselineManager.js';
-import { ContentExtractor, PageContent } from './ContentExtractor.js';
+import { PageContent } from './ContentExtractor.js';
 
 export interface CrawlerPageData {
     url: string;
@@ -87,7 +87,7 @@ export class BaselineIntegrator {
                 if (data.url && data.success !== false) {
                     pages.push(data);
                 }
-            } catch (err) {
+            } catch {
                 // Skip invalid JSON files
             }
         }

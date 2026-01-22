@@ -9,13 +9,14 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
 import type { FSWatcher } from 'chokidar';
+import { SearchResult } from '../types/index.js';
 
 export interface ScreenshotMeta {
     url: string;           // Relative path like /output/screenshots/...
     hash: string;          // MD5 hash for deduplication
     time: number;          // mtime in ms
     webUrl: string;        // Original page URL
-    metadata: any;         // Full JSON metadata
+    metadata: SearchResult | null;  // Full JSON metadata
     confidence: number | null;
     isStable: boolean | null;
     goldenPathReasons: string[];
@@ -43,7 +44,7 @@ export class ScreenshotCache {
         let chokidar: typeof import('chokidar');
         try {
             chokidar = await import('chokidar');
-        } catch (e) {
+        } catch {
             console.warn('[ScreenshotCache] chokidar not installed. Run: npm install chokidar');
             console.warn('[ScreenshotCache] Falling back to direct scan mode');
             this.isReady = true;
@@ -128,7 +129,7 @@ export class ScreenshotCache {
             if (meta) {
                 this.cache.set(filePath, meta);
             }
-        } catch (e) {
+        } catch {
             // File might be in the process of being written
         }
     }
@@ -155,9 +156,9 @@ export class ScreenshotCache {
             time: stat.mtimeMs,
             webUrl: metadata?.url || '',
             metadata,
-            confidence: metadata?.goldenPath?.confidence ?? null,
-            isStable: metadata?.goldenPath?.isStable ?? null,
-            goldenPathReasons: metadata?.goldenPath?.reasons ?? []
+            confidence: null,
+            isStable: null,
+            goldenPathReasons: []
         };
     }
 
@@ -175,7 +176,7 @@ export class ScreenshotCache {
         return hash;
     }
 
-    private loadMetadata(screenshotPath: string): any {
+    private loadMetadata(screenshotPath: string): SearchResult | null {
         const filename = path.basename(screenshotPath, path.extname(screenshotPath));
         const domainDir = path.basename(path.dirname(screenshotPath));
         const domainWithDots = domainDir.replace(/-/g, '.');
@@ -189,7 +190,7 @@ export class ScreenshotCache {
             if (fs.existsSync(jsonPath)) {
                 try {
                     return JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
-                } catch (e) {
+                } catch {
                     // Invalid JSON, skip
                 }
             }

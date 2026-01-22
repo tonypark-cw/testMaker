@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { ScrapeJob, ScraperConfig, RunnerCheckpoint } from '../../types/scraper.js';
+import { ScrapeJob, ScraperConfig } from '../../types/scraper.js';
 import { CheckpointManager } from '../lib/CheckpointManager.js';
 
 export class QueueManager {
@@ -27,12 +27,12 @@ export class QueueManager {
     private loadFromCheckpoint() {
         const checkpoint = this.checkpointManager.load(this.domain);
         if (checkpoint) {
-            this.log(`[QueueManager] Resuming from checkpoint (${checkpoint.timestamp})`);
+            this.log(`[QueueManager] Resuming from checkpoint(${checkpoint.timestamp})`);
             this.queue = checkpoint.queue;
             checkpoint.visitedUrls.forEach(url => this.visitedUrls.add(url));
             this.log(`[QueueManager] Restored ${this.queue.length} jobs and ${this.visitedUrls.size} visited URLs.`);
         } else {
-            this.log(`[QueueManager] No checkpoint found for ${this.domain}. Starting fresh with empty queue.`);
+            this.log(`[QueueManager] No checkpoint found for ${this.domain}.Starting fresh with empty queue.`);
         }
     }
 
@@ -88,7 +88,7 @@ export class QueueManager {
     public isVisited(url: string): boolean {
         const normalized = this.normalizeUrl(url);
         const result = this.visitedUrls.has(normalized);
-        this.log(`[QueueMgr] 🔍 Check visited: ${normalized} → ${result ? 'YES (skip)' : 'NO (process)'}`);
+        this.log(`[QueueMgr] 🔍 Check visited: ${normalized} → ${result ? 'YES (skip)' : 'NO (process)'} `);
         return result;
     }
 
@@ -140,7 +140,7 @@ export class QueueManager {
 
         if (fs.existsSync(jsonDir)) {
             const files = fs.readdirSync(jsonDir).filter(f => f.endsWith('.json'));
-            this.log(`[QueueManager] Pre-scanning ${files.length} past results to identify healthy pages to skip...`);
+            this.log(`[QueueManager] Pre - scanning ${files.length} past results to identify healthy pages to skip...`);
 
             for (const file of files) {
                 try {

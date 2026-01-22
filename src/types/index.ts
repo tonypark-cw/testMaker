@@ -207,3 +207,19 @@ export interface GoldenPathInfo {
     reasons: string[];            // Human-readable analysis reasons
 }
 
+/**
+ * Generic type for API transaction payloads
+ * Used to replace 'any' in NetworkManager
+ */
+export type TransactionPayload = Record<string, unknown> | Record<string, unknown>[] | unknown;
+/**
+ * Action captured by the Recorder from the browser
+ */
+export interface RecordedAction {
+    type: string;
+    selector: string;
+    value?: string;
+    innerText?: string;
+    location: string;
+    timestamp: number;
+}

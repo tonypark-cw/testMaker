@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import * as fs from 'fs';
 import * as path from 'path';
 import { SearchResult } from '../../types/index.js';
@@ -14,12 +14,8 @@ export class SyncService {
         if (!process.env.DATABASE_URL) {
             console.warn('[SyncService] ⚠️ DATABASE_URL is not set. Sync will perform a dry-run or fail gracefully.');
         }
+        // [FIX] Use default constructor, rely on schema's datasource db { url = env("DATABASE_URL") }
         this.prisma = new PrismaClient({
-            datasources: {
-                db: {
-                    url: process.env.DATABASE_URL
-                }
-            },
             log: ['warn', 'error']
         });
     }
@@ -90,16 +86,16 @@ export class SyncService {
                 }
             },
             update: {
-                elementsData: result.elements as any,
+                elementsData: result.elements as unknown as Prisma.InputJsonValue,
                 screenshotPath: result.screenshotPath,
-                executionId: executionId as string
+                executionId: executionId
             },
             create: {
                 pageUrl: result.url,
                 hash: contentHash,
-                elementsData: result.elements as any,
+                elementsData: result.elements as unknown as Prisma.InputJsonValue,
                 screenshotPath: result.screenshotPath,
-                executionId: executionId as string
+                executionId: executionId
             }
         });
     }

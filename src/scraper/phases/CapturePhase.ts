@@ -31,7 +31,7 @@ export class CapturePhase implements IExplorationPhase {
 
             // Check for blank screenshot
             const stats = await sharp(png).stats();
-            const isBlank = stats.channels.every((ch: any) => ch.mean > 250 && ch.stdev < 10);
+            const isBlank = stats.channels.every(ch => ch.mean > 250 && ch.stdev < 10);
             if (isBlank) {
                 console.warn(`[CapturePhase] ⚠️ Warning: Screenshot appears blank for ${url}`);
             }
@@ -87,9 +87,10 @@ export class CapturePhase implements IExplorationPhase {
             });
 
             return { success: true };
-        } catch (e: any) {
-            console.error(`[CapturePhase] Capture failed: ${e}`);
-            return { success: false, error: e.message };
+        } catch (e: unknown) {
+            const errorMessage = e instanceof Error ? e.message : String(e);
+            console.error(`[CapturePhase] Capture failed: ${errorMessage}`);
+            return { success: false, error: errorMessage };
         }
     }
 }

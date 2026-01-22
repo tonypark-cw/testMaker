@@ -4,8 +4,8 @@
  */
 
 (function () {
-    if ((window as any).__antigravity_recorder) return;
-    (window as any).__antigravity_recorder = true;
+    if (window.__antigravity_recorder) return;
+    window.__antigravity_recorder = true;
 
     console.log('[Antigravity] EventTracker injected and active.');
 
@@ -58,7 +58,17 @@
         if (!target) return;
 
         const selector = getOptimizedSelector(target);
-        const data: any = {
+
+        // Matches RecordedAction interface
+        const data: {
+            type: string;
+            selector: string;
+            tagName: string;
+            innerText?: string;
+            timestamp: number;
+            location: string;
+            value?: string;
+        } = {
             type,
             selector,
             tagName: target.tagName,
@@ -72,8 +82,8 @@
         }
 
         // Send to Node.js via Playwright's exposeBinding/exposeFunction
-        if ((window as any).antigravity_recordAction) {
-            (window as any).antigravity_recordAction(data);
+        if (window.antigravity_recordAction) {
+            window.antigravity_recordAction(data);
         } else {
             console.log('[Antigravity] Recorded Action (local):', data);
         }

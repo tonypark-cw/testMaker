@@ -1,7 +1,8 @@
 import * as path from 'path';
 import { Recorder } from '../../recorder/index.js';
+import { RecordOptions } from '../types.js';
 
-export async function recordAction(options: any) {
+export async function recordAction(options: RecordOptions) {
     const url = options.url || process.env.TESTMAKER_URL;
     if (!url) {
         console.error('Error: URL is required for recording.');

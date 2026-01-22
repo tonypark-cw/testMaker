@@ -126,7 +126,7 @@ export class ErrorHandler {
     /**
      * Create a wrapped async function with automatic error handling
      */
-    static wrap<T extends (...args: any[]) => Promise<any>>(
+    static wrap<T extends (...args: unknown[]) => Promise<unknown>>(
         fn: T,
         context: ErrorContext,
         severity: ErrorSeverity = ErrorSeverity.ERROR

@@ -1,10 +1,8 @@
-import { ActionRecord, ModalDiscovery } from '../../types/index.js';
 import { NavExplorer } from '../explorers/NavExplorer.js';
 import { TabExplorer } from '../explorers/TabExplorer.js';
 import { FilterExplorer } from '../explorers/FilterExplorer.js';
 import { ActionExplorer } from '../explorers/ActionExplorer.js';
 import { ContentExplorer } from '../explorers/ContentExplorer.js';
-import { NetworkManager } from '../../shared/network/NetworkManager.js';
 import { BrowserPage } from '../adapters/BrowserPage.js';
 import { IExplorationPhase, PhaseResult } from './IExplorationPhase.js';
 import { ExplorationContext } from './ExplorationContext.js';

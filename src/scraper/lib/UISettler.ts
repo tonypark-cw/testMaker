@@ -158,7 +158,7 @@ export class UISettler {
                     id: `modal-el-${idx}`,
                     tag: el.tagName.toLowerCase(),
                     label: (el as HTMLElement).innerText?.trim().substring(0, 50) || el.getAttribute('aria-label') || el.getAttribute('placeholder') || '',
-                    type: 'button' as any,
+                    type: 'button',
                     selector: `modal-el-${idx}`,
                     rect: { top: rect.top, left: rect.left, width: rect.width, height: rect.height },
                     sectionIndex: 0,
@@ -239,7 +239,7 @@ export class UISettler {
             { maxRetries: 2, retryDelayMs: 300 }
         );
 
-        const command = new ClickCommand(handle as any);
+        const command = new ClickCommand(handle);
 
         try {
             await executor.execute(command);

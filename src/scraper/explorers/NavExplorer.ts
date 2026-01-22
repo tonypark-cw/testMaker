@@ -45,7 +45,7 @@ export class NavExplorer {
                 if (visitedExpansionButtons.has(id)) continue;
 
                 // Known headers in ianaiERP that might benefit from expansion
-                const isNavHeader = ['Inventory', 'Manufacturing', 'Purchase', 'Sales', 'Settings', 'Shipping', 'Accounting', 'Service', 'Reports'].some(h => text.includes(h));
+                const isNavHeader = ['Inventory', 'Manufacturing', 'Purchase', 'Sales', 'Settings', 'Shipping', 'Accounting', 'Service', 'Reports', 'Support', 'Help', 'Admin', 'System', 'Configuration', 'User', 'Finance', 'HR', 'Logistics'].some(h => text.includes(h));
 
                 // ONLY click if aria-expanded is specifically 'false' OR it's a known header with missing expanded state
                 if (isExpanded === 'false' || (isNavHeader && (isExpanded === null || isExpanded === ''))) {

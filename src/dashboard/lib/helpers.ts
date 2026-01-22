@@ -34,13 +34,26 @@ export function getFileHash(filePath: string, mtime: number): string {
     }
 }
 
+export interface ScreenshotMetadata {
+    url: string;
+    timestamp?: string;
+    hash?: string;
+    pageTitle?: string;
+    goldenPath?: {
+        isStable: boolean;
+        confidence: number;
+        reasons: string[];
+    };
+    [key: string]: unknown;
+}
+
 // Web URL Cache
-const webUrlCache: Record<string, any> = {};
+const webUrlCache: Record<string, ScreenshotMetadata> = {};
 
 /**
  * Get web URL metadata for a screenshot
  */
-export function getWebUrlForScreenshot(screenshotFullPath: string): any {
+export function getWebUrlForScreenshot(screenshotFullPath: string): ScreenshotMetadata | null {
     if (webUrlCache[screenshotFullPath]) return webUrlCache[screenshotFullPath];
 
     const filename = path.basename(screenshotFullPath, path.extname(screenshotFullPath));

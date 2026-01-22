@@ -1,20 +1,19 @@
-import { chromium, Browser, BrowserContext, Page } from 'playwright';
+import { chromium, Browser, BrowserContext, Page, Cookie } from 'playwright';
 import * as path from 'path';
 import * as fs from 'fs';
 import { Scraper } from './index.js';
 import { TransformerService as Transformer } from './services/TransformerService.js';
 import { GeneratorService as Generator } from './services/GeneratorService.js';
-import { ActionRecord, ModalDiscovery, SearchResult } from '../types/index.js';
+import { SearchResult, TransactionPayload } from '../types/index.js';
 import { ScrapeJob, ScraperConfig } from '../types/scraper.js';
 import { RecoveryManager } from '../shared/network/RecoveryManager.js';
 import { NetworkManager } from '../shared/network/NetworkManager.js';
 import { AuthManager } from '../shared/auth/AuthManager.js';
 import { QueueManager } from './queue/QueueManager.js';
 import { PlaywrightPage } from './adapters/playwright/PlaywrightPage.js';
-import { BrowserPage } from './adapters/BrowserPage.js';
 import { RLStateManager } from './rl/RLStateManager.js';
-import { ScoringProcessor } from '../scraper/lib/ScoringProcessor.js';
 import { RLSubscriber } from './subscribers/RLSubscriber.js';
+import { extractAllKeys } from '../shared/utils/ObjectUtils.js';
 
 export class Runner {
     private browser: Browser | null = null;
@@ -49,7 +48,7 @@ export class Runner {
         if (!fs.existsSync(this.labelsDir)) fs.mkdirSync(this.labelsDir, { recursive: true });
     }
 
-    private log(message: string, ...args: any[]) {
+    private log(message: string, ...args: unknown[]) {
         if (!this.config.quiet) {
             console.log(message, ...args);
         }
@@ -120,10 +119,9 @@ export class Runner {
 
                 if (!fs.existsSync(filePath)) {
                     // Include triggerAction in the data
-                    const enrichedData = {
-                        ...data,
-                        triggerAction: triggerAction || 'unknown'
-                    };
+                    const enrichedData: Record<string, unknown> = typeof data === 'object' && data !== null
+                        ? { ...data as Record<string, unknown>, triggerAction: triggerAction || 'unknown' }
+                        : { data, triggerAction: triggerAction || 'unknown' };
                     fs.writeFileSync(filePath, JSON.stringify(enrichedData, null, 2));
                     this.log(`[Runner] 🛰️ Captured transaction ${type === 'req' ? 'request' : 'response'}: ${module}/${uuid} (Trigger: ${triggerAction || 'None'})`);
 
@@ -215,7 +213,7 @@ export class Runner {
      * Extract token expiry time from browser storage or cookies.
      * @returns expiresIn in seconds, or 3600 as default
      */
-    private async extractTokenExpiry(page: Page, cookies: any[]): Promise<number> {
+    private async extractTokenExpiry(page: Page, cookies: Cookie[]): Promise<number> {
         // 1. Try localStorage/sessionStorage
         try {
             const expiry = await page.evaluate(() => {
@@ -231,7 +229,7 @@ export class Runner {
                     return parsed;
                 }
             }
-        } catch (e) {
+        } catch {
             // Ignore evaluation errors
         }
 
@@ -455,7 +453,7 @@ export class Runner {
                 }, { access: accessToken, refresh: refreshToken });
             }
 
-            const browserPage = new PlaywrightPage(page as any);
+            const browserPage = new PlaywrightPage(page);
             const result = await scraper.scrape(browserPage, job);
 
             if (!result.error && result.discoveredLinks) {
@@ -537,7 +535,7 @@ export class Runner {
         this.authenticatedPage = null;
     }
 
-    private updatePrintLabelDictionary(module: string, data: any) {
+    private updatePrintLabelDictionary(module: string, data: TransactionPayload) {
         const labelFile = path.join(this.labelsDir, `${module}.json`);
         let existingKeys: string[] = [];
 
@@ -547,31 +545,11 @@ export class Runner {
             } catch { /* ignore */ }
         }
 
-        const newKeys = this.extractAllKeys(data);
+        const newKeys = extractAllKeys(data);
         const combinedKeys = Array.from(new Set([...existingKeys, ...newKeys])).sort();
 
         fs.writeFileSync(labelFile, JSON.stringify(combinedKeys, null, 2));
     }
 
-    private extractAllKeys(obj: any, prefix = ''): string[] {
-        let keys: string[] = [];
-        if (!obj || typeof obj !== 'object') return keys;
 
-        if (Array.isArray(obj)) {
-            if (obj.length > 0 && typeof obj[0] === 'object') {
-                keys = keys.concat(this.extractAllKeys(obj[0], prefix));
-            }
-            return keys;
-        }
-
-        for (const key of Object.keys(obj)) {
-            const fullKey = prefix ? `${prefix}.${key}` : key;
-            keys.push(fullKey);
-
-            if (obj[key] && typeof obj[key] === 'object') {
-                keys = keys.concat(this.extractAllKeys(obj[key], fullKey));
-            }
-        }
-        return keys;
-    }
 }

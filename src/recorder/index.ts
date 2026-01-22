@@ -1,7 +1,8 @@
-import { chromium, Page, BrowserContext, Request } from 'playwright';
+import { chromium, BrowserContext } from 'playwright';
 import * as fs from 'fs';
 import * as path from 'path';
-import { AuthManager } from '../shared/auth/AuthManager.js';
+import { extractAllKeys } from '../shared/utils/ObjectUtils.js';
+import { RecordedAction, TransactionPayload } from '../types/index.js';
 
 export interface RecordedSession {
     url: string;
@@ -56,8 +57,10 @@ export class Recorder {
             events: []
         };
 
+        // ...
+
         // 3. Expose Recording Function to Browser
-        await page.exposeFunction('antigravity_recordAction', (data: any) => {
+        await page.exposeFunction('antigravity_recordAction', (data: RecordedAction) => {
             console.log(`[Recorder] 🖱️ Action captured: ${data.type} on ${data.selector}`);
             this.lastAction = `${data.type}: ${data.innerText || data.selector}`;
 
@@ -166,7 +169,7 @@ export class Recorder {
         console.log(`[Recorder] Captured ${this.actionQueue.length} actions.`);
     }
 
-    private updatePrintLabelDictionary(module: string, data: any) {
+    private updatePrintLabelDictionary(module: string, data: TransactionPayload) {
         const labelFile = path.join(this.labelsDir, `${module}.json`);
         let existingKeys: string[] = [];
 
@@ -176,31 +179,11 @@ export class Recorder {
             } catch { /* ignore */ }
         }
 
-        const newKeys = this.extractAllKeys(data);
+        const newKeys = extractAllKeys(data);
         const combinedKeys = Array.from(new Set([...existingKeys, ...newKeys])).sort();
 
         fs.writeFileSync(labelFile, JSON.stringify(combinedKeys, null, 2));
     }
 
-    private extractAllKeys(obj: any, prefix = ''): string[] {
-        let keys: string[] = [];
-        if (!obj || typeof obj !== 'object') return keys;
 
-        if (Array.isArray(obj)) {
-            if (obj.length > 0 && typeof obj[0] === 'object') {
-                keys = keys.concat(this.extractAllKeys(obj[0], prefix));
-            }
-            return keys;
-        }
-
-        for (const key of Object.keys(obj)) {
-            const fullKey = prefix ? `${prefix}.${key}` : key;
-            keys.push(fullKey);
-
-            if (obj[key] && typeof obj[key] === 'object') {
-                keys = keys.concat(this.extractAllKeys(obj[key], fullKey));
-            }
-        }
-        return keys;
-    }
 }

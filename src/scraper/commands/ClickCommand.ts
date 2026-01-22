@@ -81,7 +81,7 @@ export class ClickCommand implements Command {
         try {
             await this.target.click({ force: true });
         } catch {
-            await this.target.evaluate((el: HTMLElement) => el.click());
+            await this.target.evaluate((el) => (el as HTMLElement).click());
         }
     }
 

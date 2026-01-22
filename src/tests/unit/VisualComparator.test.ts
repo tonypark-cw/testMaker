@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import * as fs from 'fs';
-import * as path from 'path';
 import { PNG } from 'pngjs';
 
 // Mock dependencies before importing VisualComparator
@@ -70,8 +69,8 @@ describe('VisualComparator', () => {
             width: 100,
             height: 100
         };
-        vi.mocked((PNG as any).sync.read).mockReturnValue(mockPNGData as any);
-        vi.mocked((PNG as any).sync.write).mockReturnValue(Buffer.from([]));
+        vi.mocked(PNG.sync.read).mockReturnValue(mockPNGData as any);
+        vi.mocked(PNG.sync.write).mockReturnValue(Buffer.from([]));
 
         comparator = new VisualComparator(0.1, './test-output');
     });

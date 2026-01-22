@@ -23,9 +23,9 @@ export interface BrowserElement {
     uncheck(): Promise<void>;
     isChecked(): Promise<boolean>;
     selectOption(values: string | string[] | { value?: string, label?: string, index?: number }): Promise<string[]>;
-    evaluate<T, R>(fn: (el: T, arg: any) => R, arg?: any): Promise<R>;
-    isVisible(): Promise<boolean>;
-    isEnabled(): Promise<boolean>;
+    evaluate<R>(fn: (el: Element, arg?: unknown) => R, arg?: unknown): Promise<R>;
+    isVisible(options?: { timeout?: number }): Promise<boolean>;
+    isEnabled(options?: { timeout?: number }): Promise<boolean>;
     locator(selector: string): BrowserLocator;
     screenshot(options?: { type?: 'png' | 'jpeg' }): Promise<Buffer>;
 }

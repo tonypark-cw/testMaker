@@ -119,23 +119,24 @@ npm run search -- --url "https://stage.ianai.co" --concurrency 3 --headless
 
 ---
 
-## Code Health
+**Code Health**:
 
 **Last Verified**: 2026-01-22
 
-| Component | Status |
-|-----------|--------|
-| TypeScript Compilation | ✅ Pass (0 errors) |
-| ESLint | ✅ Pass (0 errors, 103 warnings) |
-| Multi-Environment Support | ✅ Dev/Stage/Mac/Win |
-| Dashboard Responsiveness | ✅ Instant (No Flicker) |
-| Rate Limiting | ✅ 429/500 Handled |
-| Token Refresh Logic | ✅ Optimized (95% reduction) |
-| Queue Management | ✅ Fixed visited URL tracking |
-| QueueManager Tests | ✅ 23 test cases passing |
-| URL Scope Filtering | ✅ Child-path-only exploration |
-| Git Conventions | ✅ commitlint enforced (12 types) |
-| Type Centralization | ✅ Complete (All types in src/types/) |
+| Component | Status | Note |
+|-----------|--------|------|
+| TypeScript Compilation | ✅ Pass (0 errors) | Strict mode active |
+| ESLint | ✅ Pass (0 errors) | No `any` allow-lists |
+| Type Safety | ✅ Strict | `any` eliminated in core modules |
+| Multi-Environment Support | ✅ Dev/Stage/Mac/Win | |
+| Dashboard Responsiveness | ✅ Instant (No Flicker) | |
+| Rate Limiting | ✅ 429/500 Handled | |
+| Token Refresh Logic | ✅ Optimized (95% reduction) | |
+| Queue Management | ✅ Fixed visited URL tracking | |
+| QueueManager Tests | ✅ 23 test cases passing | |
+| URL Scope Filtering | ✅ Child-path-only exploration | |
+| Git Conventions | ✅ commitlint enforced (12 types) | |
+| Type Centralization | ✅ Complete (All types in src/types/) | |
 
 ---
 
@@ -203,6 +204,25 @@ prisma/         - DB 스키마 및 마이그레이션
 - `docs/COMMIT_MESSAGE_CONVENTION.md`: 루트 → docs/ 이동
 - 10개 파일 린트 수정 (빈 catch, 미사용 변수, escape 문자 등)
 - 14개 파일 TS 경로 수정 (모듈 import 경로)
+
+**Type Safety Refactoring (Phase 4 - Complete)**:
+- **Strict Typing**: Eliminated `any` usage in core modules (`Scraper`, `Recorder`, `Dashboard`).
+- **New Interfaces**:
+  - `RecordedAction`: Strictly typed user interactions in Recorder.
+  - `ScreenshotMetadata`: Typed metadata for Dashboard screenshots.
+  - `Playwright` adapters tightened with `unknown` generics instead of `any`.
+- **Global Types**: `Window` interface extended for custom flags (`__antigravity_recorder`).
+
+**Feature Updates (2026-01-22)**:
+- **NavExplorer Parity**: Enhanced `NavExplorer` to support Admin/Support menus in Dev environment (resolving Dev vs Stage disparity).
+- **Recorder Hardening**: `EventTracker` injection script refactored for type safety.
+
+**Files Modified**:
+- `src/scraper/explorers/NavExplorer.ts`: Added fallback keywords for menu expansion.
+- `src/scraper/adapters/playwright/*.ts`: Refactored to remove `any`.
+- `src/recorder/tracker/EventTracker.ts`: Injected script typed.
+- `src/dashboard/lib/FileSystemWatcher.ts`: Typed screenshot caching.
+- `src/types/index.ts`: Added `RecordedAction`, `TransactionPayload`, `ScreenshotMetadata`.
 
 ---
 

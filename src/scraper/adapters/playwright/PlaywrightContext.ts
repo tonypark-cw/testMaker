@@ -6,12 +6,12 @@ import { PlaywrightPage } from './PlaywrightPage.js';
 export class PlaywrightContext implements BrowserContext {
     constructor(private context: PWContext) { }
 
-    async route(pattern: string | RegExp, handler: (route: any) => Promise<void>): Promise<void> {
-        await this.context.route(pattern, handler);
+    async route(pattern: string | RegExp, handler: (route: unknown) => Promise<void>): Promise<void> {
+        await this.context.route(pattern, (route) => handler(route));
     }
 
-    on(event: 'request' | 'response', handler: (data: any) => Promise<void>): void {
-        this.context.on(event as any, handler);
+    on(event: 'request' | 'response', handler: (data: unknown) => Promise<void>): void {
+        this.context.on(event as 'request', (data: unknown) => handler(data));
     }
 
     async newPage(): Promise<BrowserPage> {

@@ -7,11 +7,11 @@
 
 import { chromium, Browser, BrowserContext, Page } from 'playwright';
 import { BaselineManager } from './BaselineManager.js';
-import { VisualComparator, VisualDiffResult } from './VisualComparator.js';
-import { ContentComparator, ContentDiff } from './ContentComparator.js';
+import { VisualComparator } from './VisualComparator.js';
+import { ContentComparator } from './ContentComparator.js';
 import { ContentExtractor } from './ContentExtractor.js';
-import { AnomalyDetector, AnomalyReport } from './AnomalyDetector.js';
-import { AuthHandler, AuthConfig } from './AuthHandler.js';
+import { AnomalyDetector } from './AnomalyDetector.js';
+import { AuthHandler } from './AuthHandler.js';
 import * as fs from 'fs';
 
 export interface PageTestResult {

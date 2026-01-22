@@ -1,4 +1,5 @@
 import { BrowserContext, Route } from 'playwright';
+import { TransactionPayload } from '../../types/index.js';
 
 export interface AuthProvider {
     getTokens(): { accessToken: string; refreshToken: string };
@@ -171,7 +172,7 @@ export class NetworkManager {
     /**
      * [Phase 2] Capture transaction-like API requests and responses for schema extraction.
      */
-    setupTransactionCapturer(context: BrowserContext, onCapture: (type: 'req' | 'res', module: string, uuid: string, data: any, triggerAction?: string | null) => void) {
+    setupTransactionCapturer(context: BrowserContext, onCapture: (type: 'req' | 'res', module: string, uuid: string, data: TransactionPayload, triggerAction?: string | null) => void) {
         // 1. Capture Requests (POST/PUT/PATCH)
         context.on('request', async request => {
             const url = request.url();

@@ -1,11 +1,14 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { exec, spawn } from 'child_process';
-import { promisify } from 'util';
+import { spawn } from 'child_process';
+import {
+    SpawnAsyncOptions,
+    SpawnAsyncResult,
+    SpawnAsyncError,
+    HealthCheckResults
+} from './types.js';
 
-const execAsync = promisify(exec);
-
-async function spawnAsync(command: string, args: string[], options: any = {}): Promise<{ stdout: string; stderr: string; code: number }> {
+async function spawnAsync(command: string, args: string[], options: SpawnAsyncOptions = {}): Promise<SpawnAsyncResult> {
     return new Promise((resolve, reject) => {
         const child = spawn(command, args, {
             ...options,
@@ -92,7 +95,7 @@ export class Supervisor {
             try {
                 // signal 0 doesn't kill but checks if process exists
                 process.kill(this.initialParentPid, 0);
-            } catch (e) {
+            } catch {
                 console.log('[Supervisor] 🏮 Antigravity session terminated. Shutting down Watchtower...');
                 process.exit(0);
             }
@@ -112,7 +115,7 @@ export class Supervisor {
 
         console.log('\n[Supervisor] 🔍 Change detected. Running Health Gate...');
 
-        const results = {
+        const results: HealthCheckResults = {
             timestamp: new Date().toISOString(),
             lint: { status: 'pending', error: '' },
             tests: { status: 'pending', error: '' },
@@ -128,22 +131,24 @@ export class Supervisor {
             // 1. Run Lint
             console.log('[Supervisor] 🧵 Checking Linting...');
             try {
-                const { stdout } = await spawnAsync(nodePath, [eslintPath, 'src/']);
+                await spawnAsync(nodePath, [eslintPath, 'src/']);
                 results.lint.status = 'pass';
-            } catch (e: any) {
+            } catch (e) {
+                const spawnError = e as SpawnAsyncError;
                 results.lint.status = 'fail';
-                results.lint.error = e.stdout || e.message;
+                results.lint.error = spawnError.stdout || spawnError.message;
                 console.warn('[Supervisor] ❌ Linting failed.');
             }
 
             // 2. Run Unit Tests
             console.log('[Supervisor] 🧪 Running Unit Tests...');
             try {
-                const { stdout } = await spawnAsync(nodePath, [vitestPath, 'run']);
+                await spawnAsync(nodePath, [vitestPath, 'run']);
                 results.tests.status = 'pass';
-            } catch (e: any) {
+            } catch (e) {
+                const spawnError = e as SpawnAsyncError;
                 results.tests.status = 'fail';
-                results.tests.error = e.stdout || e.message;
+                results.tests.error = spawnError.stdout || spawnError.message;
                 console.warn('[Supervisor] ❌ Unit tests failed.');
             }
 
@@ -155,7 +160,7 @@ export class Supervisor {
 
             console.log(`[Supervisor] ✅ Health Gate complete. Status: ${results.overall.toUpperCase()}`);
 
-        } catch (globalError: any) {
+        } catch (globalError) {
             console.error('[Supervisor] 🚨 Critical error during health check:', globalError);
             results.overall = 'error';
         } finally {
@@ -175,7 +180,7 @@ export class Supervisor {
                     process.kill(pid, 0); // Check if alive
                     console.log(`[Supervisor] 👷 Worker (PID: ${pid}) is active.`);
                 }
-            } catch (e) {
+            } catch {
                 console.warn('[Supervisor] ⚠️ Worker process died or is unreachable. Attempting resuscitation...');
                 this.restartWorker();
             }
@@ -198,15 +203,16 @@ export class Supervisor {
         console.log('[Supervisor] ✅ Worker restart signal sent.');
     }
 
-    private updateStatus(data: any) {
+    private updateStatus(data: HealthCheckResults) {
         try {
             fs.writeFileSync(this.statusPath, JSON.stringify(data, null, 2));
-        } catch (e) {
-            console.error('[Supervisor] Failed to write status:', e);
+        } catch {
+            console.error('[Supervisor] Health check failed');
+            return { status: 'fail', error: 'Unknown error' };
         }
     }
 
-    private generateDiagnosticReport(healthResults: any) {
+    private generateDiagnosticReport(healthResults: HealthCheckResults) {
         const reportPath = path.join(this.outputDir, 'diagnostic_report.json');
         const triggerPath = path.join(this.triggerDir, `analysis_needed_${Date.now()}.json`);
 

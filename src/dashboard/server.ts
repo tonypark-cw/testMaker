@@ -7,7 +7,7 @@ import * as http from 'http';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { spawn } from 'child_process';
+import { spawn, ChildProcess } from 'child_process';
 import * as dotenv from 'dotenv';
 
 // Load environment variables
@@ -17,8 +17,6 @@ dotenv.config();
 import { FileSystemWatcher } from './lib/FileSystemWatcher.js';
 import {
     OUTPUT_DIR,
-    TAGS_FILE,
-    REASONS_FILE,
     loadTags,
     loadReasons,
     updateTag,
@@ -37,8 +35,8 @@ const isExternalWorkerMode = process.env.EXTERNAL_WORKER?.trim().toLowerCase() =
 
 // Server State
 let isRunning = false;
-let currentProcess: any = null;
-let jobQueue: Array<{ url: string, depth?: number, limit?: number }> = [];
+let currentProcess: ChildProcess | null = null;
+let jobQueue: Array<{ url: string; depth?: number; limit?: number }> = [];
 
 // Global Watcher Instance
 let watcher: FileSystemWatcher;
@@ -114,9 +112,6 @@ async function getStats(environment = 'stage') {
     let isActuallyRunning = isRunning || jobQueue.length > 0;
     if (!isActuallyRunning) {
         try {
-            const { exec } = await import('child_process');
-            const util = await import('util');
-            const execAsync = util.promisify(exec);
             // Process check is platform specific, returning empty for now to avoid crashes on Windows
             const stdout: string = '';
             if (stdout && stdout.trim()) isActuallyRunning = true;
@@ -269,7 +264,7 @@ const server = http.createServer(async (req, res) => {
                 const { running } = JSON.parse(body);
                 isRunning = !!running;
                 res.writeHead(200); res.end();
-            } catch (e) { res.writeHead(400); res.end(); }
+            } catch { res.writeHead(400); res.end(); }
         });
         return;
     }

@@ -18,24 +18,24 @@ export class NavigationPhase implements IExplorationPhase {
             // SPA Route Interception
             console.log('[NavigationPhase] Setting up SPA route interception...');
             await page.evaluate(() => {
-                const win = window as any;
-                if (!win.__discoveredRoutes) {
-                    win.__discoveredRoutes = new Set<string>();
+                if (!window.__discoveredRoutes) {
+                    window.__discoveredRoutes = new Set<string>();
                 }
                 const methods = ['pushState', 'replaceState'] as const;
                 for (const m of methods) {
-                    const orig = (history as any)[m];
-                    (history as any)[m] = function (...args: any[]) {
-                        if (args[2]) win.__discoveredRoutes.add(args[2].toString());
-                        return orig.apply(this, args);
+                    const original = history[m];
+                    history[m] = function (...args: any[]) {
+                        if (args[2]) window.__discoveredRoutes?.add(args[2].toString());
+                        return original.apply(this, args);
                     };
                 }
             }, undefined);
 
             return { success: true };
-        } catch (e: any) {
-            console.error(`[NavigationPhase] Navigation failed: ${e.message}`);
-            return { success: false, error: e.message };
+        } catch (e: unknown) {
+            const errorMessage = e instanceof Error ? e.message : String(e);
+            console.error(`[NavigationPhase] Navigation failed: ${errorMessage}`);
+            return { success: false, error: errorMessage };
         }
     }
 }

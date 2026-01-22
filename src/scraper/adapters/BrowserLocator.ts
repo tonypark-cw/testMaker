@@ -6,8 +6,8 @@ export interface BrowserLocator {
     first(): BrowserLocator;
     nth(index: number): BrowserLocator;
     locator(selector: string): BrowserLocator;
-    isVisible(): Promise<boolean>;
-    isEnabled(): Promise<boolean>;
+    isVisible(options?: { timeout?: number }): Promise<boolean>;
+    isEnabled(options?: { timeout?: number }): Promise<boolean>;
     innerText(): Promise<string>;
     getAttribute(name: string): Promise<string | null>;
     click(): Promise<void>;

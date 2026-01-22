@@ -1,4 +1,4 @@
-import { ElementHandle, Locator } from 'playwright';
+import { Locator } from 'playwright';
 import { BrowserElement, Rect, ClickOptions } from '../BrowserElement.js';
 import { BrowserLocator } from '../BrowserLocator.js';
 import { PlaywrightLocator } from './PlaywrightLocator.js';
@@ -34,38 +34,38 @@ export class PlaywrightElement implements BrowserElement {
     }
 
     async check(): Promise<void> {
-        await (this.target as any).check();
+        await this.target.check();
     }
 
     async uncheck(): Promise<void> {
-        await (this.target as any).uncheck();
+        await this.target.uncheck();
     }
 
     async isChecked(): Promise<boolean> {
-        return await (this.target as any).isChecked();
+        return await this.target.isChecked();
     }
 
-    async selectOption(values: any): Promise<string[]> {
-        return await (this.target as any).selectOption(values);
+    async selectOption(values: string | string[] | { value?: string; label?: string; index?: number }): Promise<string[]> {
+        return await this.target.selectOption(values);
     }
 
-    async evaluate<T, R>(fn: (el: T, arg: any) => R, arg?: any): Promise<R> {
-        return await this.target.evaluate(fn as any, arg);
+    async evaluate<R>(fn: (el: Element, arg?: unknown) => R, arg?: unknown): Promise<R> {
+        return await this.target.evaluate(fn, arg);
     }
 
-    async isVisible(): Promise<boolean> {
-        return await this.target.isVisible();
+    async isVisible(options?: { timeout?: number }): Promise<boolean> {
+        return await this.target.isVisible(options);
     }
 
-    async isEnabled(): Promise<boolean> {
-        return await this.target.isEnabled();
+    async isEnabled(options?: { timeout?: number }): Promise<boolean> {
+        return await this.target.isEnabled(options);
     }
 
     locator(selector: string): BrowserLocator {
-        return new PlaywrightLocator((this.target as any).locator(selector));
+        return new PlaywrightLocator(this.target.locator(selector));
     }
 
     async screenshot(options?: { type?: 'png' | 'jpeg' }): Promise<Buffer> {
-        return await (this.target as any).screenshot(options);
+        return await this.target.screenshot(options);
     }
 }

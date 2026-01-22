@@ -120,10 +120,11 @@ export class InputCommand implements Command {
             await page.keyboardType(this.value, { delay: TIMING.TYPING_DELAY });
         } catch {
             // Last resort: evaluate
-            await this.target.evaluate((el: HTMLInputElement, val: string) => {
-                el.value = val;
-                el.dispatchEvent(new Event('input', { bubbles: true }));
-                el.dispatchEvent(new Event('change', { bubbles: true }));
+            await this.target.evaluate((el, val) => {
+                const input = el as HTMLInputElement;
+                input.value = val as string;
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                input.dispatchEvent(new Event('change', { bubbles: true }));
             }, this.value);
         }
     }
@@ -133,7 +134,7 @@ export class InputCommand implements Command {
      */
     async validate(_ctx: CommandContext): Promise<boolean> {
         try {
-            const currentValue = await this.target.evaluate((el: HTMLInputElement) => el.value);
+            const currentValue = await this.target.evaluate((el) => (el as HTMLInputElement).value);
             return currentValue === this.value;
         } catch {
             return false;

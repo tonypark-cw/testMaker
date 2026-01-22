@@ -58,7 +58,7 @@ export class ContentComparator {
         };
     }
 
-    private compareTables(baseline: TableStructure[], current: TableStructure[]): any {
+    private compareTables(baseline: TableStructure[], current: TableStructure[]): ContentDiff['tables'] {
         const added = current.filter(c => !this.findMatchingTable(c, baseline));
         const removed = baseline.filter(b => !this.findMatchingTable(b, current));
 
@@ -109,7 +109,7 @@ export class ContentComparator {
         return a.length === b.length && a.every((val, i) => val === b[i]);
     }
 
-    private compareInputs(baseline: InputField[], current: InputField[]): any {
+    private compareInputs(baseline: InputField[], current: InputField[]): ContentDiff['inputs'] {
         const baseLabels = baseline.map(i => i.label);
         const currLabels = current.map(i => i.label);
 
@@ -122,8 +122,8 @@ export class ContentComparator {
     private calculateSimilarity(
         baseline: PageContent,
         current: PageContent,
-        tableDiff: any,
-        buttonDiff: any
+        tableDiff: ContentDiff['tables'],
+        buttonDiff: ContentDiff['buttons']
     ): number {
         let score = 100;
 

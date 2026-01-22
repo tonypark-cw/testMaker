@@ -1,7 +1,5 @@
 import { chromium } from 'playwright';
 import * as dotenv from 'dotenv';
-import * as fs from 'fs';
-import * as path from 'path';
 
 dotenv.config();
 
@@ -60,8 +58,8 @@ async function captureAuth() {
         const submitBtn = page.locator('button[type="submit"], button:has-text("Log in")').first();
 
         // Wait for form elements to be visible and enabled
-        await emailInput.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
-        await passInput.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
+        await emailInput.waitFor({ state: 'visible', timeout: 10000 }).catch(() => { });
+        await passInput.waitFor({ state: 'visible', timeout: 10000 }).catch(() => { });
 
         if (await emailInput.isVisible() && await emailInput.isEnabled()) {
             await emailInput.fill(process.env.EMAIL);

@@ -26,9 +26,9 @@ export interface BrowserPage {
     evaluate<T, R>(fn: ((arg: T) => R) | string, arg?: T): Promise<R>;
     screenshot(options?: ScreenshotOptions): Promise<Buffer>;
     waitForSelector(selector: string, options?: WaitOptions): Promise<BrowserElement | null>;
-    waitForFunction(fn: string | ((...args: any[]) => boolean), options?: { timeout?: number, arg?: any }): Promise<void>;
+    waitForFunction(fn: string | ((arg: unknown) => boolean | Promise<boolean>), options?: { timeout?: number, arg?: unknown }): Promise<void>;
     waitForLoadState(state: 'load' | 'domcontentloaded' | 'networkidle', options?: { timeout?: number }): Promise<void>;
-    addInitScript(fn: ((arg: any) => void) | string, arg?: any): Promise<void>;
+    addInitScript(fn: ((arg: unknown) => void) | string, arg?: unknown): Promise<void>;
     waitForLoadState(state?: 'load' | 'domcontentloaded' | 'networkidle', options?: { timeout?: number }): Promise<void>;
     waitForTimeout(timeout: number): Promise<void>;
     keyboardPress(key: string, options?: { delay?: number }): Promise<void>;

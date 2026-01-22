@@ -126,19 +126,19 @@ export class ErrorHandler {
     /**
      * Create a wrapped async function with automatic error handling
      */
-    static wrap<T extends (...args: unknown[]) => Promise<unknown>>(
+    static wrap<T extends (...args: any[]) => Promise<any>>(
         fn: T,
         context: ErrorContext,
         severity: ErrorSeverity = ErrorSeverity.ERROR
     ): T {
-        return (async (...args: Parameters<T>): Promise<ReturnType<T> | undefined> => {
+        return (async (...args: Parameters<T>): Promise<any> => {
             try {
                 return await fn(...args);
             } catch (error) {
                 this.handle(error, context, severity);
                 return undefined;
             }
-        }) as T;
+        }) as any;
     }
 
     /**

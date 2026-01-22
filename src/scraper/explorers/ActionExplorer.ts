@@ -167,8 +167,8 @@ export class ActionExplorer {
 
                             // If it navigated away, go back to continue discovery
                             if (page.url() !== targetUrl) {
-                                console.log('[ActionExplorer] Navigated away after row click, returning...');
-                                await page.goto(targetUrl, { waitUntil: 'networkidle' }).catch(() => { });
+                                // SPA-friendly return: try back() instead of reload
+                                await page.goBack().catch(() => page.goto(targetUrl));
                                 await page.waitForTimeout(TIMING.NAVIGATION_DELAY);
                             }
                         } else {

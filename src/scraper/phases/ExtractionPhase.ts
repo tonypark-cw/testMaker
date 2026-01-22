@@ -81,7 +81,12 @@ export class ExtractionPhase implements IExplorationPhase {
 
             // SPA Route Merging
             if (window.__discoveredRoutes) {
-                window.__discoveredRoutes.forEach((r: string) => links.add(r));
+                window.__discoveredRoutes.forEach((r: string) => {
+                    try {
+                        const fullUrl = new URL(r, window.location.href).toString();
+                        links.add(fullUrl);
+                    } catch { /* ignore */ }
+                });
             }
 
             return {

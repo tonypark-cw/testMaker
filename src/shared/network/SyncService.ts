@@ -8,22 +8,32 @@ import { SearchResult } from '../../types/index.js';
  * Handles batching local JSON results to the remote database using Prisma Upsert.
  */
 export class SyncService {
-    private prisma: PrismaClient;
+    private prisma: PrismaClient | null = null;
 
     constructor() {
-        if (!process.env.DATABASE_URL) {
-            console.warn('[SyncService] ⚠️ DATABASE_URL is not set. Sync will perform a dry-run or fail gracefully.');
+        try {
+            if (!process.env.DATABASE_URL || process.env.DATABASE_URL.includes('localhost')) {
+                console.warn('[SyncService] ⚠️ DATABASE_URL is missing or using placeholder. Sync will be disabled.');
+                return;
+            }
+            // [FIX] Use default constructor, rely on schema's datasource db { url = env("DATABASE_URL") }
+            this.prisma = new PrismaClient({
+                log: ['warn', 'error']
+            });
+        } catch (e) {
+            console.warn('[SyncService] ⚠️ Failed to initialize PrismaClient. Database sync will be disabled:', e instanceof Error ? e.message : String(e));
         }
-        // [FIX] Use default constructor, rely on schema's datasource db { url = env("DATABASE_URL") }
-        this.prisma = new PrismaClient({
-            log: ['warn', 'error']
-        });
     }
 
     /**
      * Sync all JSON files from a directory to the DB
      */
     async syncDirectory(jsonDir: string, environment: string, baseUrl: string) {
+        if (!this.prisma) {
+            console.log('[SyncService] ⏭️ Skipping DB sync (Prisma not initialized)');
+            return;
+        }
+
         console.log(`[SyncService] 🔄 Starting sync for directory: ${jsonDir}`);
 
         if (!fs.existsSync(jsonDir)) {
@@ -31,40 +41,46 @@ export class SyncService {
             return;
         }
 
-        // 1. Create or get an Execution record for this sync session
-        const execution = await this.prisma.execution.create({
-            data: {
-                environment,
-                baseUrl,
-                status: 'completed'
+        try {
+            // 1. Create or get an Execution record for this sync session
+            const execution = await this.prisma.execution.create({
+                data: {
+                    environment,
+                    baseUrl,
+                    status: 'completed'
+                }
+            });
+
+            const files = fs.readdirSync(jsonDir).filter(f => f.endsWith('.json'));
+            let successCount = 0;
+            let errorCount = 0;
+
+            for (const file of files) {
+                try {
+                    const filePath = path.join(jsonDir, file);
+                    const content = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as SearchResult;
+
+                    await this.syncResult(content, execution.id);
+                    successCount++;
+                } catch (e) {
+                    console.error(`[SyncService] ❌ Failed to sync file ${file}:`, e);
+                    errorCount++;
+                }
             }
-        });
 
-        const files = fs.readdirSync(jsonDir).filter(f => f.endsWith('.json'));
-        let successCount = 0;
-        let errorCount = 0;
-
-        for (const file of files) {
-            try {
-                const filePath = path.join(jsonDir, file);
-                const content = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as SearchResult;
-
-                await this.syncResult(content, execution.id);
-                successCount++;
-            } catch (e) {
-                console.error(`[SyncService] ❌ Failed to sync file ${file}:`, e);
-                errorCount++;
-            }
+            console.log(`[SyncService] ✅ Sync complete. Success: ${successCount}, Errors: ${errorCount}`);
+            await this.prisma.$disconnect();
+        } catch (e) {
+            console.error('[SyncService] ❌ Sync failed:', e);
         }
-
-        console.log(`[SyncService] ✅ Sync complete. Success: ${successCount}, Errors: ${errorCount}`);
-        await this.prisma.$disconnect();
     }
 
     /**
      * Sync a single SearchResult to the DB using Upsert
      */
     private async syncResult(result: SearchResult, executionId: string) {
+        if (!this.prisma) return;
+
         const domain = new URL(result.url).hostname;
 
         // 1. Ensure Page exists

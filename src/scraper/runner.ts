@@ -68,9 +68,8 @@ export class Runner {
         new RLSubscriber(rlManager);
 
         // [SRP] Delegate healthy URL pre-scanning to QueueManager
-        if (!this.config.force) {
-            this.queueManager.loadHealthyVisitedUrls();
-        }
+        // Force mode is handled inside QueueManager to re-add to queue
+        this.queueManager.loadHealthyVisitedUrls();
 
         // 1. Launch & Auth
         try {

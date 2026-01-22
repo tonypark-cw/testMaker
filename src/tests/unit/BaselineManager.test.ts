@@ -193,7 +193,15 @@ describe('BaselineManager', () => {
         });
 
         it('should save content when provided', () => {
-            const content = { buttons: ['Submit'], inputs: [] };
+            const content = {
+                url: 'https://example.com/new-page',
+                pageTitle: 'New Page',
+                headings: { h1: [], h2: [], h3: [] },
+                tables: [],
+                buttons: ['Submit'],
+                inputs: [],
+                links: []
+            };
 
             manager.saveBaseline(
                 'https://example.com/new-page',
@@ -316,8 +324,8 @@ describe('BaselineManager', () => {
             const result = manager.loadBaselineContent('https://example.com/page1');
 
             expect(result).not.toBeNull();
-            expect(result.buttons).toContain('Submit');
-            expect(result.inputs).toHaveLength(1);
+            expect(result!.buttons).toContain('Submit');
+            expect(result!.inputs).toHaveLength(1);
         });
     });
 

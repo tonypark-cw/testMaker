@@ -24,6 +24,10 @@ export class PlaywrightPage implements BrowserPage {
         await this.page.goto(url, options);
     }
 
+    async goBack(options?: NavigationOptions): Promise<void> {
+        await this.page.goBack(options);
+    }
+
     async evaluate<T, R>(fn: ((arg: T) => R) | string, arg?: T): Promise<R> {
         return await this.page.evaluate(fn as any, arg); // Playwright evaluate type is complex
     }

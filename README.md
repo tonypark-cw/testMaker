@@ -634,6 +634,15 @@ output/
 │       └── *.json
 ```
 
+## 코드 품질 및 타입 안정성 (Phase 7)
+    
+프로젝트의 유지보수성과 안정성을 높이기 위해 다음과 같은 엄격한 코드 관리 규칙을 준수합니다.
+
+- **Strict Type Safety**: `any` 타입 사용을 지양하고 `unknown` 및 명확한 인터페이스를 사용합니다.
+- **Lint Compliance**: 모든 ESLint 에러를 해결하고 경고를 최소화합니다.
+- **TypeScript Verification**: 빌드 시 컴파일 에러 0개를 목표로 합니다.
+- **Unused Code Cleanup**: 사용하지 않는 임포트와 변수를 주기적으로 제거합니다.
+
 ---
 
 ## 라이센스

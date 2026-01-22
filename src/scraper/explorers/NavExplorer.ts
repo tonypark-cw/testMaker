@@ -1,7 +1,7 @@
 import type { ActionRecord, ModalDiscovery } from '../../types/index.js';
 import { UISettler } from '../lib/UISettler.js';
 import { CommandExecutor, ClickCommand } from '../commands/index.js';
-import { TIMING, THRESHOLDS } from '../config/constants.js';
+import { TIMING } from '../config/constants.js';
 import { NetworkManager } from '../../shared/network/NetworkManager.js';
 import { BrowserPage } from '../adapters/BrowserPage.js';
 
@@ -44,24 +44,19 @@ export class NavExplorer {
 
                 if (visitedExpansionButtons.has(id)) continue;
 
-                // Known headers in ianaiERP that might benefit from expansion
-                const isNavHeader = ['Inventory', 'Manufacturing', 'Purchase', 'Sales', 'Settings', 'Shipping', 'Accounting', 'Service', 'Reports', 'Support', 'Help', 'Admin', 'System', 'Configuration', 'User', 'Finance', 'HR', 'Logistics'].some(h => text.includes(h));
+                const isNavHeader = ['Inventory', 'Manufacturing', 'Purchase', 'Sales', 'Settings', 'Shipping', 'Accounting', 'Reports', 'Admin', '재고', '생산', '구매', '영업', '설정', '배송', '회계', '보고서', '관리', '기준정보', '서비스', '고객지원'].some(h => text.includes(h));
 
-                // ONLY click if aria-expanded is specifically 'false' OR it's a known header with missing expanded state
                 if (isExpanded === 'false' || (isNavHeader && (isExpanded === null || isExpanded === ''))) {
                     if (await button.isVisible() && await button.isEnabled()) {
                         visitedExpansionButtons.add(id);
-
-                        // Use ClickCommand
                         const command = new ClickCommand(button, { label: `Expand: ${text}` });
                         await executor.execute(command);
-
                         await page.waitForTimeout(TIMING.MENU_ANIMATION_DELAY);
                         expandedCount++;
                     }
                 }
-            } catch {
-                /* ignored */
+            } catch (_e) {
+                // Ignore expansion error
             }
         }
         return expandedCount;
@@ -69,7 +64,6 @@ export class NavExplorer {
 
     /**
      * Phase 5: Active Sidebar Discovery (Cache-aware)
-     * Clicks all navigation items in sidebars or nav bars.
      */
     static async discoverSidebar(
         ctx: NavExplorationContext & {
@@ -91,66 +85,100 @@ export class NavExplorer {
             { maxRetries: 1, retryDelayMs: 200 }
         );
 
-        // Broaden sidebar items to include all links and buttons on the left side, or with specific classes
-        const sidebarItems = await page.locator('aside a, .sidebar a, nav a, .nav-item, [role="menuitem"], .mantine-NavLink-root, a[href^="/app/"]').all();
+        const sidebarLocator = 'aside a, .sidebar a, nav a, .nav-item, [role="menuitem"], .mantine-NavLink-root, a[href^="/app/"]';
+        const items = await page.locator(sidebarLocator).all();
+        const itemIdentifierList: { text: string; index: number }[] = [];
 
-        // Add position-based discovery for Mantine/Ghost sidebars
-        const allButtons = await page.locator('button, .mantine-UnstyledButton-root').all();
-        for (const btn of allButtons) {
+        // INITIAL BULK EXTRACTION
+        for (const item of items) {
             try {
-                const rect = await btn.boundingBox();
-                // Sidebar items are consistently on the left and have a reasonable width/height
-                if (rect && rect.x < THRESHOLDS.SIDEBAR_X_THRESHOLD && rect.width < THRESHOLDS.SIDEBAR_BUTTON_MAX_WIDTH && rect.height > THRESHOLDS.SIDEBAR_ELEMENT_MIN_HEIGHT) {
-                    sidebarItems.push(btn);
+                const href = await item.getAttribute('href');
+                const text = (await item.innerText().catch(() => '')).trim().split('\n')[0];
+                if (href) {
+                    const absoluteUrl = new URL(href, targetUrl).toString();
+                    if (!discoveredLinks.find(l => l.url === absoluteUrl)) {
+                        discoveredLinks.push({ url: absoluteUrl, path: [...previousPath, text || 'Link'] });
+                    }
                 }
-            } catch {
-                /* ignored */
+            } catch (_e) {
+                /* ignore */
             }
         }
 
-        for (const item of sidebarItems) {
+        for (let i = 0; i < items.length; i++) {
+            const text = (await items[i].innerText().catch(() => '')).trim().split('\n')[0];
+            if (text) itemIdentifierList.push({ text, index: i });
+        }
+
+        for (const ident of itemIdentifierList) {
             try {
-                const text = (await item.innerText().catch(() => '')).trim();
-                const cleanText = text.split('\n')[0].trim();
-                if (!cleanText || visitedSidebarButtons.has(cleanText)) continue;
+                if (visitedSidebarButtons.has(ident.text)) continue;
+
+                const currentItems = await page.locator(sidebarLocator).all();
+                const item = currentItems[ident.index];
+                if (!item) continue;
+
+                const text = (await item.innerText().catch(() => '')).trim().split('\n')[0];
+                if (text !== ident.text) continue;
 
                 if (await item.isVisible() && await item.isEnabled()) {
-                    visitedSidebarButtons.add(cleanText);
+                    visitedSidebarButtons.add(text);
 
-                    const href = await item.getAttribute('href');
-                    if (href && (href.startsWith('http') || href.startsWith('/'))) {
-                        discoveredLinks.push({ url: new URL(href, targetUrl).toString(), path: [...previousPath, cleanText] });
-                        continue;
-                    }
+                    const currentUrl = page.url();
+                    const command = new ClickCommand(item, { label: `Nav: ${text}` });
+                    await executor.execute(command);
+                    await page.waitForTimeout(TIMING.NAVIGATION_DELAY);
 
-                    // If no href, only click if it's NOT an expandable menu (to avoid toggling)
-                    const isExpanded = await item.getAttribute('aria-expanded');
-                    if (isExpanded === null || isExpanded === '') { // Not an expandable menu header
+                    const newUrl = page.url();
 
-                        // Use ClickCommand
-                        const command = new ClickCommand(item, { label: `Nav: ${cleanText}` });
-                        await executor.execute(command);
-
-                        await page.waitForTimeout(TIMING.NAVIGATION_DELAY);
-
-                        const newUrl = page.url();
-                        const normalizedTarget = targetUrl.replace(/\/$/, '');
-                        const normalizedNew = newUrl.replace(/\/$/, '');
-
-                        if (normalizedNew !== normalizedTarget) {
-                            discoveredLinks.push({ url: newUrl, path: [...previousPath, cleanText] });
-                            // Go back to target if it navigated away
-                            await page.goto(targetUrl, { waitUntil: 'networkidle' }).catch(() => { });
-                            await page.waitForTimeout(TIMING.NAVIGATION_DELAY);
-                        } else {
-                            // Check for modal if no navigation occurred
-                            const discovery = await UISettler.extractModalContent(page, cleanText, targetUrl, outputDir, timestamp, capturedModalHashes);
-                            if (discovery) modalDiscoveries.push(discovery);
+                    // COLLECT NEWLY VISIBLE LINKS after click
+                    const subLinks = await page.locator(sidebarLocator).all();
+                    for (const sl of subLinks) {
+                        try {
+                            const shref = await sl.getAttribute('href');
+                            if (shref) {
+                                const abs = new URL(shref, targetUrl).toString();
+                                if (!discoveredLinks.find(l => l.url === abs)) {
+                                    discoveredLinks.push({ url: abs, path: [...previousPath, text] });
+                                }
+                            }
+                        } catch (_e) {
+                            /* ignore */
                         }
                     }
+
+                    // SPA Interceptor capture
+                    const routes = await page.evaluate(() => {
+                        const r = Array.from((window as any).__discoveredRoutes || []) as string[];
+                        (window as any).__discoveredRoutes = new Set<string>();
+                        return r;
+                    }, undefined) as string[];
+
+                    for (const route of routes) {
+                        try {
+                            const absoluteUrl = new URL(route, targetUrl).toString();
+                            if (!discoveredLinks.find(l => l.url === absoluteUrl)) {
+                                discoveredLinks.push({ url: absoluteUrl, path: [...previousPath, ident.text] });
+                            }
+                        } catch (_e) {
+                            /* ignore */
+                        }
+                    }
+
+                    if (newUrl !== currentUrl) {
+                        if (!discoveredLinks.find(l => l.url === newUrl)) {
+                            discoveredLinks.push({ url: newUrl, path: [...previousPath, ident.text] });
+                        }
+                        await page.goBack().catch(() => page.goBack()).catch(() => page.goto(targetUrl));
+                        await page.waitForTimeout(TIMING.NAVIGATION_DELAY);
+                        await NavExplorer.expandMenus(ctx);
+                    } else {
+                        const discovery = await UISettler.extractModalContent(page, ident.text, targetUrl, outputDir, timestamp, capturedModalHashes);
+                        if (discovery) modalDiscoveries.push(discovery);
+                    }
                 }
-            } catch {
-                /* ignored */
+            } catch (_e) {
+                /* ignore */
             }
         }
     }

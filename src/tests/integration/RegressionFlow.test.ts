@@ -354,8 +354,8 @@ describe('Regression Testing Integration', () => {
             const content = baselineManager.loadBaselineContent(testUrl);
 
             expect(content).not.toBeNull();
-            expect(content.pageTitle).toBe('Dashboard');
-            expect(content.tables).toHaveLength(1);
+            expect(content!.pageTitle).toBe('Dashboard');
+            expect(content!.tables).toHaveLength(1);
         });
     });
 

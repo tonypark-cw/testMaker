@@ -28,6 +28,7 @@ describe('SyncService', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
+        process.env.DATABASE_URL = 'postgresql://mock:mock@remotehost:5432/mock';
         syncService = new SyncService();
     });
 

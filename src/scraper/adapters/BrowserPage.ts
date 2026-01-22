@@ -23,6 +23,7 @@ export interface BrowserPage {
     url(): string;
     title(): Promise<string>;
     goto(url: string, options?: NavigationOptions): Promise<void>;
+    goBack(options?: NavigationOptions): Promise<void>;
     evaluate<T, R>(fn: ((arg: T) => R) | string, arg?: T): Promise<R>;
     screenshot(options?: ScreenshotOptions): Promise<Buffer>;
     waitForSelector(selector: string, options?: WaitOptions): Promise<BrowserElement | null>;

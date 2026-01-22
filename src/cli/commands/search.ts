@@ -1,7 +1,7 @@
 import * as path from 'path';
 import { spawnSync } from 'child_process';
 import { Runner } from '../../scraper/runner.js';
-import { ScraperConfig } from '../../shared/types.js';
+import { ScraperConfig } from '../../types/scraper.js';
 import { SyncService } from '../../shared/network/SyncService.js';
 
 export async function searchAction(options: any) {

@@ -1,4 +1,4 @@
-import { ScrapeResult, ScraperConfig, ScrapeJob } from '../shared/types.js';
+import { ScrapeResult, ScraperConfig, ScrapeJob } from '../types/scraper.js';
 import { NetworkManager } from '../shared/network/NetworkManager.js';
 import { BrowserPage } from './adapters/BrowserPage.js';
 import { ExplorationContext } from './phases/ExplorationContext.js';

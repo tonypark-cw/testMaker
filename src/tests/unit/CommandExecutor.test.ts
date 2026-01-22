@@ -20,7 +20,7 @@ const mockHandle = {
 // Import after mocks
 import { ActionRecord } from '../../types/index.js';
 import { QueueManager } from '../../scraper/queue/QueueManager.js';
-import { ScraperConfig } from '../../shared/types.js';
+import { ScraperConfig } from '../../types/scraper.js';
 import { CommandExecutor } from '../../scraper/commands/CommandExecutor.js';
 import { ClickCommand } from '../../scraper/commands/ClickCommand.js';
 import { CommandContext, Command } from '../../scraper/commands/Command.js';

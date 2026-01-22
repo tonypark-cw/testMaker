@@ -5,7 +5,7 @@ import { Scraper } from './index.js';
 import { TransformerService as Transformer } from './services/TransformerService.js';
 import { GeneratorService as Generator } from './services/GeneratorService.js';
 import { ActionRecord, ModalDiscovery, SearchResult } from '../types/index.js';
-import { ScrapeJob, ScraperConfig } from '../shared/types.js';
+import { ScrapeJob, ScraperConfig } from '../types/scraper.js';
 import { RecoveryManager } from '../shared/network/RecoveryManager.js';
 import { NetworkManager } from '../shared/network/NetworkManager.js';
 import { AuthManager } from '../shared/auth/AuthManager.js';

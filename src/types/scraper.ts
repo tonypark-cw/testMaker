@@ -3,7 +3,7 @@ import {
     GoldenPathInfo,
     ActionRecord,
     ModalDiscovery
-} from '../types/index.js';
+} from './index.js';
 
 export interface ScrapeJob {
     /** Target URL to scrape */
@@ -67,12 +67,8 @@ export interface ScraperConfig {
     password?: string;
     quiet?: boolean;
     resume?: boolean;
+    recursive?: boolean; // Phase 5 addition
 }
-
-// ============================================
-// Phase 3 준비: ScraperContext & ScraperState
-// Static 변수 제거를 위한 인터페이스 설계
-// ============================================
 
 /**
  * Scraper State - 인스턴스별 상태 (경쟁조건 방지)

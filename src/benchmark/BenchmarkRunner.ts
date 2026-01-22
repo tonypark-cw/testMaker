@@ -7,7 +7,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { Runner } from '../scraper/runner.js';
-import { ScraperConfig } from '../shared/types.js';
+import { ScraperConfig } from '../types/scraper.js';
 import { LearningWeightLoader, LearningWeights } from './LearningWeightLoader.js';
 import * as dotenv from 'dotenv';
 

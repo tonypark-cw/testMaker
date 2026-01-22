@@ -135,6 +135,7 @@ npm run search -- --url "https://stage.ianai.co" --concurrency 3 --headless
 | QueueManager Tests | ✅ 23 test cases passing |
 | URL Scope Filtering | ✅ Child-path-only exploration |
 | Git Conventions | ✅ commitlint enforced (12 types) |
+| Type Centralization | 🔄 In Progress (Consolidating shared/types.ts) |
 
 ---
 
@@ -171,6 +172,11 @@ prisma/         - DB 스키마 및 마이그레이션
 - ESLint 에러 31개 → 0개 수정
 - TypeScript 컴파일 에러 23개 → 0개 수정
 - 불필요한 파일 정리 (~3GB 절약: trace 파일, 백업, 로그)
+
+**Type Consolidation & Standardization (Ongoing - 2026-01-22)**:
+- **Redundancy Alert**: `src/shared/types.ts` (엔진 제어용)와 `src/types/index.ts` (데이터 도메인용)가 분리되어 있어 구조적 혼동 발생 사례 확인.
+- **Goal**: 모든 타입 정의를 `src/types/` 하위로 단일화하여 "Single Source of Truth" 확보.
+- **Verification**: 타 에이전트 및 개발자가 구조적 혼동을 겪지 않도록 브리핑 업데이트 및 가이드라인 수립.
 
 **Git & Convention Enforcement**:
 - commitlint 강화: 12개 허용 타입만 사용 가능

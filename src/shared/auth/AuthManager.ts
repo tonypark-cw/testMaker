@@ -1,6 +1,6 @@
 import { Page, BrowserContext } from 'playwright';
 import * as path from 'path';
-import { ScraperConfig } from '../types.js';
+import { ScraperConfig } from '../../types/scraper.js';
 import { NetworkManager } from '../network/NetworkManager.js';
 import { RecoveryManager } from '../network/RecoveryManager.js';
 

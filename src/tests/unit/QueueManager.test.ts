@@ -27,7 +27,7 @@ vi.mock('../../scraper/lib/CheckpointManager.js', () => ({
 
 import { ActionRecord } from '../../types/index.js';
 import { QueueManager } from '../../scraper/queue/QueueManager.js';
-import { ScraperConfig } from '../../shared/types.js';
+import { ScraperConfig } from '../../types/scraper.js';
 
 describe('QueueManager', () => {
     let queueManager: QueueManager;

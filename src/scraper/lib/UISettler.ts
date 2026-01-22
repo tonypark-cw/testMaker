@@ -8,6 +8,7 @@ import { ClickCommand } from '../commands/ClickCommand.js';
 import { NetworkManager } from '../../shared/network/NetworkManager.js';
 import { BrowserPage } from '../adapters/BrowserPage.js';
 import { BrowserElement } from '../adapters/BrowserElement.js';
+import { TIMING, THRESHOLDS } from '../config/constants.js';
 
 /**
  * UISettler
@@ -22,12 +23,12 @@ export class UISettler {
      */
     public static async closeModals(page: BrowserPage) {
         await page.keyboardPress('Escape');
-        await page.waitForTimeout(300);
+        await page.waitForTimeout(TIMING.UI_CLEANUP_DELAY);
         await page.evaluate(() => {
             const sel = '.ianai-Modal-close, .mantine-Modal-close, [aria-label="Close"], .ianai-CloseButton-root, button[class*="CloseButton"], .ianai-Drawer-close, .mantine-Drawer-close';
             document.querySelectorAll(sel).forEach(btn => (btn as HTMLElement).click());
         }, undefined);
-        await page.waitForTimeout(300);
+        await page.waitForTimeout(TIMING.UI_CLEANUP_DELAY);
     }
 
     /**
@@ -46,6 +47,7 @@ export class UISettler {
                 const style = window.getComputedStyle(modal);
                 if (style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0') {
                     const rect = modal.getBoundingClientRect();
+                    // THRESHOLDS.MODAL_MIN_SIZE = 20
                     if (rect.width > 20 && rect.height > 20) return true;
                 }
             }
@@ -64,10 +66,10 @@ export class UISettler {
             const modalText = await page.evaluate(() => document.body.innerText, undefined).catch(() => '');
             if (modalText.includes('leave without saving') || modalText.includes('Discard') || modalText.includes('Unsaved')) {
                 const stayBtn = await page.locator('button:has-text("Stay")').first();
-                if (await stayBtn.isVisible()) {
+                if (await stayBtn.isVisible() && await stayBtn.isEnabled()) {
                     console.log('[UISettler] Detected "Leave without saving" modal - clicking "Stay".');
                     await stayBtn.click();
-                    await page.waitForTimeout(300);
+                    await page.waitForTimeout(TIMING.UI_CLEANUP_DELAY);
                 }
             }
         } catch { /* ignore */ }
@@ -96,7 +98,7 @@ export class UISettler {
                 });
             });
         }, undefined).catch(() => { });
-        await page.waitForTimeout(500);
+        await page.waitForTimeout(TIMING.SETTLE_DELAY);
     }
 
     /**
@@ -125,6 +127,7 @@ export class UISettler {
                 const style = window.getComputedStyle(m);
                 if (style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0') {
                     const rect = m.getBoundingClientRect();
+                    // THRESHOLDS.MODAL_MIN_SIZE = 20
                     if (rect.width > 20 && rect.height > 20) {
                         modal = m;
                         break;
@@ -170,7 +173,7 @@ export class UISettler {
 
         let screenshotPath: string | undefined;
         try {
-            const modalEl = await page.waitForSelector('.ianai-Modal-content, .mantine-Modal-content, [role="dialog"], .ianai-Drawer-content', { timeout: 2000 });
+            const modalEl = await page.waitForSelector('.ianai-Modal-content, .mantine-Modal-content, [role="dialog"], .ianai-Drawer-content', { timeout: TIMING.MODAL_WAIT });
             if (modalEl) {
                 const png = await modalEl.screenshot({ type: 'png' });
                 const stats = await sharp(png).stats();

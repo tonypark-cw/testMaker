@@ -56,7 +56,7 @@ export class TabExplorer {
         for (let i = 0; i < tabs.length; i++) {
             try {
                 const tab = tabs[i];
-                if (!await tab.isVisible()) continue;
+                if (!await tab.isVisible() || !await tab.isEnabled()) continue;
 
                 const tabText = (await tab.innerText().catch(() => '')).trim();
                 const tabLabel = tabText || `Tab${i + 1}`;

@@ -1,7 +1,7 @@
 import { ActionRecord, ModalDiscovery } from '../../types/index.js';
 import { UISettler } from '../lib/UISettler.js';
 import { CommandExecutor, ClickCommand } from '../commands/index.js';
-import { TIMING } from '../config/constants.js';
+import { TIMING, LIMITS } from '../config/constants.js';
 import { NetworkManager } from '../../shared/network/NetworkManager.js';
 import { BrowserPage } from '../adapters/BrowserPage.js';
 
@@ -31,7 +31,7 @@ export class ContentExplorer {
         const { page, targetUrl, actionChain, networkManager, discoveredLinks, modalDiscoveries, previousPath, outputDir, timestamp, capturedModalHashes, clickedRowTexts } = ctx;
 
         const rows = await page.locator('table tr, .table-row, [role="row"]').all();
-        const limit = 5; // Sample limit
+        const limit = LIMITS.ROW_CLICK_SAMPLES;
         let clickedInThisPage = 0;
 
         const executor = new CommandExecutor(
@@ -42,11 +42,11 @@ export class ContentExplorer {
         for (const row of rows) {
             if (clickedInThisPage >= limit) break;
             try {
-                const text = (await row.innerText()).trim();
+                const text = (await row.innerText().catch(() => '')).trim();
                 const cleanText = text.split('\t')[0].split('\n')[0].trim().substring(0, 30);
                 if (!cleanText || clickedRowTexts.has(cleanText)) continue;
 
-                if (await row.isVisible()) {
+                if (await row.isVisible() && await row.isEnabled()) {
                     clickedRowTexts.add(cleanText);
 
                     // Use ClickCommand

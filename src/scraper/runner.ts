@@ -321,7 +321,8 @@ export class Runner {
                     headers: {
                         'Origin': originBase,
                         'Referer': `${originBase}/app`,
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'X-Internal-Request': 'true'
                     }
                 });
 
@@ -334,14 +335,17 @@ export class Runner {
                         throw new Error('Refresh response missing accessToken');
                     }
 
+                    console.log(`[AuthManager] ✓ Token refreshed successfully (New access token: ${newAccessToken.substring(0, 10)}...)`);
                     return {
                         accessToken: newAccessToken,
                         refreshToken: data.refreshToken || refreshToken,
                         expiresIn: expiresIn
                     };
                 } else {
+                    const errorStatus = response.status();
                     const errorText = await response.text();
-                    throw new Error(`Refresh failed: ${response.status()} - ${errorText}`);
+                    console.error(`[AuthManager] ❌ Token refresh failed with status ${errorStatus}: ${errorText}`);
+                    throw new Error(`Refresh failed: ${errorStatus} - ${errorText}`);
                 }
             } catch (e) {
                 console.error('[AuthManager] Refresh error:', e);

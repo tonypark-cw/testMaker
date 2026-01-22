@@ -133,11 +133,21 @@ export class NetworkManager {
      * [Phase 8] Block specifically failing requests (e.g. invalid refresh tokens)
      */
     async setupRequestBlocking(context: BrowserContext) {
-        if (process.env.BLOCK_REFRESH_TOKEN !== 'false') {
+        // [MODIFIED] Only block if explicitly true and not an internal request
+        if (process.env.BLOCK_REFRESH_TOKEN === 'true') {
             let tokenRequestCount = 0;
             const tokenRequestTimestamps: number[] = [];
 
             await context.route('**/v2/user/token', route => {
+                const request = route.request();
+                const headers = request.headers();
+
+                // Allow internal requests from AuthManager
+                if (headers['x-internal-request'] === 'true' || headers['X-Internal-Request'] === 'true') {
+                    route.continue();
+                    return;
+                }
+
                 tokenRequestCount++;
                 const now = Date.now();
                 tokenRequestTimestamps.push(now);
@@ -146,7 +156,7 @@ export class NetworkManager {
                     ? now - tokenRequestTimestamps[tokenRequestTimestamps.length - 2]
                     : 0;
 
-                console.log(`[NetworkManager] 🔄 Blocked refresh token request #${tokenRequestCount} (${(timeSinceLastRequest / 1000).toFixed(1)}s since last)`);
+                console.log(`[NetworkManager] 🔄 Blocked external refresh token attempt #${tokenRequestCount} (${(timeSinceLastRequest / 1000).toFixed(1)}s since last)`);
                 route.abort();
             });
         }

@@ -9,11 +9,12 @@ async function generateAuth() {
     // Use direct URL (stage.ianai.co does not use the Dashboard credentials for Basic Auth)
     const AUTH_URL = 'https://stage.ianai.co';
 
-    const LOGIN_EMAIL = process.env.emailname || '';
-    const LOGIN_PASS = process.env.password || '';
+    // Support both legacy (emailname/password) and standardized (STAGE_EMAIL/STAGE_PASSWORD) env vars
+    const LOGIN_EMAIL = process.env.STAGE_EMAIL || process.env.emailname || '';
+    const LOGIN_PASS = process.env.STAGE_PASSWORD || process.env.password || '';
 
     if (!LOGIN_EMAIL || !LOGIN_PASS) {
-        console.error('[Auth] Error: emailname or password not found in environment variables.');
+        console.error('[Auth] Error: STAGE_EMAIL/STAGE_PASSWORD (or emailname/password) not found in environment variables.');
         process.exit(1);
     }
     const OUTPUT_PATH = path.resolve(process.cwd(), 'output/auth.json');

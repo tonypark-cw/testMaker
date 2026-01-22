@@ -1,7 +1,7 @@
 import type { ActionRecord, ModalDiscovery } from '../../types/index.js';
 import { UISettler } from '../lib/UISettler.js';
 import { CommandExecutor, ClickCommand } from '../commands/index.js';
-import { TIMING } from '../config/constants.js';
+import { TIMING, THRESHOLDS } from '../config/constants.js';
 import { NetworkManager } from '../../shared/network/NetworkManager.js';
 import { BrowserPage } from '../adapters/BrowserPage.js';
 
@@ -38,7 +38,7 @@ export class NavExplorer {
 
         for (const button of expandableButtons) {
             try {
-                const text = (await button.innerText()).trim();
+                const text = (await button.innerText().catch(() => '')).trim();
                 const isExpanded = await button.getAttribute('aria-expanded');
                 const id = await button.getAttribute('id') || `btn-${text}`;
 
@@ -49,7 +49,7 @@ export class NavExplorer {
 
                 // ONLY click if aria-expanded is specifically 'false' OR it's a known header with missing expanded state
                 if (isExpanded === 'false' || (isNavHeader && (isExpanded === null || isExpanded === ''))) {
-                    if (await button.isVisible()) {
+                    if (await button.isVisible() && await button.isEnabled()) {
                         visitedExpansionButtons.add(id);
 
                         // Use ClickCommand
@@ -99,8 +99,8 @@ export class NavExplorer {
         for (const btn of allButtons) {
             try {
                 const rect = await btn.boundingBox();
-                // Sidebar items are consistently on the left (x < 300) and have a reasonable width/height
-                if (rect && rect.x < 300 && rect.width < 400 && rect.height > 10) {
+                // Sidebar items are consistently on the left and have a reasonable width/height
+                if (rect && rect.x < THRESHOLDS.SIDEBAR_X_THRESHOLD && rect.width < THRESHOLDS.SIDEBAR_BUTTON_MAX_WIDTH && rect.height > THRESHOLDS.SIDEBAR_ELEMENT_MIN_HEIGHT) {
                     sidebarItems.push(btn);
                 }
             } catch {
@@ -110,11 +110,11 @@ export class NavExplorer {
 
         for (const item of sidebarItems) {
             try {
-                const text = (await item.innerText()).trim();
+                const text = (await item.innerText().catch(() => '')).trim();
                 const cleanText = text.split('\n')[0].trim();
                 if (!cleanText || visitedSidebarButtons.has(cleanText)) continue;
 
-                if (await item.isVisible()) {
+                if (await item.isVisible() && await item.isEnabled()) {
                     visitedSidebarButtons.add(cleanText);
 
                     const href = await item.getAttribute('href');

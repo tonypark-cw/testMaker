@@ -37,6 +37,12 @@ export const TIMING = {
 
     /** Keyboard typing delay per character */
     TYPING_DELAY: 10,
+
+    /** Modal detection timeout */
+    MODAL_WAIT: 2000,
+
+    /** Settlement wait after UI operations */
+    SETTLE_DELAY: 500,
 } as const;
 
 // ============================================================
@@ -109,6 +115,18 @@ export const THRESHOLDS = {
 
     /** Error count threshold for page recovery */
     ERROR_THRESHOLD: 50,
+
+    /** Minimum modal/dialog dimension (px) for visibility check */
+    MODAL_MIN_SIZE: 20,
+
+    /** X-coordinate threshold for sidebar detection (px) */
+    SIDEBAR_X_THRESHOLD: 300,
+
+    /** Maximum button width for sidebar items (px) */
+    SIDEBAR_BUTTON_MAX_WIDTH: 400,
+
+    /** Minimum element height for sidebar detection (px) */
+    SIDEBAR_ELEMENT_MIN_HEIGHT: 10,
 } as const;
 
 // ============================================================

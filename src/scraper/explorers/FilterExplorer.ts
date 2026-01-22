@@ -45,7 +45,7 @@ export class FilterExplorer {
         for (let i = 0; i < Math.min(selects.length, 2); i++) {
             try {
                 const select = selects[i];
-                if (!await select.isVisible()) continue;
+                if (!await select.isVisible() || !await select.isEnabled()) continue;
 
                 const options = await select.locator('option').all();
                 const sampleCount = Math.min(options.length, LIMITS.SELECT_OPTION_SAMPLES);
@@ -150,7 +150,7 @@ export class FilterExplorer {
         for (let i = 0; i < Math.min(toggles.length, LIMITS.TOGGLE_SAMPLES); i++) {
             try {
                 const toggle = toggles[i];
-                if (!await toggle.isVisible()) continue;
+                if (!await toggle.isVisible() || !await toggle.isEnabled()) continue;
 
                 // Use ClickCommand for toggles (they're clicked to toggle)
                 const command = new ClickCommand(toggle, {

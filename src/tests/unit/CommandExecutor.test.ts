@@ -82,7 +82,21 @@ describe('CommandExecutor', () => {
             };
 
             await expect(executor.execute(mockCommand)).rejects.toThrow('Always fails');
-            expect(mockCommand.execute).toHaveBeenCalledTimes(2);
+            expect(mockCommand.execute).toHaveBeenCalledTimes(3); // 1 base + 2 retries
+        });
+
+        it('should execute at least once even if maxRetries is 0', async () => {
+            const executor = new CommandExecutor(ctx, { maxRetries: 0 });
+            const mockCommand: Command = {
+                type: 'test',
+                label: 'Single Attempt',
+                execute: vi.fn().mockResolvedValue(undefined),
+                toRecord: vi.fn()
+            };
+
+            await executor.execute(mockCommand);
+
+            expect(mockCommand.execute).toHaveBeenCalledTimes(1);
         });
     });
 

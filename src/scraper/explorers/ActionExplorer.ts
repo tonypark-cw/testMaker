@@ -49,7 +49,7 @@ export class ActionExplorer {
             const buttons = await page.locator(selector).all();
             for (const button of buttons) {
                 try {
-                    const text = (await button.innerText()).trim();
+                    const text = (await button.innerText().catch(() => '')).trim();
                     if (!text || text.length > 20) continue;
 
                     if (await button.isVisible() && await button.isEnabled()) {
@@ -94,7 +94,7 @@ export class ActionExplorer {
             const elements = await page.locator(selector).all();
             for (const el of elements) {
                 try {
-                    if (await el.isVisible()) {
+                    if (await el.isVisible() && await el.isEnabled()) {
                         const href = await el.getAttribute('href');
                         if (href) {
                             discoveredLinks.push({ url: new URL(href, targetUrl).toString(), path: [...previousPath, 'View All'] });

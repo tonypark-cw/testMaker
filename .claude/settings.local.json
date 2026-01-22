@@ -26,7 +26,17 @@
       "Bash(git log:*)",
       "Bash(tree:*)",
       "Skill(orchestration)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(test:*)",
+      "Bash(for file in \"src/cli/index.ts\" \"src/cli/supervisor.ts\" \"src/scraper/runner.ts\" \"src/shared/auth/AuthManager.ts\" \"src/scraper/index.ts\" \"src/dashboard/server.ts\" \"src/shared/network/NetworkManager.ts\" \"src/shared/network/RecoveryManager.ts\" \"src/recorder/index.ts\" \"src/scraper/services/GeneratorService.ts\" \"src/shared/network/SyncService.ts\" \"prisma/schema.prisma\")",
+      "Bash(do)",
+      "Bash(if [ -f \"/Users/doongle/testMaker/$file\" ])",
+      "Bash(then)",
+      "Bash(else)",
+      "Bash(fi)",
+      "Bash(done)",
+      "Bash(for file in \"src/core/runner.ts\" \"src/core/NetworkManager.ts\" \"src/core/SessionManager.ts\" \"src/core/lib/QueueManager.ts\" \"src/core/scraper.ts\" \"src/core/lib/explorers/ActionExplorer.ts\" \"src/core/lib/UISettler.ts\" \"src/core/cli.ts\")",
+      "Bash(npx madge:*)"
     ]
   }
 }

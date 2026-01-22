@@ -39,11 +39,12 @@ export class CommandExecutor {
      */
     async execute(command: Command): Promise<void> {
         let lastError: Error | null = null;
+        const totalAttempts = this.maxRetries + 1;
 
-        for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
+        for (let attempt = 1; attempt <= totalAttempts; attempt++) {
             try {
                 if (this.verbose) {
-                    console.log(`[Executor] Executing ${command.type}: "${command.label}" (attempt ${attempt})`);
+                    console.log(`[Executor] Executing ${command.type}: "${command.label}" (attempt ${attempt}/${totalAttempts})`);
                 }
 
                 await command.execute(this.ctx);
@@ -64,14 +65,14 @@ export class CommandExecutor {
             } catch (e) {
                 lastError = e as Error;
 
-                if (attempt < this.maxRetries) {
+                if (attempt < totalAttempts) {
                     console.warn(`[Executor] ⚠️ Retry ${attempt}/${this.maxRetries} for ${command.type}: "${command.label}"`);
                     await this.ctx.page.waitForTimeout(this.retryDelayMs);
                 }
             }
         }
 
-        console.error(`[Executor] ❌ Failed after ${this.maxRetries} attempts: ${command.type}: "${command.label}"`);
+        console.error(`[Executor] ❌ Failed after ${totalAttempts} attempt(s): ${command.type}: "${command.label}"`);
         throw lastError;
     }
 

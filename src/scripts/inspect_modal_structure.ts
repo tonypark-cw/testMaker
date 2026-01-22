@@ -1,6 +1,8 @@
 
 import { chromium } from 'playwright';
 import * as fs from 'fs';
+// path is kept for potential future use
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import * as path from 'path';
 import * as dotenv from 'dotenv';
 

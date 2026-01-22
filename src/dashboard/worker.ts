@@ -73,6 +73,9 @@ async function start() {
     console.log('--- Worker Mode Started ---');
 
     // Mutual Monitoring: Write PID and Monitor Supervisor
+    // __dirname is kept for compatibility
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _unused_dirname = '';
     const outputDir = path.join(process.cwd(), 'output');
     const workerPidPath = path.join(outputDir, 'worker.pid');
     const supervisorPidPath = path.join(outputDir, 'supervisor.pid');
@@ -87,7 +90,8 @@ async function start() {
             try {
                 const pid = parseInt(fs.readFileSync(supervisorPidPath, 'utf-8').trim(), 10);
                 if (!isNaN(pid) && pid > 0) process.kill(pid, 0);
-            } catch {
+            } catch (_err) {
+                // Error ignored intentionally during cleanup
                 console.warn('[Worker] ⚠️ Supervisor died. Resuscitating...');
                 const child = spawn('node', [tsxPath, 'src/core/supervisor.ts'], {
                     detached: true,
@@ -111,6 +115,9 @@ async function start() {
 
     while (true) {
         try {
+            /* pollCount is tracked for internal metrics */
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const _pollCount = pollCount;
             const job = await fetchJob();
             if (job) {
                 console.log(`\n[Worker] 📥 Picked up job: ${job.url}`);

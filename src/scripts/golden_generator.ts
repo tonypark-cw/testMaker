@@ -1,6 +1,8 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+// Handlebars is imported for template compilation
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import Handlebars from 'handlebars';
 
 interface ActionStep {

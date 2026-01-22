@@ -12,7 +12,7 @@ if (fs.existsSync(pidPath)) {
             process.kill(pid, 0);
             isRunning = true;
         }
-    } catch (e) {
+    } catch (_e) {
         isRunning = false;
     }
 }

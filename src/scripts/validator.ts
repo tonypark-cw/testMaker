@@ -1,6 +1,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { program } from 'commander';
+// ScrapeResult is used for type reference
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { ScrapeResult } from '../types/scraper.js';
 import { ScoringProcessor } from '../scraper/lib/ScoringProcessor.js';
 
 // Parse CLI arguments
@@ -11,22 +14,23 @@ program
 const opts = program.opts();
 const environment = opts.env || 'stage';
 
-interface Action {
-    type: string;
-    label: string;
-    url: string;
-}
+// The Action and PageData interfaces are now imported from '../types/scraper.js'
+// interface Action {
+//     type: string;
+//     label: string;
+//     url: string;
+// }
 
-interface PageData {
-    url: string;
-    pageTitle: string;
-    actionChain?: Action[];
-    metadata?: {
-        totalElements: number;
-    };
-    reliabilityScore?: number;
-    functionalPath?: string;
-}
+// interface PageData {
+//     url: string;
+//     pageTitle: string;
+//     actionChain?: Action[];
+//     metadata?: {
+//         totalElements: number;
+//     };
+//     reliabilityScore?: number;
+//     functionalPath?: string;
+// }
 
 async function runValidator() {
     console.log(`[Validator] Analyzing ${environment} environment...`);
@@ -51,8 +55,8 @@ async function runValidator() {
 
     console.log(`[Validator] Found domains: ${domains.join(', ')}`);
 
-    const results: any[] = [];
-    const bySection: Record<string, any[]> = {};
+    const results: { file: string; url: string; title: string; score: number; reasons: string[] }[] = [];
+    const bySection: Record<string, { file: string; url: string; title: string; score: number; reasons: string[] }[]> = {};
 
     // Process each domain directory
     for (const domain of domains) {

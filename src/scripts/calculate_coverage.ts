@@ -59,8 +59,8 @@ async function main() {
                     normalizedRoutes.add(structuralUrl);
                 }
             }
-        } catch (e) {
-            // ignore malformed
+        } catch (_e) {
+            /* ignore */
         }
     });
 

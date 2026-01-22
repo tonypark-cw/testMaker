@@ -76,7 +76,7 @@ export class Supervisor {
         this.triggerHealthCheck();
 
         // Recursive watch (Note: recursive is supported on Windows/macOS)
-        fs.watch(this.watchDir, { recursive: true }, (eventType, filename) => {
+        fs.watch(this.watchDir, { recursive: true }, (_eventType, filename) => {
             if (filename && (filename.endsWith('.ts') || filename.endsWith('.json'))) {
                 this.debouncedCheck();
             }

@@ -5,9 +5,6 @@ import { TIMING } from '../config/constants.js';
 import { NetworkManager } from '../../shared/network/NetworkManager.js';
 import { BrowserPage } from '../adapters/BrowserPage.js';
 
-/**
- * Context for navigation exploration.
- */
 export interface NavExplorationContext {
     page: BrowserPage;
     targetUrl: string;
@@ -18,53 +15,31 @@ export interface NavExplorationContext {
 }
 
 export class NavExplorer {
-    /**
-     * Phase 4: Menu Expansion (Cache-aware)
-     * Finds and clicks sidebar/navigation expansion buttons to reveal more links.
-     */
-    static async expandMenus(
-        ctx: NavExplorationContext
-    ): Promise<number> {
+    static async expandMenus(ctx: NavExplorationContext): Promise<number> {
         const { page, visitedExpansionButtons, actionChain, networkManager } = ctx;
+        const executor = new CommandExecutor({ page, actionChain, networkManager }, { maxRetries: 1 });
 
-        const executor = new CommandExecutor(
-            { page, actionChain, networkManager },
-            { maxRetries: 1, retryDelayMs: 200 }
-        );
-
-        // Broaden search to include Mantine buttons and position-based sidebar items
-        const expandableButtons = await page.locator('aside button, .sidebar button, nav button, .nav-item[role="button"], .mantine-UnstyledButton-root, button[aria-expanded]').all();
+        // Optimized: Only fetch searchable expansion targets once per phase
+        const expandableButtons = await page.locator('aside button[aria-expanded="false"], .sidebar button[aria-expanded="false"], nav button[aria-expanded="false"]').all();
         let expandedCount = 0;
 
         for (const button of expandableButtons) {
             try {
                 const text = (await button.innerText().catch(() => '')).trim();
-                const isExpanded = await button.getAttribute('aria-expanded');
                 const id = await button.getAttribute('id') || `btn-${text}`;
+                if (!text || visitedExpansionButtons.has(id)) continue;
 
-                if (visitedExpansionButtons.has(id)) continue;
-
-                const isNavHeader = ['Inventory', 'Manufacturing', 'Purchase', 'Sales', 'Settings', 'Shipping', 'Accounting', 'Reports', 'Admin', '재고', '생산', '구매', '영업', '설정', '배송', '회계', '보고서', '관리', '기준정보', '서비스', '고객지원'].some(h => text.includes(h));
-
-                if (isExpanded === 'false' || (isNavHeader && (isExpanded === null || isExpanded === ''))) {
-                    if (await button.isVisible() && await button.isEnabled()) {
-                        visitedExpansionButtons.add(id);
-                        const command = new ClickCommand(button, { label: `Expand: ${text}` });
-                        await executor.execute(command);
-                        await page.waitForTimeout(TIMING.MENU_ANIMATION_DELAY);
-                        expandedCount++;
-                    }
+                if (await button.isVisible()) {
+                    visitedExpansionButtons.add(id);
+                    await executor.execute(new ClickCommand(button, { label: `Expand: ${text}` }));
+                    await page.waitForTimeout(TIMING.MENU_ANIMATION_DELAY);
+                    expandedCount++;
                 }
-            } catch (_e) {
-                // Ignore expansion error
-            }
+            } catch (_e) { /* ignore */ }
         }
         return expandedCount;
     }
 
-    /**
-     * Phase 5: Active Sidebar Discovery (Cache-aware)
-     */
     static async discoverSidebar(
         ctx: NavExplorationContext & {
             discoveredLinks: Array<{ url: string; path: string[] }>,
@@ -75,111 +50,79 @@ export class NavExplorer {
             capturedModalHashes: Set<string>
         }
     ): Promise<void> {
-        const {
-            page, targetUrl, visitedSidebarButtons, actionChain, networkManager,
-            discoveredLinks, modalDiscoveries, previousPath, outputDir, timestamp, capturedModalHashes
-        } = ctx;
+        const { page, targetUrl, visitedSidebarButtons, actionChain, networkManager, discoveredLinks, modalDiscoveries, previousPath, outputDir, timestamp, capturedModalHashes } = ctx;
+        const executor = new CommandExecutor({ page, actionChain, networkManager }, { maxRetries: 1 });
 
-        const executor = new CommandExecutor(
-            { page, actionChain, networkManager },
-            { maxRetries: 1, retryDelayMs: 200 }
-        );
+        const sidebarLocator = 'aside a, .sidebar a, nav a, a[href^="/app/"]';
 
-        const sidebarLocator = 'aside a, .sidebar a, nav a, .nav-item, [role="menuitem"], .mantine-NavLink-root, a[href^="/app/"]';
+        // 1. Initial Scan (Bulk)
         const items = await page.locator(sidebarLocator).all();
-        const itemIdentifierList: { text: string; index: number }[] = [];
-
-        // INITIAL BULK EXTRACTION
-        for (const item of items) {
-            try {
-                const href = await item.getAttribute('href');
-                const text = (await item.innerText().catch(() => '')).trim().split('\n')[0];
-                if (href) {
-                    const absoluteUrl = new URL(href, targetUrl).toString();
-                    if (!discoveredLinks.find(l => l.url === absoluteUrl)) {
-                        discoveredLinks.push({ url: absoluteUrl, path: [...previousPath, text || 'Link'] });
-                    }
-                }
-            } catch (_e) {
-                /* ignore */
-            }
-        }
+        const targets: { text: string, href: string | null, index: number }[] = [];
 
         for (let i = 0; i < items.length; i++) {
-            const text = (await items[i].innerText().catch(() => '')).trim().split('\n')[0];
-            if (text) itemIdentifierList.push({ text, index: i });
+            try {
+                const href = await items[i].getAttribute('href');
+                const text = (await items[i].innerText().catch(() => '')).trim().split('\n')[0];
+                if (!text) continue;
+
+                if (href) {
+                    const abs = new URL(href, targetUrl).toString();
+                    if (!discoveredLinks.find(l => l.url === abs)) {
+                        discoveredLinks.push({ url: abs, path: [...previousPath, text] });
+                    }
+                }
+                targets.push({ text, href, index: i });
+            } catch (_e) { /* ignore */ }
         }
 
-        for (const ident of itemIdentifierList) {
+        // 2. Focused Interaction (Only unseen items)
+        for (const target of targets) {
             try {
-                if (visitedSidebarButtons.has(ident.text)) continue;
+                if (visitedSidebarButtons.has(target.text)) continue;
 
+                // Re-verify the item still exists and matches
                 const currentItems = await page.locator(sidebarLocator).all();
-                const item = currentItems[ident.index];
-                if (!item) continue;
-
-                const text = (await item.innerText().catch(() => '')).trim().split('\n')[0];
-                if (text !== ident.text) continue;
+                const item = currentItems[target.index];
+                if (!item || (await item.innerText().catch(() => '')).trim().split('\n')[0] !== target.text) continue;
 
                 if (await item.isVisible() && await item.isEnabled()) {
-                    visitedSidebarButtons.add(text);
-
+                    visitedSidebarButtons.add(target.text);
                     const currentUrl = page.url();
-                    const command = new ClickCommand(item, { label: `Nav: ${text}` });
-                    await executor.execute(command);
+
+                    await executor.execute(new ClickCommand(item, { label: `Nav: ${target.text}` }));
                     await page.waitForTimeout(TIMING.NAVIGATION_DELAY);
 
                     const newUrl = page.url();
 
-                    // COLLECT NEWLY VISIBLE LINKS after click
-                    const subLinks = await page.locator(sidebarLocator).all();
-                    for (const sl of subLinks) {
-                        try {
-                            const shref = await sl.getAttribute('href');
-                            if (shref) {
-                                const abs = new URL(shref, targetUrl).toString();
-                                if (!discoveredLinks.find(l => l.url === abs)) {
-                                    discoveredLinks.push({ url: abs, path: [...previousPath, text] });
-                                }
-                            }
-                        } catch (_e) {
-                            /* ignore */
-                        }
-                    }
-
-                    // SPA Interceptor capture
+                    // Captured SPA routes
                     const routes = await page.evaluate(() => {
+                        /* eslint-disable @typescript-eslint/no-explicit-any */
                         const r = Array.from((window as any).__discoveredRoutes || []) as string[];
                         (window as any).__discoveredRoutes = new Set<string>();
                         return r;
+                        /* eslint-enable @typescript-eslint/no-explicit-any */
                     }, undefined) as string[];
 
                     for (const route of routes) {
-                        try {
-                            const absoluteUrl = new URL(route, targetUrl).toString();
-                            if (!discoveredLinks.find(l => l.url === absoluteUrl)) {
-                                discoveredLinks.push({ url: absoluteUrl, path: [...previousPath, ident.text] });
-                            }
-                        } catch (_e) {
-                            /* ignore */
+                        const abs = new URL(route, targetUrl).toString();
+                        if (!discoveredLinks.find(l => l.url === abs)) {
+                            discoveredLinks.push({ url: abs, path: [...previousPath, target.text] });
                         }
                     }
 
                     if (newUrl !== currentUrl) {
                         if (!discoveredLinks.find(l => l.url === newUrl)) {
-                            discoveredLinks.push({ url: newUrl, path: [...previousPath, ident.text] });
+                            discoveredLinks.push({ url: newUrl, path: [...previousPath, target.text] });
                         }
-                        await page.goBack().catch(() => page.goBack()).catch(() => page.goto(targetUrl));
+                        // SPA-friendly back
+                        await page.goBack().catch(() => page.goto(targetUrl));
                         await page.waitForTimeout(TIMING.NAVIGATION_DELAY);
-                        await NavExplorer.expandMenus(ctx);
                     } else {
-                        const discovery = await UISettler.extractModalContent(page, ident.text, targetUrl, outputDir, timestamp, capturedModalHashes);
-                        if (discovery) modalDiscoveries.push(discovery);
+                        const disc = await UISettler.extractModalContent(page, target.text, targetUrl, outputDir, timestamp, capturedModalHashes);
+                        if (disc) modalDiscoveries.push(disc);
                     }
                 }
-            } catch (_e) {
-                /* ignore */
-            }
+            } catch (_e) { /* ignore */ }
         }
     }
 }

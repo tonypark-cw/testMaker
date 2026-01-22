@@ -103,7 +103,7 @@ export async function searchAction(options: any) {
         console.log('\n[TestMaker] Generating Consistency Report...');
         const stdioMode = options.quiet ? 'ignore' : 'inherit';
         const tsxPath = path.join(process.cwd(), 'node_modules', 'tsx', 'dist', 'cli.mjs');
-        spawnSync('node', [tsxPath, 'scripts/validator.ts', '--env', env], {
+        spawnSync('node', [tsxPath, 'src/scripts/validator.ts', '--env', env], {
             stdio: stdioMode as any,
             windowsHide: true,
             shell: false

@@ -151,10 +151,10 @@ export class ActionExplorer {
                 for (let i = 0; i < limit; i++) {
                     const row = rows[i];
                     try {
-                        // Enhanced validation: check visibility, enablement, and content
-                        const isVisible = await row.isVisible();
-                        const isEnabled = await row.isEnabled();
-                        const text = (await row.innerText()).trim();
+                        // Enhanced validation with short timeout for speed
+                        const isVisible = await row.isVisible({ timeout: 1000 }).catch(() => false);
+                        const isEnabled = await row.isEnabled({ timeout: 1000 }).catch(() => false);
+                        const text = (await row.innerText().catch(() => '')).trim();
 
                         if (isVisible && isEnabled && text.length > 0) {
                             console.log(`[ActionExplorer] 🖱️ Clicking row ${i + 1} ("${text.substring(0, 30)}...") to trigger transaction API...`);

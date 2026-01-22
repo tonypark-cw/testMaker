@@ -472,11 +472,13 @@ export class Runner {
                 const added = this.queueManager.addJobs(newJobs);
                 if (added > 0) {
                     this.log(`[Runner] Discovered ${added} new links from ${job.url}`);
+                    this.queueManager.saveCheckpoint(); // [USER-REQUEST] Save immediately after discovery
                 }
             }
 
             if (!result.error) {
                 this.log(`[Runner] Page analyzed: ${result.pageTitle} (${result.elements.length} elements)`);
+                this.queueManager.saveCheckpoint(); // [USER-REQUEST] Save immediately after analysis
                 const scenarios = this.transformer.transform(result.elements);
                 const stats: Record<string, number> = {};
                 result.elements.forEach(el => { stats[el.type] = (stats[el.type] || 0) + 1; });

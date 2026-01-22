@@ -75,6 +75,10 @@ TestMaker는 웹 페이지를 자동으로 크롤링하여:
 |------|------|
 | **Exploration Orchestrator** | Strategy Pattern을 통한 유연한 탐색 페이즈 제어 |
 | **Type Safety** | Strict Typing & `any` elimination in core logic (2026-01-22) |
+| **Fault Tolerance** | ✅ 500 Warn, 429 Global Pause |
+| **Queue Management** | ✅ [MAJOR] Fixed seeding logic (1041+ URLs), restored basePath protection |
+| **Link Discovery** | ✅ [MAJOR] Aggressive bulk extraction + SPA interceptor |
+| **URL Scope Filtering** | ✅ Only explore child paths (Restored & Enforced) |
 | **Exploration Context** | 세션별 상태 격리로 멀티탭 환경 경쟁 조건 완전 해결 |
 | **Event-Driven Bus** | Pub/Sub 기반 비결합 시스템으로 확장성 확보 |
 | **Recorder & Learning** | 사용자 행동 학습을 위한 레코더 및 이벤트 트래커 (Strictly Typed) |

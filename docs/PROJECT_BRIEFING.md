@@ -54,8 +54,9 @@ Distributed Logging
 | Dashboard Performance | ✅ | O(1) Adaptive Watcher (Win/Mac) |
 | NetworkManager | ✅ | Safe Header Injection, CORS Headers |
 | Fault Tolerance | ✅ | 500 Warn, 429 Global Pause |
-| Queue Management | ✅ | Fixed visited URL lifecycle |
-| URL Scope Filtering | ✅ | Only explore child paths (2026-01-20) |
+| Queue Management | ✅ | [MAJOR] Fixed seeding logic (1041+ URLs), restored basePath protection |
+| Link Discovery | ✅ | [MAJOR] Aggressive bulk extraction + SPA interceptor |
+| URL Scope Filtering | ✅ | Child-path-only exploration (Restored & Enforced) |
 | Multi-Page Navigation | ✅ | Proper worker execution flow |
 | QueueManager Unit Tests | ✅ | 23 test cases (2026-01-20) |
 | Dashboard Date Filter | ✅ | Date-based screenshot filtering (2026-01-20) |

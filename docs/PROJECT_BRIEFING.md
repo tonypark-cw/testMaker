@@ -135,20 +135,28 @@ npm run search -- --url "https://stage.ianai.co" --concurrency 3 --headless
 | QueueManager Tests | ✅ 23 test cases passing |
 | URL Scope Filtering | ✅ Child-path-only exploration |
 | Git Conventions | ✅ commitlint enforced (12 types) |
-| Type Centralization | 🔄 In Progress (Consolidating shared/types.ts) |
+| Type Centralization | ✅ Complete (All types in src/types/) |
 
 ---
 
 **Project Overhaul (2026-01-22)**:
 ```
 src/
-├── cli/        - CLI (index.ts, supervisor.ts)
-├── scraper/    - 스크래퍼 (index.ts, phases/, commands/)
-├── shared/     - 공유 모듈 (auth/, network/, events/, SyncService.ts)
-├── types/      - [MOVED] 전역 타입 정의
-├── templates/  - [MOVED] 리포트 생성 템플릿
-├── scripts/    - [MOVED] 유틸리티 스크립트
-└── tests/      - [MOVED] 모든 유닛/통합 테스트
+├── benchmark/  - 벤치마크 도구
+├── cli/        - CLI (index.ts, supervisor.ts, commands/)
+├── dashboard/  - 실시간 모니터링 UI
+├── recorder/   - 사용자 행동 녹화 및 학습
+├── regression/ - 회귀 테스트 시스템
+├── scraper/    - 스크래퍼 (index.ts, runner.ts, phases/, commands/, explorers/)
+├── shared/     - 공유 모듈
+│   ├── auth/       - AuthManager (SessionManager 통합)
+│   ├── events/     - EventBus
+│   └── network/    - NetworkManager, RecoveryManager, SyncService
+├── types/      - 전역 타입 정의 (index.ts, scraper.ts, Authority.ts)
+├── templates/  - 리포트 생성 템플릿
+├── scripts/    - 유틸리티 스크립트
+├── tests/      - 모든 유닛/통합 테스트
+└── tools/      - 도구 스크립트
 prisma/         - DB 스키마 및 마이그레이션
 ```
 
@@ -173,10 +181,14 @@ prisma/         - DB 스키마 및 마이그레이션
 - TypeScript 컴파일 에러 23개 → 0개 수정
 - 불필요한 파일 정리 (~3GB 절약: trace 파일, 백업, 로그)
 
-**Type Consolidation & Standardization (Ongoing - 2026-01-22)**:
-- **Redundancy Alert**: `src/shared/types.ts` (엔진 제어용)와 `src/types/index.ts` (데이터 도메인용)가 분리되어 있어 구조적 혼동 발생 사례 확인.
-- **Goal**: 모든 타입 정의를 `src/types/` 하위로 단일화하여 "Single Source of Truth" 확보.
-- **Verification**: 타 에이전트 및 개발자가 구조적 혼동을 겪지 않도록 브리핑 업데이트 및 가이드라인 수립.
+**Type Consolidation & Standardization (Complete - 2026-01-22)**:
+- **Status**: ✅ 완료. 모든 타입 정의가 `src/types/` 하위로 통합됨.
+- **Structure**:
+  - `src/types/index.ts` - 일반 타입 정의
+  - `src/types/scraper.ts` - Scraper 전용 타입
+  - `src/types/Authority.ts` - 권한 시스템 enum
+  - `src/regression/types.ts` - Regression 전용 타입 (모듈 내부)
+- **Note**: `src/shared/types.ts`는 삭제되었으며, 모든 import가 `src/types/*`를 참조함.
 
 **Git & Convention Enforcement**:
 - commitlint 강화: 12개 허용 타입만 사용 가능
@@ -211,11 +223,11 @@ prisma/         - DB 스키마 및 마이그레이션
 - Fixed token injection timing (retrieve before page creation)
 - Added proper await for concurrency=1 sequential execution
 
-**Files Modified**:
-- [src/core/runner.ts](src/core/runner.ts): Token refresh handler, extractTokenExpiry(), runWorker() timing
-- [src/core/NetworkManager.ts](src/core/NetworkManager.ts): Token caching, reduced SessionManager queries
-- [src/core/SessionManager.ts](src/core/SessionManager.ts): Enhanced logging, expiry tracking
-- [src/core/lib/QueueManager.ts](src/core/lib/QueueManager.ts): Fixed addJobs() visited marking
+**Files Modified** (경로는 Phase 5-6 리팩토링 후 변경됨):
+- [src/scraper/runner.ts](../src/scraper/runner.ts): Token refresh handler, extractTokenExpiry(), runWorker() timing
+- [src/shared/network/NetworkManager.ts](../src/shared/network/NetworkManager.ts): Token caching, reduced SessionManager queries
+- [src/shared/auth/AuthManager.ts](../src/shared/auth/AuthManager.ts): Enhanced logging, expiry tracking (SessionManager 통합)
+- [src/scraper/queue/QueueManager.ts](../src/scraper/queue/QueueManager.ts): Fixed addJobs() visited marking
 
 **Transaction Capture & Exploration Optimization (2026-01-20)**:
 - **Generalized Capture**: Refined regex to support all ERP modules (`/v2/inventory/adjustment/...`, etc.)
@@ -223,13 +235,13 @@ prisma/         - DB 스키마 및 마이그레이션
 - **Data-Only Mode**: Added `--no-screenshots` flag to bypass visual extraction, increasing speed by 5x.
 - **Field Mapping**: Aggregates unique Request/Response keys into `output/print_label/` dictionaries.
 
-**Files Modified**:
-- [src/core/NetworkManager.ts](src/core/NetworkManager.ts): Generalized transaction detection regex.
-- [src/core/runner.ts](src/core/runner.ts): Transaction saving and print_label aggregation.
-- [src/core/scraper.ts](src/core/scraper.ts): Integrated row discovery and screenshot skipping.
-- [src/core/lib/explorers/ActionExplorer.ts](src/core/lib/explorers/ActionExplorer.ts): Added table row automated clicking.
-- [src/core/lib/UISettler.ts](src/core/lib/UISettler.ts): Added support for skipping modal screenshots.
-- [src/core/cli.ts](src/core/cli.ts): Added `--no-screenshots` option mapping.
+**Files Modified** (경로는 Phase 5-6 리팩토링 후 변경됨):
+- [src/shared/network/NetworkManager.ts](../src/shared/network/NetworkManager.ts): Generalized transaction detection regex.
+- [src/scraper/runner.ts](../src/scraper/runner.ts): Transaction saving and print_label aggregation.
+- [src/scraper/index.ts](../src/scraper/index.ts): Integrated row discovery and screenshot skipping.
+- [src/scraper/explorers/ActionExplorer.ts](../src/scraper/explorers/ActionExplorer.ts): Added table row automated clicking.
+- [src/scraper/lib/UISettler.ts](../src/scraper/lib/UISettler.ts): Added support for skipping modal screenshots.
+- [src/cli/index.ts](../src/cli/index.ts): Added `--no-screenshots` option mapping.
 
 **Performance Improvements**:
 - API call reduction: ~95% fewer token refresh requests
@@ -408,7 +420,7 @@ Total Pages: 21
 
 ---
 
-Last Updated: 2026-01-21
+Last Updated: 2026-01-22
 
 ---
 
@@ -432,6 +444,16 @@ Last Updated: 2026-01-21
 ---
 
 ## Troubleshooting History (2026-01-19)
+
+> ⚠️ **경로 변경 안내**: Phase 5-6 리팩토링으로 `src/core/` 디렉토리가 재구성되었습니다.
+> - `src/core/runner.ts` → `src/scraper/runner.ts`
+> - `src/core/NetworkManager.ts` → `src/shared/network/NetworkManager.ts`
+> - `src/core/SessionManager.ts` → `src/shared/auth/AuthManager.ts` (통합)
+> - `src/core/lib/QueueManager.ts` → `src/scraper/queue/QueueManager.ts`
+> - `src/core/scraper.ts` → `src/scraper/index.ts`
+> - `src/core/cli.ts` → `src/cli/index.ts`
+>
+> 아래 기록은 당시의 파일 경로를 유지하되, 실제 코드 참조 시 위 매핑을 사용하세요.
 
 ### 1. Token Refresh 403 Error (Resolved)
 

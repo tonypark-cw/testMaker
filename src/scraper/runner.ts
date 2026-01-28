@@ -69,6 +69,7 @@ export class Runner {
 
         // [SRP] Delegate healthy URL pre-scanning to QueueManager
         // Force mode is handled inside QueueManager to re-add to queue
+        // 3. Load previous state aggressively
         this.queueManager.loadHealthyVisitedUrls();
 
         // 1. Launch & Auth

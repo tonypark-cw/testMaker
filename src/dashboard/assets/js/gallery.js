@@ -58,7 +58,7 @@ export function createCard(shot) {
     const status = state.tags[`${webUrl}#${shot.hash}`] || state.tags[webUrl];
 
     const div = document.createElement('div');
-    div.className = 'shot-card';
+    div.className = 'shot-card' + (status ? ` status-${status}` : '');
     div.dataset.url = url;
 
     // Store data for modal opening
@@ -96,17 +96,60 @@ export function createCard(shot) {
     const checkbox = div.querySelector('.card-checkbox');
     checkbox.addEventListener('click', (e) => {
         e.stopPropagation();
-        const key = `${webUrl}#${shot.hash || ''}`;
-        state.toggleImageSelection(key);
+        const currentKey = `${webUrl}#${shot.hash || ''}`;
+
+        // Handle Shift+Click Range Selection (Gmail-style: always select range)
+        if (state.isSelectionMode && e.shiftKey && state.lastSelectedUrl) {
+            e.preventDefault(); // Prevent default checkbox toggle for consistent behavior
+
+            // Use DOM visual order (WYSIWYG)
+            const cards = Array.from(document.querySelectorAll('.shot-card'));
+
+            // Build keys using dataset (more reliable in browser)
+            const visibleKeys = cards.map(c => {
+                const cardWebUrl = c.dataset.webUrl || c.dataset.url || '';
+                const hash = c.dataset.hash || '';
+                return `${cardWebUrl}#${hash}`;
+            });
+
+            const startIdx = visibleKeys.indexOf(state.lastSelectedUrl);
+            const endIdx = visibleKeys.indexOf(currentKey);
+
+            if (startIdx !== -1 && endIdx !== -1) {
+                const low = Math.min(startIdx, endIdx);
+                const high = Math.max(startIdx, endIdx);
+
+                // Gmail-style: Shift+Click always selects the range
+                for (let i = low; i <= high; i++) {
+                    const key = visibleKeys[i];
+                    state.addImageSelection(key);
+                    const cb = cards[i].querySelector('.card-checkbox');
+                    if (cb) cb.checked = true;
+                }
+            } else {
+                // Fallback to normal toggle if range fails
+                state.toggleImageSelection(currentKey);
+                checkbox.checked = state.selectedImages.has(currentKey);
+            }
+            state.setLastSelectedUrl(currentKey);
+        } else {
+            // Normal Click
+            state.toggleImageSelection(currentKey);
+            state.setLastSelectedUrl(currentKey);
+        }
         updateSelectionUI();
     });
 
     // Handle card click (modal or checkbox toggle based on mode)
     const clickArea = div.querySelector('.card-click-area');
-    clickArea.addEventListener('click', () => {
+    clickArea.addEventListener('click', (e) => {
         if (state.isSelectionMode) {
             checkbox.checked = !checkbox.checked;
-            checkbox.dispatchEvent(new Event('click'));
+            // Pass shiftKey from original event for range selection
+            checkbox.dispatchEvent(new MouseEvent('click', {
+                bubbles: true,
+                shiftKey: e.shiftKey
+            }));
         }
         // Modal opening is handled by event delegation in main.js
     });
@@ -142,11 +185,17 @@ export function updateVisibleTags() {
         const existingTag = card.querySelector('.qa-tag');
         if (existingTag) existingTag.remove();
 
+        // Remove existing status classes
+        card.classList.remove('status-PASS', 'status-FAIL', 'status-BLOCK', 'status-DELETE');
+
         if (status) {
             const tag = document.createElement('span');
             tag.className = `qa-tag qa-${status}`;
             tag.innerText = status;
             card.appendChild(tag);
+
+            // Add new status class
+            card.classList.add(`status-${status}`);
         }
     });
 }

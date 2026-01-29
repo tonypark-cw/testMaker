@@ -90,7 +90,7 @@ async function start() {
             try {
                 const pid = parseInt(fs.readFileSync(supervisorPidPath, 'utf-8').trim(), 10);
                 if (!isNaN(pid) && pid > 0) process.kill(pid, 0);
-            } catch (_err) {
+            } catch {
                 // Error ignored intentionally during cleanup
                 console.warn('[Worker] ⚠️ Supervisor died. Resuscitating...');
                 const child = spawn('node', [tsxPath, 'src/core/supervisor.ts'], {

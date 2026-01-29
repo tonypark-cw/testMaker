@@ -30,6 +30,7 @@ export let scrollObserver = null;
 // Selection Mode State
 export let isSelectionMode = false;
 export let selectedImages = new Set(); // URLs of selected images
+export let lastSelectedUrl = null; // For shift-click range selection
 
 // Constants
 export const BATCH_SIZE = 24;
@@ -59,7 +60,10 @@ export function toggleImageSelection(url) {
     } else {
         selectedImages.add(url);
     }
+    lastSelectedUrl = url;
 }
+export function setLastSelectedUrl(url) { lastSelectedUrl = url; }
+export function addImageSelection(url) { selectedImages.add(url); }
 export function clearSelectedImages() { selectedImages.clear(); }
 
 // DOM Elements (initialized after DOM ready)

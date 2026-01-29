@@ -42,11 +42,11 @@ export class GoldenGenerator {
         }
 
         const tags = JSON.parse(fs.readFileSync(this.tagsPath, 'utf-8'));
-        const passItems = Object.entries(tags).filter(([_, status]) => status === 'PASS');
+        const passItems = Object.entries(tags).filter(([, status]) => status === 'PASS');
 
         console.log(`[GoldenGenerator] Found ${passItems.length} PASS items.`);
 
-        for (const [key, _] of passItems) {
+        for (const [key] of passItems) {
             await this.processItem(key);
         }
     }

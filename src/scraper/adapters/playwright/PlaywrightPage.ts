@@ -16,6 +16,10 @@ export class PlaywrightPage implements BrowserPage {
         return this.page.url();
     }
 
+    async content(): Promise<string> {
+        return await this.page.content();
+    }
+
     async title(): Promise<string> {
         return await this.page.title();
     }

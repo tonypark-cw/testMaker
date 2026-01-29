@@ -68,8 +68,15 @@
             </button>
             <div id="selection-actions" style="display: none; align-items: center; gap: 10px;">
                 <span id="selected-count" style="color: #94a3b8; font-size: 13px;">0 selected</span>
-                <button class="runner-btn" onclick="applyDeleteToSelected()" style="background: #dc2626; font-size: 13px;">
-                    🗑️ DELETE Selected
+                
+                <button class="runner-btn" onclick="applyTagToSelected('PASS')" style="background: #28a745; font-size: 13px;">PASS</button>
+                <button class="runner-btn" onclick="applyTagToSelected('FAIL')" style="background: #dc3545; font-size: 13px;">FAIL</button>
+                <button class="runner-btn" onclick="applyTagToSelected('BLOCK')" style="background: #ffc107; color: black; font-size: 13px;">BLOCK</button>
+                
+                <div style="width:1px; height:20px; background:#475569; margin:0 5px;"></div>
+
+                <button class="runner-btn" onclick="applyTagToSelected('DELETE')" style="background: #dc2626; font-size: 13px;">
+                    🗑️ DELETE
                 </button>
                 <button class="runner-btn" onclick="clearSelection()" style="background: #64748b; font-size: 13px;">
                     Clear

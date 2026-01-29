@@ -59,7 +59,7 @@ async function main() {
                     normalizedRoutes.add(structuralUrl);
                 }
             }
-        } catch (_e) {
+        } catch {
             /* ignore */
         }
     });

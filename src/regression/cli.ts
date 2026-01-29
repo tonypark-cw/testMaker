@@ -400,7 +400,7 @@ function findLatestScreenshot(dir: string, pageName: string): string | null {
         });
 
         return path.join(dir, matches[0]);
-    } catch (err) {
+    } catch {
         return null;
     }
 }

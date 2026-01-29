@@ -35,7 +35,9 @@ export class DiscoveryPhase implements IExplorationPhase {
         const expandedCount = await NavExplorer.expandMenus({
             ...baseCtx,
             visitedExpansionButtons: context.state.visitedExpansionButtons,
-            visitedSidebarButtons: context.state.visitedSidebarButtons
+            visitedSidebarButtons: context.state.visitedSidebarButtons,
+            outputDir,
+            discoveredLinks
         });
         if (expandedCount > 0) console.log(`[DiscoveryPhase] Expanded ${expandedCount} NEW menu items.`);
 

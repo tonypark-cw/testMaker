@@ -113,6 +113,10 @@ export function loadReasons(): Record<string, string> {
  * Update a tag and save to file
  */
 export function updateTag(url: string, status: string, hash?: string): void {
+    if (!fs.existsSync(DATA_DIR)) {
+        fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+
     let tags: Record<string, string> = {};
     if (fs.existsSync(TAGS_FILE)) {
         try {

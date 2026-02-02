@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { ScrapeJob, ScraperConfig } from '../../types/scraper.js';
+import { ScrapeJob, ScraperConfig, JobPriority } from '../../types/scraper.js';
 import { CheckpointManager } from '../lib/CheckpointManager.js';
 
 export class QueueManager {
@@ -35,11 +35,18 @@ export class QueueManager {
         }
     }
 
-    public getNextJob(): ScrapeJob | undefined {
+    public getNextJob(): EnhancedScrapeJob | undefined {
+        // Sort by priority (descending) then by depth (ascending)
+        this.queue.sort((a, b) => {
+            const pA = a.priority ?? JobPriority.NORMAL;
+            const pB = b.priority ?? JobPriority.NORMAL;
+            if (pA !== pB) return pB - pA;
+            return a.depth - b.depth;
+        });
         return this.queue.shift();
     }
 
-    public addJobs(jobs: ScrapeJob[]): number {
+    public addJobs(jobs: EnhancedScrapeJob[]): number {
         let addedCount = 0;
         for (const job of jobs) {
             if (job.depth > (this.config.depth || 10)) continue;
@@ -49,19 +56,31 @@ export class QueueManager {
                 const jobUrl = new URL(normalized);
                 if (jobUrl.hostname !== this.domain) continue;
 
-                // [RESTORED] User's original basePath safety check
                 const jobPath = jobUrl.pathname.replace(/\/$/, '');
                 if (!jobPath.startsWith(this.basePath)) {
                     continue;
                 }
             } catch { continue; }
 
-            const inQueue = this.queue.some(j => this.normalizeUrl(j.url) === normalized);
+            const existingIndex = this.queue.findIndex(j => this.normalizeUrl(j.url) === normalized);
             const alreadyVisited = this.visitedUrls.has(normalized);
 
-            if (this.config.force ? !inQueue : (!alreadyVisited && !inQueue)) {
-                this.queue.push({ ...job, url: normalized });
-                addedCount++;
+            if (this.config.force ? true : !alreadyVisited) {
+                if (existingIndex > -1) {
+                    // Update priority if new one is higher
+                    const currentPriority = this.queue[existingIndex].priority ?? JobPriority.NORMAL;
+                    const newPriority = job.priority ?? JobPriority.NORMAL;
+                    if (newPriority > currentPriority) {
+                        this.queue[existingIndex].priority = newPriority;
+                    }
+                } else {
+                    this.queue.push({ 
+                        ...job, 
+                        url: normalized,
+                        priority: job.priority ?? JobPriority.NORMAL 
+                    });
+                    addedCount++;
+                }
             }
         }
         return addedCount;

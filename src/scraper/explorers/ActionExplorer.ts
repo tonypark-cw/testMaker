@@ -137,45 +137,91 @@ export class ActionExplorer {
             try {
                 if (!(await table.isVisible())) continue;
 
+                // [SEMANTIC-DISCOVERY] 1. Collect all rows first
                 const rows = await table.locator('tbody tr, [role="row"]:not([aria-rowindex="1"]), .mantine-Table-tbody tr').all();
-
                 if (rows.length === 0) {
                     console.log('[ActionExplorer] ⚠️ No rows found in table.');
                     continue;
                 }
 
-                // Click first N rows based on constants
-                const limit = Math.min(rows.length, LIMITS.ROW_CLICK_SAMPLES);
-                console.log(`[ActionExplorer] Found ${rows.length} rows, will attempt to click ${limit}.`);
+                console.log(`[ActionExplorer] Found ${rows.length} total rows. Analyzing usage of "Status"/"State" columns...`);
 
-                for (let i = 0; i < limit; i++) {
-                    const row = rows[i];
+                // [SEMANTIC-DISCOVERY] 2. Analyze Headers to find meaningful columns
+                // We try to find which column index corresponds to "Status", "State", "Type"
+                let statusColIndex = -1;
+                const headers = await table.locator('thead th, [role="columnheader"]').all();
+
+                for (let i = 0; i < headers.length; i++) {
+                    const text = (await headers[i].innerText().catch(() => '')).toLowerCase();
+                    if (['status', 'state', 'type', 'stage', 'category'].some(k => text.includes(k))) {
+                        statusColIndex = i;
+                        console.log(`[ActionExplorer] 🎯 Identified semantic column "${text}" at index ${i}`);
+                        break;
+                    }
+                }
+
+                // [SEMANTIC-DISCOVERY] 3. Group Rows by Semantic State
+                const rowGroups: Record<string, typeof rows> = {};
+                const rowsToClick: typeof rows = [];
+
+                if (statusColIndex !== -1) {
+                    // Group by identified column
+                    for (const row of rows) {
+                        try {
+                            const cells = await row.locator('td, [role="gridcell"]').all();
+                            if (cells[statusColIndex]) {
+                                const statusText = (await cells[statusColIndex].innerText().catch(() => 'Unknown')).trim();
+                                if (!rowGroups[statusText]) rowGroups[statusText] = [];
+                                rowGroups[statusText].push(row);
+                            }
+                        } catch { /* ignore row read error */ }
+                    }
+
+                    console.log(`[ActionExplorer] 📊 Row Groups: ${JSON.stringify(Object.keys(rowGroups).map(k => `${k}: ${rowGroups[k].length}`))}`);
+
+                    // Select representatives (1 from each group, up to LIMITS)
+                    for (const status of Object.keys(rowGroups)) {
+                        const group = rowGroups[status];
+                        // Prioritize rare states? For now just take the first one or random one
+                        if (group.length > 0) {
+                            rowsToClick.push(group[0]);
+                            // If we want more coverage for this state, maybe add a second one if available
+                            if (group.length > 5) rowsToClick.push(group[Math.floor(group.length / 2)]);
+                        }
+                    }
+                } else {
+                    // Fallback: Default first N rows
+                    console.log('[ActionExplorer] ℹ️ No semantic column found. Using default sampling.');
+                    for (let i = 0; i < Math.min(rows.length, LIMITS.ROW_CLICK_SAMPLES); i++) {
+                        rowsToClick.push(rows[i]);
+                    }
+                }
+
+                // [SEMANTIC-DISCOVERY] 4. Execute Clicks on Selected Rows
+                console.log(`[ActionExplorer] 👉 Selected ${rowsToClick.length} representative rows for exploration.`);
+
+                for (let i = 0; i < rowsToClick.length; i++) {
+                    const row = rowsToClick[i];
                     try {
-                        // Enhanced validation with short timeout for speed
                         const isVisible = await row.isVisible({ timeout: 1000 }).catch(() => false);
                         const isEnabled = await row.isEnabled({ timeout: 1000 }).catch(() => false);
                         const text = (await row.innerText().catch(() => '')).trim();
 
                         if (isVisible && isEnabled && text.length > 0) {
-                            console.log(`[ActionExplorer] 🖱️ Clicking row ${i + 1} ("${text.substring(0, 30)}...") to trigger transaction API...`);
+                            console.log(`[ActionExplorer] 🖱️ Clicking representative row ${i + 1} ("${text.substring(0, 30)}...")`);
 
-                            const command = new ClickCommand(row, { label: `Row ${i + 1}` });
+                            const command = new ClickCommand(row, { label: `Row Rep ${i + 1}` });
                             await executor.execute(command);
 
-                            // Wait for API response (stabilization)
                             await page.waitForTimeout(TIMING.NAVIGATION_DELAY);
 
-                            // If it navigated away, go back to continue discovery
                             if (page.url() !== targetUrl) {
-                                // SPA-friendly return: try back() instead of reload
                                 await page.goBack().catch(() => page.goto(targetUrl));
                                 await page.waitForTimeout(TIMING.NAVIGATION_DELAY);
                             }
-                        } else {
-                            console.log(`[ActionExplorer] ⏭️ Skipping row ${i + 1}: isVisible=${isVisible}, isEnabled=${isEnabled}, hasText=${text.length > 0}`);
                         }
                     } catch (innerE) {
-                        console.error(`[ActionExplorer] Failed to validate or click row ${i + 1}:`, innerE);
+                        console.error(`[ActionExplorer] Failed to click row ${i + 1}:`, innerE);
                     }
                 }
             } catch (e) {

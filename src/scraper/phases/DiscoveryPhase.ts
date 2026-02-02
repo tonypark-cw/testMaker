@@ -19,7 +19,13 @@ export class DiscoveryPhase implements IExplorationPhase {
         const modalDiscoveries = context.results.modalDiscoveries;
         const previousPath = context.results.links.length > 0 ? context.results.links[0].path : []; // This is a bit arbitrary, but matches previous behavior
 
-        const baseCtx = { page, targetUrl, actionChain, networkManager: undefined }; // networkManager handled in Scraper constructor
+        const baseCtx = { 
+            page, 
+            targetUrl, 
+            actionChain, 
+            networkManager: undefined,
+            sidebarLinks: context.results.sidebarLinks 
+        }; // networkManager handled in Scraper constructor
 
         const discoveryCtx = {
             ...baseCtx,

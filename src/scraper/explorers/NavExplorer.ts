@@ -16,6 +16,7 @@ export interface NavExplorationContext {
     visitedSidebarButtons: Set<string>;
     outputDir: string;
     discoveredLinks?: Array<{ url: string; path: string[] }>;
+    sidebarLinks?: string[];
 }
 
 export class NavExplorer {
@@ -128,6 +129,11 @@ export class NavExplorer {
                     const abs = new URL(href, targetUrl).toString();
                     if (!discoveredLinks.find(l => l.url === abs)) {
                         discoveredLinks.push({ url: abs, path: [...previousPath, text] });
+                    }
+                    // [ENHANCE] Explicitly mark as sidebar link for prioritization
+                    if (!ctx.sidebarLinks) ctx.sidebarLinks = [];
+                    if (!ctx.sidebarLinks.includes(abs)) {
+                        ctx.sidebarLinks.push(abs);
                     }
                 }
                 targets.push({ text, href, index: i });

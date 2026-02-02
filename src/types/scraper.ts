@@ -16,6 +16,16 @@ export interface ScrapeJob {
     actionChain?: ActionRecord[];
     /** Functional path breadcrumbs inherited from parent */
     functionalPath?: string[];
+    /** Priority level for the queue (higher = sooner) */
+    priority?: number;
+}
+
+export enum JobPriority {
+    CRITICAL = 100, // Manual triggers
+    HIGH = 80,     // Sidebar menus, Navigation
+    NORMAL = 50,   // General links
+    LOW = 20,      // Pagination, repetitive rows
+    BACKGROUND = 0
 }
 
 /**

@@ -5,7 +5,7 @@ import { Scraper } from './index.js';
 import { TransformerService as Transformer } from './services/TransformerService.js';
 import { GeneratorService as Generator } from './services/GeneratorService.js';
 import { SearchResult, TransactionPayload } from '../types/index.js';
-import { ScrapeJob, ScraperConfig } from '../types/scraper.js';
+import { ScrapeJob, ScraperConfig, JobPriority } from '../types/scraper.js';
 import { RecoveryManager } from '../shared/network/RecoveryManager.js';
 import { NetworkManager } from '../shared/network/NetworkManager.js';
 import { AuthManager } from '../shared/auth/AuthManager.js';
@@ -368,7 +368,9 @@ export class Runner {
                 const job = this.queueManager.getNextJob();
                 if (job) {
                     this.activeWorkers++;
-                    const jitter = 3000 + Math.random() * 5000;
+                    // [ENHANCE] Adaptive Jitter: Reduce wait if queue is large and no recent 429s
+                    const baseJitter = Date.now() < this.rateLimitUntil ? 10000 : 1000;
+                    const jitter = baseJitter + Math.random() * 2000;
                     await new Promise(r => setTimeout(r, jitter));
 
                     // For concurrency=1, await the worker to complete before continuing
@@ -457,6 +459,9 @@ export class Runner {
             const result = await scraper.scrape(browserPage, job);
 
             if (!result.error && result.discoveredLinks) {
+                // [ENHANCE] Prioritize Sidebar Links
+                const sidebarUrls = new Set(result.sidebarLinks || []);
+                
                 const newJobs = result.discoveredLinks
                     .filter(link => !this.queueManager.isVisited(link.url))
                     .map(link => ({
@@ -464,7 +469,8 @@ export class Runner {
                         depth: job.depth + 1,
                         sourceUrl: job.url,
                         actionChain: result.actionChain,
-                        functionalPath: result.functionalPath ? [result.functionalPath] : job.functionalPath
+                        functionalPath: result.functionalPath ? [result.functionalPath] : job.functionalPath,
+                        priority: sidebarUrls.has(link.url) ? JobPriority.HIGH : JobPriority.NORMAL
                     }));
 
                 const added = this.queueManager.addJobs(newJobs);

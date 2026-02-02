@@ -6,6 +6,7 @@ import { IExplorationPhase, PhaseResult } from './IExplorationPhase.js';
 import { ExplorationContext } from './ExplorationContext.js';
 import { UISettler } from '../lib/UISettler.js';
 import { ScoringProcessor } from '../lib/ScoringProcessor.js';
+import { UIHasher } from '../lib/UIHasher.js';
 import { EventBus } from '../../shared/events/EventBus.js';
 
 export class CapturePhase implements IExplorationPhase {
@@ -16,6 +17,11 @@ export class CapturePhase implements IExplorationPhase {
         console.log(`[CapturePhase] 📸 Capturing screenshot for: ${url}`);
 
         try {
+            // Generate UI Hash (Structural fingerprint)
+            const uiHash = await UIHasher.generateHash(page);
+            context.results.uiHash = uiHash;
+            console.log(`[CapturePhase] Layout Hash: ${uiHash}`);
+
             if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 
             let attempts = 0;
@@ -103,6 +109,7 @@ export class CapturePhase implements IExplorationPhase {
                 url,
                 timestamp: new Date().toISOString(),
                 hash,
+                uiHash, // [ENHANCE] Save UI hash in metadata
                 capturePhase: 'early',
                 reliabilityScore: finalScore,
                 contaminationReasons: finalReasons
@@ -117,7 +124,8 @@ export class CapturePhase implements IExplorationPhase {
                 functionalPath: context.results.links.map(l => l.path).flat().join(' > '),
                 reliabilityScore: finalScore,
                 contaminationReasons: finalReasons,
-                screenshotHash: hash
+                screenshotHash: hash,
+                uiHash // [ENHANCE] Include UI hash in event
             });
 
             return { success: true };

@@ -8,6 +8,7 @@ export interface ExplorationState {
     visitedSidebarButtons: Set<string>;
     visitedExpansionButtons: Set<string>;
     clickedRowTexts: Set<string>;
+    visitedUIHashes: Set<string>; // [ENHANCE] Track global UI fingerprints
 }
 
 export interface ExplorationResults {
@@ -18,6 +19,7 @@ export interface ExplorationResults {
     pageTitle: string;
     screenshotPath: string;
     targetUrl: string;
+    uiHash?: string;
 }
 
 /**
@@ -44,7 +46,8 @@ export class ExplorationContext {
             capturedModalHashes: new Set(),
             visitedSidebarButtons: new Set(),
             visitedExpansionButtons: new Set(),
-            clickedRowTexts: new Set()
+            clickedRowTexts: new Set(),
+            visitedUIHashes: new Set() // [ENHANCE] Initial state
         };
 
         this.results = {

@@ -22,6 +22,7 @@ export class Runner {
     private authenticatedPage: Page | null = null;
     private isRunning = false;
     private rateLimitUntil = 0;
+    private visitedUIHashes = new Set<string>(); // [ENHANCE] Track layout templates globally
 
     // Components
     private transformer = new Transformer();
@@ -456,7 +457,7 @@ export class Runner {
             }
 
             const browserPage = new PlaywrightPage(page);
-            const result = await scraper.scrape(browserPage, job);
+            const result = await scraper.scrape(browserPage, job, this.visitedUIHashes);
 
             if (!result.error && result.discoveredLinks) {
                 // [ENHANCE] Prioritize Sidebar Links

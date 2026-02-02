@@ -12,12 +12,12 @@ export class DiscoveryPhase implements IExplorationPhase {
 
     async execute(context: ExplorationContext): Promise<PhaseResult> {
         const { page, actionChain, outputDir, timestamp, pageName } = context;
-        console.log('[DiscoveryPhase] 🔍 Starting exploration phases...');
+        console.log('[DiscoveryPhase] 🚀 Starting exploration phases...');
 
         const targetUrl = context.results.targetUrl;
         const discoveredLinks = context.results.links;
         const modalDiscoveries = context.results.modalDiscoveries;
-        const previousPath = context.results.links.length > 0 ? context.results.links[0].path : []; // This is a bit arbitrary, but matches previous behavior
+        const previousPath = context.results.links.length > 0 ? context.results.links[0].path : [];
 
         const baseCtx = { 
             page, 
@@ -25,7 +25,7 @@ export class DiscoveryPhase implements IExplorationPhase {
             actionChain, 
             networkManager: undefined,
             sidebarLinks: context.results.sidebarLinks 
-        }; // networkManager handled in Scraper constructor
+        };
 
         const discoveryCtx = {
             ...baseCtx,
@@ -36,6 +36,37 @@ export class DiscoveryPhase implements IExplorationPhase {
             timestamp,
             capturedModalHashes: context.state.capturedModalHashes
         };
+
+        // [ENHANCE] UI Similarity Check
+        const uiHash = context.results.uiHash;
+        const isAlreadySeenUI = uiHash && context.state.visitedUIHashes.has(uiHash);
+
+        if (isAlreadySeenUI) {
+            console.log(`[DiscoveryPhase] ⏩ UI layout (${uiHash}) already seen. Performing LIGHT exploration.`);
+            
+            // 1. Menu Expansion (Still needed for global nav)
+            await NavExplorer.expandMenus({
+                ...baseCtx,
+                visitedExpansionButtons: context.state.visitedExpansionButtons,
+                visitedSidebarButtons: context.state.visitedSidebarButtons,
+                outputDir,
+                discoveredLinks
+            });
+
+            // 2. Sidebar Discovery (Still needed to find links)
+            await NavExplorer.discoverSidebar({
+                ...discoveryCtx,
+                visitedExpansionButtons: context.state.visitedExpansionButtons,
+                visitedSidebarButtons: context.state.visitedSidebarButtons
+            });
+
+            return { success: true };
+        }
+
+        // --- FULL Exploration (New UI encountered) ---
+        if (uiHash) {
+            context.state.visitedUIHashes.add(uiHash);
+        }
 
         // 1. Menu Expansion
         const expandedCount = await NavExplorer.expandMenus({

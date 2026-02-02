@@ -30,7 +30,7 @@ export class Scraper {
       .addPhase(new ExtractionPhase());
   }
 
-  public async scrape(page: BrowserPage, job: ScrapeJob): Promise<ScrapeResult> {
+  public async scrape(page: BrowserPage, job: ScrapeJob, visitedUIHashes?: Set<string>): Promise<ScrapeResult> {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 13);
     const urlObj = new URL(job.url);
     const pageName = urlObj.pathname.replace(/\//g, '-').replace(/^-|-$/g, '') || 'index';
@@ -45,6 +45,10 @@ export class Scraper {
       job.functionalPath,
       job.actionChain
     );
+
+    if (visitedUIHashes) {
+      context.state.visitedUIHashes = visitedUIHashes;
+    }
 
     // 2. Execute Orchestration
     const result = await this.orchestrator.execute(context);

@@ -32,8 +32,8 @@ for (const path of paths) {
         const isHeadless = process.argv.includes('--headless');
         const headlessFlag = isHeadless ? '--headless' : '';
 
-        // Run with depth 1 to only capture this page, single concurrency
-        execSync(`npm run search -- --url ${fullUrl} --limit 1 --depth 1 --epochs 1 ${headlessFlag}`, { stdio: 'inherit' });
+        // Run with depth 1 to only capture this page, single concurrency, force refresh
+        execSync(`npm run search -- --url ${fullUrl} --limit 1 --depth 1 --epochs 1 --force ${headlessFlag}`, { stdio: 'inherit' });
         console.log(`✓ Completed: ${path}`);
     } catch {
         console.error(`❌ Failed: ${path}`);

@@ -56,11 +56,11 @@
     "vitest": "^4.0.16"
   },
   "dependencies": {
-    "@prisma/client": "^7.3.0",
+    "@prisma/client": "^6.4.1",
     "commander": "^14.0.2",
     "dotenv": "^17.2.3",
     "handlebars": "^4.7.8",
-    "prisma": "^7.3.0",
+    "prisma": "^6.4.1",
     "sharp": "^0.34.5"
   }
 }

@@ -135,6 +135,30 @@ export class ScoringProcessor {
             }
         }
 
+        // Interactive Element Ratio Check
+        if (page && typeof page.evaluate === 'function') {
+            const interactionStats = await page.evaluate(() => {
+                const total = document.querySelectorAll('*').length;
+                if (total === 0) return { ratio: 0, textLength: 0 };
+
+                const interactive = document.querySelectorAll('button, a, input, select, textarea, [role="button"]').length;
+                const textLength = document.body.innerText.length;
+                return { ratio: interactive / total, textLength };
+            }).catch(() => ({ ratio: 0, textLength: 0 }));
+
+            if (interactionStats.ratio < 0.05 && elementCount > 10) {
+                // If page has elements but very few interactive ones (likely just text or layout)
+                stabilityScore -= 10;
+                reasons.push('low-interaction-ratio');
+            }
+
+            if (interactionStats.textLength < 50 && elementCount > 0) {
+                // Too little text content (likely error page or skeleton)
+                stabilityScore -= 10;
+                reasons.push('low-text-density');
+            }
+        }
+
         let totalScore = visualScore + functionalScore + stabilityScore;
         if (explicitError) {
             totalScore = Math.min(totalScore, 20);

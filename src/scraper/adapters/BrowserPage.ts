@@ -21,6 +21,7 @@ export interface ScreenshotOptions {
 export interface BrowserPage {
     locator(selector: string): BrowserLocator;
     url(): string;
+    content(): Promise<string>;
     title(): Promise<string>;
     goto(url: string, options?: NavigationOptions): Promise<void>;
     goBack(options?: NavigationOptions): Promise<void>;

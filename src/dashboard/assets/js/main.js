@@ -226,7 +226,7 @@ window.prevImage = modal.prevImage;
 window.nextImage = modal.nextImage;
 window.switchDuplicate = modal.switchDuplicate;
 window.toggleSelectionMode = selection.toggleSelectionMode;
-window.applyDeleteToSelected = selection.applyDeleteToSelected;
+window.applyTagToSelected = selection.applyTagToSelected;
 window.clearSelection = selection.clearSelection;
 
 // ===== Event Delegation for Card Clicks =====

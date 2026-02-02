@@ -42,17 +42,22 @@ export function updateSelectionUI() {
     document.getElementById('selected-count').innerText = `${state.selectedImages.size} selected`;
 }
 
+// In index.html, update the buttons to call applyTagToSelected('STATUS')
+// This file (selection.js) changes:
+
 /**
- * Apply DELETE tag to all selected images
+ * Apply a tag to all selected images
  */
-export async function applyDeleteToSelected() {
+export async function applyTagToSelected(status) {
     if (state.selectedImages.size === 0) {
         alert('No images selected');
         return;
     }
 
     const count = state.selectedImages.size;
-    if (!confirm(`Apply DELETE tag to ${count} image(s)?`)) {
+
+    // For critical actions, confirm
+    if (status === 'DELETE' && !confirm(`Apply DELETE tag to ${count} image(s)?`)) {
         return;
     }
 
@@ -60,18 +65,29 @@ export async function applyDeleteToSelected() {
     for (const key of state.selectedImages) {
         const [url, hash] = key.split('#');
         try {
-            await api.setTagDirect(url, 'DELETE', hash);
+            await api.setTagDirect(url, status, hash);
             successCount++;
         } catch (e) {
             console.error(`Failed to tag ${url}:`, e);
         }
     }
 
-    alert(`DELETE tag applied to ${successCount}/${count} images`);
+    alert(`${status} tag applied to ${successCount}/${count} images`);
     clearSelection();
 
-    // Refresh to show updated tags
-    window.location.reload();
+    // Reload or refresh UI to show updated tags
+    // For PASS/FAIL/BLOCK we can just refresh visuals without reload
+    if (status === 'DELETE') {
+        window.location.reload();
+    } else {
+        // Fetch latest tags to ensure hydration
+        const res = await fetch(`${state.API_URL}?env=${state.currentEnvironment}`);
+        const data = await res.json();
+        state.setTags(data.tags || {});
+
+        // Update UI
+        import('./gallery.js').then(g => g.updateVisibleTags());
+    }
 }
 
 /**

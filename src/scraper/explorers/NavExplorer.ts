@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import type { ActionRecord, ModalDiscovery } from '../../types/index.js';
 import { UISettler } from '../lib/UISettler.js';
 import { CommandExecutor, ClickCommand } from '../commands/index.js';
@@ -12,27 +14,84 @@ export interface NavExplorationContext {
     networkManager?: NetworkManager;
     visitedExpansionButtons: Set<string>;
     visitedSidebarButtons: Set<string>;
+    outputDir: string;
+    discoveredLinks?: Array<{ url: string; path: string[] }>;
 }
 
 export class NavExplorer {
     static async expandMenus(ctx: NavExplorationContext): Promise<number> {
-        const { page, visitedExpansionButtons, actionChain, networkManager } = ctx;
+        const { page, visitedExpansionButtons, actionChain, networkManager, targetUrl, outputDir, discoveredLinks } = ctx;
         const executor = new CommandExecutor({ page, actionChain, networkManager }, { maxRetries: 1 });
 
-        // Optimized: Only fetch searchable expansion targets once per phase
-        const expandableButtons = await page.locator('aside button[aria-expanded="false"], .sidebar button[aria-expanded="false"], nav button[aria-expanded="false"]').all();
+        // Optimized: Support both buttons and anchor tags serving as expanders
+        const expanderSelector = [
+            'aside button[aria-expanded="false"]',
+            '.sidebar button[aria-expanded="false"]',
+            'nav button[aria-expanded="false"]',
+            'aside a[aria-expanded="false"]',    // [New] Support clickable links that also expand
+            '.sidebar a[aria-expanded="false"]', // [New]
+            'nav a[aria-expanded="false"]'       // [New]
+        ].join(', ');
+
+        const expandableItems = await page.locator(expanderSelector).all();
         let expandedCount = 0;
 
-        for (const button of expandableButtons) {
+        for (const item of expandableItems) {
             try {
-                const text = (await button.innerText().catch(() => '')).trim();
-                const id = await button.getAttribute('id') || `btn-${text}`;
+                const text = (await item.innerText().catch(() => '')).trim();
+                const id = await item.getAttribute('id') || `expand-${text}`;
+
+                // [Exclude] Skip profile/settings related items to avoid UI theme changes or irrelevant navigation
+                if (/profile|settings|theme|logout/i.test(text)) continue;
+
+                // Allow re-visiting if we suspect it might be a navigating-parent (e.g. <a> tag)
+                // but generally prevent spamming the same toggle
                 if (!text || visitedExpansionButtons.has(id)) continue;
 
-                if (await button.isVisible()) {
+                if (await item.isVisible()) {
                     visitedExpansionButtons.add(id);
-                    await executor.execute(new ClickCommand(button, { label: `Expand: ${text}` }));
+                    const currentUrl = page.url();
+
+                    await executor.execute(new ClickCommand(item, { label: `Expand/Nav: ${text}` }));
                     await page.waitForTimeout(TIMING.MENU_ANIMATION_DELAY);
+
+                    // If it navigated away, we should go back to preserve context for pending items
+                    if (page.url() !== currentUrl) {
+                        // [New] Save HTML snapshot for analysis
+                        try {
+                            const html = await page.content();
+                            const safeText = text.replace(/[^a-z0-9]/gi, '_').substring(0, 50);
+                            const fileName = `expansion_nav_${safeText}_${Date.now()}.html`;
+                            const saveDir = path.join(outputDir, 'html');
+                            if (!fs.existsSync(saveDir)) {
+                                fs.mkdirSync(saveDir, { recursive: true });
+                            }
+                            const savePath = path.join(saveDir, fileName);
+                            fs.writeFileSync(savePath, html);
+                            console.log(`[NavExplorer] 📸 Saved expansion page source: ${fileName}`);
+                        } catch (e) {
+                            console.error('[NavExplorer] Failed to save HTML:', e);
+                        }
+
+                        // [New] Capture the navigated URL as a discovery
+                        const newUrl = page.url();
+                        if (discoveredLinks && newUrl !== targetUrl) {
+                            // Avoid duplicates
+                            if (!discoveredLinks.find(l => l.url === newUrl)) {
+                                discoveredLinks.push({
+                                    url: newUrl,
+                                    path: ['Expansion', text] // Simple path indication
+                                });
+                                console.log(`[NavExplorer] 🔗 Discovered link via expansion: ${text} -> ${newUrl}`);
+                            }
+                        }
+
+                        // Attempt to capture the navigated URL as a discovery if we can (NavExplorer logic does this generally, but here we are in expandMenus)
+                        // For now, prioritize returning to state
+                        await page.goBack().catch(() => page.goto(targetUrl));
+                        await page.waitForTimeout(TIMING.NAVIGATION_DELAY);
+                    }
+
                     expandedCount++;
                 }
             } catch (_e) { /* ignore */ }
@@ -45,7 +104,6 @@ export class NavExplorer {
             discoveredLinks: Array<{ url: string; path: string[] }>,
             modalDiscoveries: ModalDiscovery[],
             previousPath: string[],
-            outputDir: string,
             timestamp: string,
             capturedModalHashes: Set<string>
         }
@@ -64,6 +122,7 @@ export class NavExplorer {
                 const href = await items[i].getAttribute('href');
                 const text = (await items[i].innerText().catch(() => '')).trim().split('\n')[0];
                 if (!text) continue;
+                if (/profile|settings|theme|logout/i.test(text)) continue;
 
                 if (href) {
                     const abs = new URL(href, targetUrl).toString();

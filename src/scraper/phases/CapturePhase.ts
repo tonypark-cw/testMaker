@@ -18,31 +18,78 @@ export class CapturePhase implements IExplorationPhase {
         try {
             if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 
-            await UISettler.settleAndCleanup(page);
-
+            let attempts = 0;
+            const MAX_ATTEMPTS = 3;
+            let finalScore = 0;
+            let finalReasons: string[] = [];
             let screenshotPath = path.join(outputDir, `${pageName}_${timestamp}.webp`);
+
+            // Generate unique path
             let counter = 1;
             while (fs.existsSync(screenshotPath)) {
                 screenshotPath = path.join(outputDir, `${pageName}_${timestamp}_${counter}.webp`);
                 counter++;
             }
 
-            const png = await page.screenshot({ fullPage: true, type: 'png' });
+            // Loop for Retries
+            while (attempts < MAX_ATTEMPTS) {
+                attempts++;
 
-            // Check for blank screenshot
-            const stats = await sharp(png).stats();
-            const isBlank = stats.channels.every(ch => ch.mean > 250 && ch.stdev < 10);
-            if (isBlank) {
-                console.warn(`[CapturePhase] ⚠️ Warning: Screenshot appears blank for ${url}`);
+                await UISettler.settleAndCleanup(page);
+
+                // Take Screenshot
+                const png = await page.screenshot({ fullPage: true, type: 'png' });
+
+                // Check for blank screenshot (Visual Entropy part 1)
+                const stats = await sharp(png).stats();
+                const isBlank = stats.channels.every(ch => ch.mean > 250 && ch.stdev < 10);
+                if (isBlank) {
+                    console.warn(`[CapturePhase] ⚠️ Warning: Screenshot appears blank for ${url} (Attempt ${attempts}/${MAX_ATTEMPTS})`);
+                }
+
+                const webp = await sharp(png).webp({ quality: 80 }).toBuffer();
+                fs.writeFileSync(screenshotPath, webp);
+
+                // Calculate Score
+                const pageTitle = await page.title();
+                const { score, reasons } = await ScoringProcessor.calculate(page, {
+                    url,
+                    pageTitle,
+                    screenshotPath,
+                    functionalPath: context.results.links.map(l => l.path).flat().join(' > '),
+                    actionChain,
+                    totalElements: await page.evaluate(() => document.querySelectorAll('*').length).catch(() => 0)
+                });
+
+                finalScore = score;
+                finalReasons = reasons;
+
+                console.log(`[CapturePhase] Reliability Score: ${score.toFixed(2)} (${reasons.join(', ') || 'Clean'}) - Attempt ${attempts}`);
+
+                if (score >= 70) {
+                    break; // Good score, proceed
+                }
+
+                if (attempts < MAX_ATTEMPTS) {
+                    console.warn(`[CapturePhase] Score ${score.toFixed(2)} is below 70. Retrying...`);
+                    // Delete intermediate screenshot to clean up
+                    try { fs.unlinkSync(screenshotPath); } catch { }
+                    // Wait a bit before retry
+                    await new Promise(r => setTimeout(r, 2000));
+                } else {
+                    console.warn(`[CapturePhase] Max retries reached. Keeping last screenshot with score ${score.toFixed(2)}`);
+                }
             }
 
-            const webp = await sharp(png).webp({ quality: 80 }).toBuffer();
-            const hash = crypto.createHash('md5').update(webp).digest('hex');
-            fs.writeFileSync(screenshotPath, webp);
+            // --- Save Final Results ---
 
             // Context Updates
+            const webpBuffer = fs.readFileSync(screenshotPath);
+            const hash = crypto.createHash('md5').update(webpBuffer).digest('hex');
+
             context.results.screenshotPath = screenshotPath;
             context.state.lastScreenshotHash = hash;
+            context.results.pageTitle = await page.title();
 
             // Save Metadata JSON
             const domain = new URL(url).hostname;
@@ -52,37 +99,24 @@ export class CapturePhase implements IExplorationPhase {
             const baseName = path.basename(screenshotPath, '.webp');
             const jsonPath = path.join(jsonDir, `${baseName}.json`);
 
-            const pageTitle = await page.title();
-            context.results.pageTitle = pageTitle;
-
-            // Reliability Scoring
-            const { score, reasons } = await ScoringProcessor.calculate(page, {
-                url,
-                pageTitle,
-                screenshotPath,
-                functionalPath: context.results.links.map(l => l.path).flat().join(' > '), // This is slightly flawed but keep it for now
-                actionChain
-            });
-            console.log(`[CapturePhase] Reliability Score: ${score.toFixed(2)} (${reasons.join(', ') || 'Clean'})`);
-
             fs.writeFileSync(jsonPath, JSON.stringify({
                 url,
                 timestamp: new Date().toISOString(),
                 hash,
                 capturePhase: 'early',
-                reliabilityScore: score,
-                contaminationReasons: reasons
+                reliabilityScore: finalScore,
+                contaminationReasons: finalReasons
             }, null, 2));
 
             // Decoupled Notification via EventBus
             await EventBus.getInstance().publish('page.captured', {
                 url,
-                pageTitle,
+                pageTitle: context.results.pageTitle,
                 screenshotPath,
                 actionChain,
                 functionalPath: context.results.links.map(l => l.path).flat().join(' > '),
-                reliabilityScore: score,
-                contaminationReasons: reasons,
+                reliabilityScore: finalScore,
+                contaminationReasons: finalReasons,
                 screenshotHash: hash
             });
 

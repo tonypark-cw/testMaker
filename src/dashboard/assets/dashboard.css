@@ -242,7 +242,26 @@ h1 {
     border-radius: 8px;
     overflow: hidden;
     transition: transform 0.2s;
+    transition: transform 0.2s;
     position: relative;
+    border: 2px solid transparent;
+}
+
+.shot-card.status-PASS {
+    border-color: #28a745;
+}
+
+.shot-card.status-FAIL {
+    border-color: #dc3545;
+}
+
+.shot-card.status-BLOCK {
+    border-color: #ffc107;
+}
+
+.shot-card.status-DELETE {
+    border-color: #dc2626;
+    opacity: 0.6;
 }
 
 .shot-card:hover {
@@ -326,6 +345,7 @@ h1 {
     color: white;
     text-transform: uppercase;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    z-index: 20;
 }
 
 .qa-PASS {

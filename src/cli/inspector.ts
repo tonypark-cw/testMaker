@@ -2,10 +2,6 @@
 import { chromium } from 'playwright';
 import * as fs from 'fs';
 import * as path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 async function runInspector() {
     const browser = await chromium.launch({ headless: false }); // Headless false to see it if needed, though running in bg
